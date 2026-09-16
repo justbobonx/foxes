@@ -1,9 +1,10 @@
 const canvas = document.getElementById("board");
 const ctx = canvas.getContext("2d");
 const elOs = document.getElementById("os-count");
-const elCleared = document.getElementById("score-cleared");
-const elRights = document.getElementById("score-rights");
-const elWrongs = document.getElementById("score-wrongs");
+const elStars = document.getElementById("score-stars");
+const elScore = document.getElementById("score-level");
+const elHints = document.getElementById("score-hints");
+const elHintStat = document.getElementById("hint-stat");
 const elHud = document.getElementById("hud");
 const elHudBottom = document.getElementById("hud-bottom");
 const elWinTime = document.getElementById("win-time");
@@ -26,6 +27,7 @@ const sprites = SpriteBank.defaults(function () {
 const playChrome = new PlayChrome();
 const planner = new Planner();
 const TAP_MS = 280;
+const HINT_CUT = [0.9, 0.93, 0.95, 0.93, 0.9];
 
 let n = Save.readSize();
 let grid = null;
@@ -41,6 +43,8 @@ let clockStarted = 0;
 let dragMode = null;
 let dragCell = null;
 let dragDirty = false;
+let hintCount = 0;
+let hintCut = 1;
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
@@ -106,6 +110,35 @@ function formatClock(ms) {
   return m + ":" + pad(s);
 }
 
+function resetHintScore() {
+  hintCount = 0;
+  hintCut = 1;
+}
+
+function chargeHint(level) {
+  const cut = HINT_CUT[level];
+  if (!cut) return;
+  hintCut *= cut;
+  hintCount += 1;
+}
+
+function lockedFoxes(g) {
+  if (!g) return 0;
+  let n = 0;
+  for (let r = 0; r < g.n; r++) {
+    for (let c = 0; c < g.n; c++) {
+      const cell = g.at(r, c);
+      if (cell.spriteId === "o" && cell.locked) n++;
+    }
+  }
+  return n;
+}
+
+function levelScore() {
+  const size = grid ? grid.n : n;
+  return (lockedFoxes(grid) / size) * hintCut;
+}
+
 function layout() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -146,15 +179,7 @@ function dress(g) {
 }
 
 function isClearedGrid(g) {
-  if (!g) return false;
-  let locked = 0;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      if (cell.spriteId === "o" && cell.locked) locked++;
-    }
-  }
-  return locked === g.n;
+  return !!(g && lockedFoxes(g) === g.n);
 }
 
 function persistBoard() {
@@ -162,6 +187,8 @@ function persistBoard() {
   const data = grid.dump();
   data.elapsedMs = clockNow();
   data.won = winOpen() || isClearedGrid(grid);
+  data.hintCount = hintCount;
+  data.hintCut = hintCut;
   Save.writeBoard(data);
 }
 
@@ -176,9 +203,10 @@ function paintCheckLabel() {
 }
 
 function paintScore() {
-  elCleared.textContent = String(score.cleared);
-  elRights.textContent = String(score.rights);
-  elWrongs.textContent = String(score.wrongs);
+  if (elStars) elStars.textContent = "\u2605 " + score.cleared;
+  if (elScore) elScore.textContent = Math.round(levelScore() * 100) + "%";
+  if (elHints) elHints.textContent = String(hintCount);
+  if (elHintStat) elHintStat.hidden = hintCount <= 0;
   if (grid) elOs.textContent = grid.guessOCount() + "/" + grid.n;
   else elOs.textContent = "0/" + n;
   paintCheckLabel();
@@ -244,6 +272,7 @@ function newBoard() {
   const plan = planner.roll(n);
   grid = GridBuilder.build(plan);
   dress(grid);
+  resetHintScore();
   clockReset();
   persistBoard();
   showBoard();
@@ -257,6 +286,7 @@ function resetBoard() {
   for (let r = 0; r < grid.n; r++) {
     for (let c = 0; c < grid.n; c++) grid.at(r, c).resetMarks();
   }
+  resetHintScore();
   persistBoard();
   paintScore();
   layout();
@@ -270,8 +300,6 @@ function clearMarks() {
 
 function applyCheckStep() {
   const result = grid.checkGuesses();
-  score.rights += result.rights;
-  score.wrongs += result.wrongs;
   if (result.win) {
     score.cleared += 1;
     if (elWinTime) elWinTime.textContent = formatClock(clockNow());
@@ -292,6 +320,7 @@ function finishBoardAction(persist) {
 function onCheckHint() {
   if (!playing || !grid || menuOpen() || winOpen()) return;
   if (markGuessConflicts(grid)) {
+    chargeHint(0);
     finishBoardAction(true);
     return;
   }
@@ -302,10 +331,12 @@ function onCheckHint() {
     return;
   }
   if (checkMode || result.wrongs > 0) {
+    if (result.wrongs > 0) chargeHint(1);
     finishBoardAction(true);
     return;
   }
-  new Hint(grid).apply();
+  const level = new Hint(grid).apply();
+  if (level) chargeHint(level);
   finishBoardAction(true);
 }
 
@@ -319,6 +350,8 @@ function restoreBoard() {
   n = grid.n;
   Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
+  hintCount = data.hintCount | 0;
+  hintCut = data.hintCut > 0 ? data.hintCut : 1;
   const won = !!(data.won || isClearedGrid(loaded));
   if (won) {
     clockOff();
