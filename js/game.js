@@ -3,8 +3,6 @@ const ctx = canvas.getContext("2d");
 const elOs = document.getElementById("os-count");
 const elStars = document.getElementById("score-stars");
 const elScore = document.getElementById("score-level");
-const elHints = document.getElementById("score-hints");
-const elHintStat = document.getElementById("hint-stat");
 const elHud = document.getElementById("hud");
 const elHudBottom = document.getElementById("hud-bottom");
 const elWinTime = document.getElementById("win-time");
@@ -204,9 +202,14 @@ function paintCheckLabel() {
 
 function paintScore() {
   if (elStars) elStars.textContent = "\u2605 " + score.cleared;
-  if (elScore) elScore.textContent = Math.round(levelScore() * 100) + "%";
-  if (elHints) elHints.textContent = String(hintCount);
-  if (elHintStat) elHintStat.hidden = hintCount <= 0;
+  if (elScore) {
+    const pct = Math.round(levelScore() * 100) + "%";
+    if (hintCount > 0) {
+      elScore.innerHTML = pct + "  (<span class=\"bad\">" + hintCount + "</span> HINTS)";
+    } else {
+      elScore.textContent = pct;
+    }
+  }
   if (grid) elOs.textContent = grid.guessOCount() + "/" + grid.n;
   else elOs.textContent = "0/" + n;
   paintCheckLabel();
