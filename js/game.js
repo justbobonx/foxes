@@ -335,13 +335,14 @@ function sameCell(a, b) {
 function strokeCell(hit, mode) {
   const cell = grid.at(hit.row, hit.col);
   if (!cell.canTap()) return false;
+  if (cell.guessId === "o") return false;
   if (mode === "x") {
-    if (cell.guessId === "x") return false;
+    if (cell.guessId) return false;
     cell.setGuess("x");
     return true;
   }
   if (mode === "clear") {
-    if (!cell.guessId) return false;
+    if (cell.guessId !== "x") return false;
     cell.setGuess(null);
     return true;
   }
@@ -393,11 +394,19 @@ function onBoardDown(e) {
   }
   const cell = grid.at(hit.row, hit.col);
   if (!cell.canTap()) return;
-  dragMode = cell.guessId ? "clear" : "x";
   dragCell = hit;
   dragDirty = false;
   if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
-  applyStroke(hit, dragMode);
+  if (cell.guessId === "o") {
+    cell.setGuess(null);
+    dragMode = "clear";
+    dragDirty = true;
+    paintScore();
+    draw();
+  } else {
+    dragMode = cell.guessId === "x" ? "clear" : "x";
+    applyStroke(hit, dragMode);
+  }
   if (tapTimer) clearTimeout(tapTimer);
   tapCell = hit;
   tapTimer = setTimeout(function () {
