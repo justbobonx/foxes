@@ -369,13 +369,14 @@ function finishBoardAction(persist) {
 
 function onCheckHint() {
   if (!playing || !grid || menuOpen() || winOpen()) return;
-  if (markGuessConflicts(grid)) {
+  const warns = markGuessConflicts(grid);
+  const checkMode = grid.guessOCount() >= grid.n;
+  const result = applyCheckStep();
+  if (warns) {
     chargeHint(0);
     finishBoardAction(true);
     return;
   }
-  const checkMode = grid.guessOCount() >= grid.n;
-  const result = applyCheckStep();
   if (result.win) {
     finishBoardAction(true);
     return;
