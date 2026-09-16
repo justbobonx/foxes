@@ -266,6 +266,17 @@ function markGuessConflicts(g) {
   return nWarn;
 }
 
+function level2Forced(cell, foxes) {
+  for (let i = 0; i < foxes.length; i++) {
+    const fox = foxes[i];
+    if (cell.row === fox.row) return true;
+    if (cell.col === fox.col) return true;
+    if (cell.dellId === fox.dellId) return true;
+    if (Math.max(Math.abs(cell.row - fox.row), Math.abs(cell.col - fox.col)) <= 1) return true;
+  }
+  return false;
+}
+
 function showBoard(keepWin) {
   if (!keepWin) hideWin();
   hideMenu();
@@ -306,6 +317,35 @@ function resetBoard() {
 function clearMarks() {
   if (!playing || !grid || winOpen()) return;
   hideMenu();
+  const foxes = [];
+  for (let r = 0; r < grid.n; r++) {
+    for (let c = 0; c < grid.n; c++) {
+      const cell = grid.at(r, c);
+      if (!cell.is("grass") || cell.guessId !== "o") continue;
+      if (cell.wrong || cell.warn) {
+        if (cell.locked) {
+          cell.wrong = false;
+          cell.warn = false;
+          foxes.push(cell);
+        } else {
+          cell.setGuess(null);
+        }
+        continue;
+      }
+      foxes.push(cell);
+    }
+  }
+  for (let r = 0; r < grid.n; r++) {
+    for (let c = 0; c < grid.n; c++) {
+      const cell = grid.at(r, c);
+      if (!cell.is("grass") || cell.guessId !== "x") continue;
+      if (cell.locked) continue;
+      if (!level2Forced(cell, foxes)) cell.setGuess(null);
+    }
+  }
+  persistBoard();
+  paintScore();
+  draw();
 }
 
 function applyCheckStep() {
