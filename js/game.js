@@ -181,6 +181,50 @@ function paintScore() {
   paintCheckLabel();
 }
 
+function flagConflict(list) {
+  if (!list || list.length < 2) return;
+  for (let i = 0; i < list.length; i++) list[i].warn = true;
+}
+
+function markGuessConflicts(g) {
+  const foxes = [];
+  for (let r = 0; r < g.n; r++) {
+    for (let c = 0; c < g.n; c++) {
+      const cell = g.at(r, c);
+      cell.warn = false;
+      if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
+    }
+  }
+  const rows = {};
+  const cols = {};
+  const dells = {};
+  for (let i = 0; i < foxes.length; i++) {
+    const cell = foxes[i];
+    if (!rows[cell.row]) rows[cell.row] = [];
+    if (!cols[cell.col]) cols[cell.col] = [];
+    if (!dells[cell.dellId]) dells[cell.dellId] = [];
+    rows[cell.row].push(cell);
+    cols[cell.col].push(cell);
+    dells[cell.dellId].push(cell);
+  }
+  for (const k in rows) flagConflict(rows[k]);
+  for (const k in cols) flagConflict(cols[k]);
+  for (const k in dells) flagConflict(dells[k]);
+  for (let i = 0; i < foxes.length; i++) {
+    for (let j = i + 1; j < foxes.length; j++) {
+      const a = foxes[i];
+      const b = foxes[j];
+      if (Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) <= 1) {
+        a.warn = true;
+        b.warn = true;
+      }
+    }
+  }
+  let nWarn = 0;
+  for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) nWarn++;
+  return nWarn;
+}
+
 function showBoard() {
   hideWin();
   hideMenu();
@@ -244,6 +288,10 @@ function finishBoardAction(persist) {
 
 function onCheckHint() {
   if (!playing || !grid || menuOpen()) return;
+  if (markGuessConflicts(grid)) {
+    finishBoardAction(true);
+    return;
+  }
   const checkMode = grid.guessOCount() >= grid.n;
   const result = applyCheckStep();
   if (result.win) {
