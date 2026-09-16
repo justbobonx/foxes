@@ -130,6 +130,10 @@ Grid.prototype.checkGuesses = function () {
     for (let c = 0; c < this.n; c++) {
       const cell = this.cells[r][c];
       if (!cell.is("grass")) continue;
+      if (cell.warn) {
+        win = false;
+        continue;
+      }
       if (cell.guessId === "o") {
         if (cell.spriteId === "o") {
           found++;
