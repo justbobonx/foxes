@@ -31,7 +31,7 @@ const HINT_CUT = [0.9, 0.93, 0.95, 0.93, 0.9];
 
 let n = Save.readSize();
 let grid = null;
-let cellSize = 48;
+let cellSize = 32;
 let originX = 0;
 let originY = 0;
 let tapTimer = 0;
@@ -179,10 +179,6 @@ function showMenu() {
   elMenu.hidden = false;
 }
 
-function dress(g) {
-  Cell.dressGrid(g || grid);
-}
-
 function isClearedGrid(g) {
   return !!(g && lockedFoxes(g) === g.n);
 }
@@ -292,7 +288,7 @@ function newBoard() {
   setLevel(n);
   const plan = planner.roll(n);
   grid = GridBuilder.build(plan);
-  dress(grid);
+  Cell.dressGrid(grid);
   resetHintScore();
   clockReset();
   persistBoard();
@@ -396,7 +392,7 @@ function restoreBoard() {
   if (!data) return false;
   const loaded = Grid.load(data);
   if (!loaded) return false;
-  dress(loaded);
+  Cell.dressGrid(loaded);
   grid = loaded;
   n = grid.n;
   Save.writeSize(n);

@@ -30,8 +30,8 @@ const CELL_TYPES = {
     markO: "o",
   },
   pond: {
-    fill: "#0D1E35",
-    edge: "#1E6FA9",
+    fill: "#144790",
+    edge: "#2694E3",
     tap: false,
   },
   cave: {
