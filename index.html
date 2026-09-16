@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>foxes</title>
-    <link rel="stylesheet" href="css/style.css?v=49" />
+    <link rel="stylesheet" href="css/style.css?v=50" />
   </head>
   <body>
     <canvas id="board"></canvas>
@@ -52,21 +52,34 @@
 
     <div id="win-screen" class="overlay" hidden>
       <div class="panel win-panel">
-        <h1>WIN</h1>
-        <p id="win-time">0:00</p>
+        <h1>FOXES FOUND!</h1>
+        <div class="win-stats">
+          <div class="win-stat">
+            <span class="win-lbl">SCORE</span>
+            <strong id="win-score">100%</strong>
+          </div>
+          <div class="win-stat">
+            <span class="win-lbl">TIME</span>
+            <strong id="win-time">0:00</strong>
+          </div>
+          <div class="win-stat">
+            <span class="win-lbl">HINTS</span>
+            <strong id="win-hints" class="bad">0</strong>
+          </div>
+        </div>
         <button id="btn-win-new" type="button">NEXT</button>
       </div>
     </div>
 
-    <script src="js/sprite.js?v=49"></script>
-    <script src="js/cell.js?v=49"></script>
-    <script src="js/grid.js?v=49"></script>
-    <script src="js/solver.js?v=49"></script>
-    <script src="js/grid_builder.js?v=49"></script>
-    <script src="js/planner.js?v=49"></script>
-    <script src="js/hint.js?v=49"></script>
-    <script src="js/save.js?v=49"></script>
-    <script src="js/chrome.js?v=49"></script>
-    <script src="js/game.js?v=49"></script>
+    <script src="js/sprite.js?v=50"></script>
+    <script src="js/cell.js?v=50"></script>
+    <script src="js/grid.js?v=50"></script>
+    <script src="js/solver.js?v=50"></script>
+    <script src="js/grid_builder.js?v=50"></script>
+    <script src="js/planner.js?v=50"></script>
+    <script src="js/hint.js?v=50"></script>
+    <script src="js/save.js?v=50"></script>
+    <script src="js/chrome.js?v=50"></script>
+    <script src="js/game.js?v=50"></script>
   </body>
 </html>
