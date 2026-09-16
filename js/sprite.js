@@ -53,8 +53,9 @@ SpriteBank.defaults = function (onReady) {
   const fox = bank.add(new Sprite("o", "V", "#f4f1e6", 0.82));
   const wolf = bank.add(new Sprite("w", "W", "#f4f1e6", 0.82));
   const bunny = bank.add(new Sprite("b", "B", "#f4f1e6", 0.82));
-  const prints = bank.add(new Sprite("p", "x", "#2a2118", 0.6));
-  bank.add(new Sprite("x", "X", "#2a2118", 0.6));
+  const prints = bank.add(new Sprite("p", "x", "#2a2118", 0.82));
+  const gx = bank.add(new Sprite("x", "X", "#2a2118", 0.82));
+  //bank.add(new Sprite("x", "X", "#2a2118", 0.6));
   bank.add(new Sprite("xl", "X", "#c8c8c8", 0.6));
   let left = 4;
   function tick() {
@@ -65,5 +66,6 @@ SpriteBank.defaults = function (onReady) {
   wolf.load("images/wolf.png", tick);
   bunny.load("images/bunnies.png", tick);
   prints.load("images/prints.png", tick);
+  gx.load("images/x.png", tick);
   return bank;
 };

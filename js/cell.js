@@ -168,15 +168,17 @@ Cell.prototype.drawMark = function (ctx, sprites, x, y, s, revealWolf) {
       if (print) {
         print.draw(ctx, px, py, box);
         return;
-      }
+      }    
     }
-    const g = sprites.get("x");
-    if (!g) return;
-    ctx.fillStyle = look.glyphColor || g.color || "#2a2118";
-    ctx.font = "bold " + Math.floor(box * (g.scale || 0.42)) + "px ui-sans-serif, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(g.glyph || "X", px + box / 2, py + box / 2 + 1);
+    const xg = sprites.get("x");
+    xg.draw(ctx, px, py, box);
+    // const g = sprites.get("x");
+    // if (!g) return;
+    // ctx.fillStyle = look.glyphColor || g.color || "#2a2118";
+    // ctx.font = "bold " + Math.floor(box * (g.scale || 0.42)) + "px ui-sans-serif, sans-serif";
+    // ctx.textAlign = "center";
+    // ctx.textBaseline = "middle";
+    // ctx.fillText(g.glyph || "X", px + box / 2, py + box / 2 + 1);
   }
 };
 
