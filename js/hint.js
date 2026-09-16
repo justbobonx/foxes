@@ -351,9 +351,8 @@ Hint.prototype.tryLevel4 = function () {
 };
 
 Hint.prototype.apply = function () {
-  const n2 = this.tryLevel2();
-  if (n2) return n2;
-  const n3 = this.tryLevel3();
-  if (n3) return n3;
-  return this.tryLevel4();
+  if (this.tryLevel2()) return 2;
+  if (this.tryLevel3()) return 3;
+  if (this.tryLevel4()) return 4;
+  return 0;
 };
