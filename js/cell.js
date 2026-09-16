@@ -60,6 +60,7 @@ function Cell(row, col) {
   this.spriteId = null;
   this.guessId = null;
   this.wrong = false;
+  this.warn = false;
   this.locked = false;
   this.look = CELL_TYPES.grass;
   this.fill = null;
@@ -97,17 +98,20 @@ Cell.prototype.setGuess = function (id) {
   if (this.locked) return;
   this.guessId = id || null;
   this.wrong = false;
+  this.warn = false;
 };
 
 Cell.prototype.clearGuess = function () {
   if (this.locked) return;
   this.guessId = null;
   this.wrong = false;
+  this.warn = false;
 };
 
 Cell.prototype.resetMarks = function () {
   this.guessId = null;
   this.wrong = false;
+  this.warn = false;
   this.locked = false;
 };
 
@@ -197,7 +201,11 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   }
   this.drawMark(ctx, sprites, x, y, s, revealWolf);
-  if (this.wrong) {
+  if (this.warn) {
+    ctx.strokeStyle = "#f5c518";
+    ctx.lineWidth = Math.max(2, Math.floor(s * 0.07));
+    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
+  } else if (this.wrong) {
     ctx.strokeStyle = "#e23b3b";
     ctx.lineWidth = Math.max(2, Math.floor(s * 0.07));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
