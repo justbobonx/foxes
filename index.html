@@ -6,27 +6,24 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>foxes</title>
-    <link rel="stylesheet" href="css/style.css?v=47" />
+    <link rel="stylesheet" href="css/style.css?v=48" />
   </head>
   <body>
     <canvas id="board"></canvas>
 
     <div id="hud">
       <div class="hud-left"><span id="os-count">0/6</span></div>
-      <div class="hud-right">
+      <div class="hud-mid">
         <div class="hud-stat">
-          <span class="hud-lbl">★</span>
-          <strong id="score-cleared">0</strong>
+          <span class="hud-lbl">SCORE</span>
+          <strong id="score-level">0%</strong>
         </div>
-        <div class="hud-stat">
-          <span class="hud-lbl">RIGHT</span>
-          <strong id="score-rights" class="good">0</strong>
-        </div>
-        <div class="hud-stat">
-          <span class="hud-lbl">WRONG</span>
-          <strong id="score-wrongs" class="bad">0</strong>
+        <div class="hud-stat" id="hint-stat" hidden>
+          <span class="hud-lbl">HINTS</span>
+          <strong id="score-hints" class="bad">0</strong>
         </div>
       </div>
+      <div class="hud-right"><span id="score-stars">★ 0</span></div>
     </div>
 
     <div id="hud-bottom">
@@ -70,15 +67,15 @@
       </div>
     </div>
 
-    <script src="js/sprite.js?v=47"></script>
-    <script src="js/cell.js?v=47"></script>
-    <script src="js/grid.js?v=47"></script>
-    <script src="js/solver.js?v=47"></script>
-    <script src="js/grid_builder.js?v=47"></script>
-    <script src="js/planner.js?v=47"></script>
-    <script src="js/hint.js?v=47"></script>
-    <script src="js/save.js?v=47"></script>
-    <script src="js/chrome.js?v=47"></script>
-    <script src="js/game.js?v=47"></script>
+    <script src="js/sprite.js?v=48"></script>
+    <script src="js/cell.js?v=48"></script>
+    <script src="js/grid.js?v=48"></script>
+    <script src="js/solver.js?v=48"></script>
+    <script src="js/grid_builder.js?v=48"></script>
+    <script src="js/planner.js?v=48"></script>
+    <script src="js/hint.js?v=48"></script>
+    <script src="js/save.js?v=48"></script>
+    <script src="js/chrome.js?v=48"></script>
+    <script src="js/game.js?v=48"></script>
   </body>
 </html>
