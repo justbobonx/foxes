@@ -32,13 +32,11 @@ const CELL_TYPES = {
   pond: {
     fill: "#0D1E35",
     edge: "#1E6FA9",
-    edgeFrac: 0.45,
     tap: false,
   },
   cave: {
     fill: "#2a2a22",
     edge: "#777777",
-    edgeFrac: 0.45,
     glyphColor: "#c8c8c8",
     tap: true,
     markO: "w",
@@ -46,7 +44,6 @@ const CELL_TYPES = {
   bunny: {
     fill: "#44571E",
     edge: "#A4C85B",
-    edgeFrac: 0.45,
     tap: false,
     stand: "b",
   },
@@ -197,21 +194,21 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   if (look.edge) {
     const checkW = Math.max(2, Math.floor(s * 0.07));
     ctx.strokeStyle = look.edge;
-    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.45)));
+    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.55)));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   }
   this.drawMark(ctx, sprites, x, y, s, revealWolf);
   if (this.warn) {
     ctx.strokeStyle = "#f5c518";
-    ctx.lineWidth = Math.max(2, Math.floor(s * 0.07));
+    ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   } else if (this.wrong) {
     ctx.strokeStyle = "#e23b3b";
-    ctx.lineWidth = Math.max(2, Math.floor(s * 0.07));
+    ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   } else if (this.locked && this.guessId === "o") {
     ctx.strokeStyle = "#7dffa3";
-    ctx.lineWidth = Math.max(2, Math.floor(s * 0.07));
+    ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   }
 };
