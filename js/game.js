@@ -69,6 +69,10 @@ function barHeight(el, fallback) {
   return h > 0 ? h : fallback;
 }
 
+function winOpen() {
+  return !!(elWin && !elWin.hidden);
+}
+
 function clockReset() {
   clockElapsed = 0;
   clockStarted = Date.now();
@@ -112,13 +116,15 @@ function layout() {
   const padBot = Math.max(56, barHeight(elHudBottom, 56));
   const gap = 8;
   const usableW = w;
-  const usableH = h - padTop - padBot - gap;
+  const usableH = h - padTop - padBot - gap * 2;
   const size = grid ? grid.n : n;
   cellSize = Math.floor(Math.min(usableW / size, usableH / size));
   if (cellSize < 16) cellSize = 16;
   const boardW = size * cellSize;
+  const boardH = size * cellSize;
   originX = Math.floor((w - boardW) / 2);
-  originY = padTop + gap;
+  if (winOpen()) originY = padTop + gap;
+  else originY = h - padBot - gap - boardH;
   setSpriteFilter();
 }
 
@@ -131,7 +137,7 @@ function hideMenu() {
 }
 
 function showMenu() {
-  if (!playing) return;
+  if (!playing || winOpen()) return;
   elMenu.hidden = false;
 }
 
@@ -153,12 +159,9 @@ function isClearedGrid(g) {
 
 function persistBoard() {
   if (!playing || !grid) return;
-  if (isClearedGrid(grid)) {
-    Save.clearBoard();
-    return;
-  }
   const data = grid.dump();
   data.elapsedMs = clockNow();
+  data.won = winOpen() || isClearedGrid(grid);
   Save.writeBoard(data);
 }
 
@@ -225,8 +228,8 @@ function markGuessConflicts(g) {
   return nWarn;
 }
 
-function showBoard() {
-  hideWin();
+function showBoard(keepWin) {
+  if (!keepWin) hideWin();
   hideMenu();
   setLevel(n);
   paintScore();
@@ -239,8 +242,7 @@ function newBoard() {
   hideMenu();
   setLevel(n);
   const plan = planner.roll(n);
-  grid = new Grid(plan.n);
-  grid.rebuild(plan);
+  grid = GridBuilder.build(plan);
   dress(grid);
   clockReset();
   persistBoard();
@@ -248,7 +250,7 @@ function newBoard() {
 }
 
 function resetBoard() {
-  if (!playing || !grid) return;
+  if (!playing || !grid || winOpen()) return;
   hideWin();
   hideMenu();
   grid.wolfShown = false;
@@ -257,11 +259,12 @@ function resetBoard() {
   }
   persistBoard();
   paintScore();
+  layout();
   draw();
 }
 
 function clearMarks() {
-  if (!playing || !grid) return;
+  if (!playing || !grid || winOpen()) return;
   hideMenu();
 }
 
@@ -273,7 +276,6 @@ function applyCheckStep() {
     score.cleared += 1;
     if (elWinTime) elWinTime.textContent = formatClock(clockNow());
     clockOff();
-    Save.clearBoard();
     elWin.hidden = false;
   }
   persistScore();
@@ -283,11 +285,12 @@ function applyCheckStep() {
 function finishBoardAction(persist) {
   if (persist) persistBoard();
   paintScore();
+  layout();
   draw();
 }
 
 function onCheckHint() {
-  if (!playing || !grid || menuOpen()) return;
+  if (!playing || !grid || menuOpen() || winOpen()) return;
   if (markGuessConflicts(grid)) {
     finishBoardAction(true);
     return;
@@ -295,7 +298,7 @@ function onCheckHint() {
   const checkMode = grid.guessOCount() >= grid.n;
   const result = applyCheckStep();
   if (result.win) {
-    finishBoardAction(false);
+    finishBoardAction(true);
     return;
   }
   if (checkMode || result.wrongs > 0) {
@@ -311,15 +314,19 @@ function restoreBoard() {
   if (!data) return false;
   const loaded = Grid.load(data);
   if (!loaded) return false;
-  if (isClearedGrid(loaded)) {
-    Save.clearBoard();
-    return false;
-  }
   dress(loaded);
   grid = loaded;
   n = grid.n;
   Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
+  const won = !!(data.won || isClearedGrid(loaded));
+  if (won) {
+    clockOff();
+    if (elWinTime) elWinTime.textContent = formatClock(clockNow());
+    elWin.hidden = false;
+    showBoard(true);
+    return true;
+  }
   showBoard();
   return true;
 }
