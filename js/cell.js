@@ -30,8 +30,8 @@ const CELL_TYPES = {
     markO: "o",
   },
   pond: {
-    fill: "#144790",
-    edge: "#2694E3",
+    fill: "#164688",
+    edge: "#47A7EB",
     tap: false,
   },
   cave: {
@@ -196,7 +196,7 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   if (look.edge) {
     const checkW = Math.max(2, Math.floor(s * 0.07));
     ctx.strokeStyle = look.edge;
-    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.55)));
+    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.60)));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   }
   this.drawMark(ctx, sprites, x, y, s, revealWolf);
