@@ -183,15 +183,40 @@ canvas {
 }
 
 .win-panel h1 {
-  margin: 0 0 4px;
-  font-size: 28px;
+  margin: 0 0 12px;
+  font-size: 22px;
+  letter-spacing: 0.14em;
 }
 
-#win-time {
-  margin: 0 0 12px;
-  letter-spacing: 0.16em;
-  font: 600 16px system-ui, sans-serif;
+.win-stats {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin: 0 0 14px;
+}
+
+.win-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 3.2em;
+}
+
+.win-lbl {
+  font-size: 9px;
+  letter-spacing: 0.14em;
   color: #c5d0dc;
+}
+
+.win-stat strong {
+  font: 600 16px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  color: #f2f2f2;
+}
+
+.win-stat strong.bad {
+  color: #ff6b6b;
 }
 
 #btn-start {
