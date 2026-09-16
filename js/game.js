@@ -5,7 +5,9 @@ const elStars = document.getElementById("score-stars");
 const elScore = document.getElementById("score-level");
 const elHud = document.getElementById("hud");
 const elHudBottom = document.getElementById("hud-bottom");
+const elWinScore = document.getElementById("win-score");
 const elWinTime = document.getElementById("win-time");
+const elWinHints = document.getElementById("win-hints");
 const btnMenu = document.getElementById("btn-menu");
 const btnReset = document.getElementById("btn-reset");
 const btnClear = document.getElementById("btn-clear");
@@ -133,8 +135,13 @@ function lockedFoxes(g) {
 }
 
 function levelScore() {
-  const size = grid ? grid.n : n;
-  return (lockedFoxes(grid) / size) * hintCut;
+  return hintCut;
+}
+
+function paintWin() {
+  if (elWinScore) elWinScore.textContent = Math.round(hintCut * 100) + "%";
+  if (elWinTime) elWinTime.textContent = formatClock(clockNow());
+  if (elWinHints) elWinHints.textContent = String(hintCount);
 }
 
 function layout() {
@@ -305,8 +312,8 @@ function applyCheckStep() {
   const result = grid.checkGuesses();
   if (result.win) {
     score.cleared += 1;
-    if (elWinTime) elWinTime.textContent = formatClock(clockNow());
     clockOff();
+    paintWin();
     elWin.hidden = false;
   }
   persistScore();
@@ -358,7 +365,7 @@ function restoreBoard() {
   const won = !!(data.won || isClearedGrid(loaded));
   if (won) {
     clockOff();
-    if (elWinTime) elWinTime.textContent = formatClock(clockNow());
+    paintWin();
     elWin.hidden = false;
     showBoard(true);
     return true;
