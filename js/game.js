@@ -47,7 +47,7 @@ function clamp(n, lo, hi) {
 }
 
 function setLevel(size) {
-  n = clamp(size, 4, 20);
+  n = clamp(size, 6, 12);
   Save.writeSize(n);
   return n;
 }
@@ -124,7 +124,7 @@ function layout() {
   const boardH = size * cellSize;
   originX = Math.floor((w - boardW) / 2);
   if (winOpen()) originY = padTop + gap;
-  else originY = h - padBot - gap - boardH;
+  else originY = padTop + gap + Math.floor((usableH - boardH) / 2);
   setSpriteFilter();
 }
 
