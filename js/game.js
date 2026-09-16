@@ -38,6 +38,9 @@ let playing = false;
 let score = Save.readScore();
 let clockElapsed = 0;
 let clockStarted = 0;
+let dragMode = null;
+let dragCell = null;
+let dragDirty = false;
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
@@ -329,13 +332,26 @@ function sameCell(a, b) {
   return a && b && a.row === b.row && a.col === b.col;
 }
 
-function applySingle(hit) {
+function strokeCell(hit, mode) {
   const cell = grid.at(hit.row, hit.col);
-  if (!cell.canTap()) return;
-  if (!cell.guessId) cell.setGuess("x");
-  else cell.setGuess(null);
+  if (!cell.canTap()) return false;
+  if (mode === "x") {
+    if (cell.guessId === "x") return false;
+    cell.setGuess("x");
+    return true;
+  }
+  if (mode === "clear") {
+    if (!cell.guessId) return false;
+    cell.setGuess(null);
+    return true;
+  }
+  return false;
+}
+
+function applyStroke(hit, mode) {
+  if (!strokeCell(hit, mode)) return;
+  dragDirty = true;
   paintScore();
-  persistBoard();
   draw();
 }
 
@@ -348,11 +364,21 @@ function applyDouble(hit) {
   draw();
 }
 
+function endDrag(e) {
+  if (e && canvas.hasPointerCapture && canvas.hasPointerCapture(e.pointerId)) {
+    canvas.releasePointerCapture(e.pointerId);
+  }
+  if (dragDirty) persistBoard();
+  dragMode = null;
+  dragCell = null;
+  dragDirty = false;
+}
+
 function menuOpen() {
   return !elMenu.hidden;
 }
 
-function onBoardPointer(e) {
+function onBoardDown(e) {
   if (!playing || !grid || !elWin.hidden || menuOpen()) return;
   const hit = cellAtEvent(e);
   if (!hit) return;
@@ -361,16 +387,41 @@ function onBoardPointer(e) {
     clearTimeout(tapTimer);
     tapTimer = 0;
     tapCell = null;
+    dragMode = null;
     applyDouble(hit);
     return;
   }
-  applySingle(hit);
+  const cell = grid.at(hit.row, hit.col);
+  if (!cell.canTap()) return;
+  dragMode = cell.guessId ? "clear" : "x";
+  dragCell = hit;
+  dragDirty = false;
+  if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+  applyStroke(hit, dragMode);
   if (tapTimer) clearTimeout(tapTimer);
   tapCell = hit;
   tapTimer = setTimeout(function () {
     tapTimer = 0;
     tapCell = null;
   }, TAP_MS);
+}
+
+function onBoardMove(e) {
+  if (!dragMode) return;
+  const hit = cellAtEvent(e);
+  if (!hit || sameCell(hit, dragCell)) return;
+  if (tapTimer) {
+    clearTimeout(tapTimer);
+    tapTimer = 0;
+    tapCell = null;
+  }
+  dragCell = hit;
+  applyStroke(hit, dragMode);
+}
+
+function onBoardUp(e) {
+  if (!dragMode) return;
+  endDrag(e);
 }
 
 function onViewport() {
@@ -408,7 +459,10 @@ btnCheck.addEventListener("click", onCheckHint);
 elMenu.addEventListener("click", function (e) {
   if (e.target === elMenu) hideMenu();
 });
-canvas.addEventListener("pointerdown", onBoardPointer);
+canvas.addEventListener("pointerdown", onBoardDown);
+canvas.addEventListener("pointermove", onBoardMove);
+canvas.addEventListener("pointerup", onBoardUp);
+canvas.addEventListener("pointercancel", onBoardUp);
 
 window.addEventListener("resize", onViewport);
 if (window.visualViewport) {
