@@ -205,7 +205,7 @@ function paintScore() {
   if (elScore) {
     const pct = Math.round(levelScore() * 100) + "%";
     if (hintCount > 0) {
-      elScore.innerHTML = pct + "  (<span class=\"bad\">" + hintCount + "</span> HINTS)";
+      elScore.innerHTML = pct + "  <span class=\"bad\">(" + hintCount + " HINTS)</span>";
     } else {
       elScore.textContent = pct;
     }
