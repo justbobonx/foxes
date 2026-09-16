@@ -1,17 +1,21 @@
+All the Foxes in the field  
+They each need their own space to hunt and play  
+But not too close and not in view  
+
 # foxes
+An HTML game
 
-A Star Battle–style puzzle in a field. Place foxes so each row, each column, and each colored region (a dell) has exactly one. Foxes will not sit on each other’s hip — no two foxes share an edge or a corner.
+Place foxes so each row, each column, and each colored region contains exactly one. And there must be at least one space on all sides of each foxes.
 
-Larger boards grow extra field features. Those cells have their own rules; the board shows you what they are.
+As the fields get bigger other creatures come out and may even change the rules!
 
 ## Play
 
-Single HTML page. Tap a grass cell for an X, tap again to clear, double-tap for a fox.
+Start a levle, tap grass cells for an X, tap again to clear, double-tap to place a fox.
 
-The bottom-right button is HINT while fewer than N foxes are marked, and CHECK once N are down. Both first score the marked foxes (green lock / red miss). HINT then locks missed empty cells as paw prints: first the easy paint from a found fox (row, column, dell, or ring), then strip / two-line / small-dell halo logic, then a small group from the answer key that will not finish a dell. CHECK with N marks only scores and can win.
+The HINT button checks fox placements and gives extra X when needed.
 
-MENU has RESET, NEW, size − / +, and the same HINT path. Score (cleared / right / wrong) and the current board persist in the browser. Leaving the page returns to the title so the next Start can go fullscreen again.
-
-## Run
-
-Open `index.html` locally or from GitHub Pages. After pulling, hard-refresh so script `?v=` cache-busts load.
+## Menu
+CLEAR removes all unchecked foxes and 'guess' Xs from the board  
+RESET completely clears board  
+NEW, [ − / + ] for a new level same, smaller, or larger
