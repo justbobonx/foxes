@@ -203,7 +203,7 @@ function paintCheckLabel() {
 function paintScore() {
   if (elStars) elStars.textContent = "\u2605 " + score.cleared;
   if (elScore) {
-    const pct = Math.round(levelScore() * 100) + "%";
+    const pct = Math.round(hintCut * 100) + "%";
     if (hintCount > 0) {
       elScore.innerHTML = pct + "  <span class=\"bad\">(" + hintCount + " HINTS)</span>";
     } else {
