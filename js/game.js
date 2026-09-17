@@ -37,7 +37,7 @@ const EXTRA_ICON = {
   bunny: "images/bunny.png",
 };
 const TAP_MS = 280;
-const HINT_CUT = [0.94, 0.93, 0.94, 0.95, 0.97];
+const HINT_CUT = [0.94, 0.93, 0.94, 0.95, 0.97, 0.99]; //hint 5 for a clean up
 
 let n = Save.readSize();
 let grid = null;
@@ -413,6 +413,7 @@ function clearMarks() {
       if (!level2Forced(cell, foxes)) cell.setGuess(null);
     }
   }
+  chargeHint(5);
   persistBoard();
   paintScore();
   draw();
