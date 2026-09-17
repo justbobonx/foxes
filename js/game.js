@@ -27,7 +27,7 @@ const sprites = SpriteBank.defaults(function () {
 const playChrome = new PlayChrome();
 const planner = new Planner();
 const TAP_MS = 280;
-const HINT_CUT = [0.9, 0.93, 0.95, 0.93, 0.9];
+const HINT_CUT = [0.9, 0.93, 0.93, 0.95, 0.97];
 
 let n = Save.readSize();
 let grid = null;

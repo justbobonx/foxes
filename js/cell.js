@@ -30,12 +30,12 @@ const CELL_TYPES = {
     markO: "o",
   },
   pond: {
-    fill: "#164688",
-    edge: "#47A7EB",
+    fill: "#0E2F5D",
+    edge: "#226CD3",
     tap: false,
   },
   cave: {
-    fill: "#2a2a22",
+    fill: "#242119",
     edge: "#777777",
     glyphColor: "#c8c8c8",
     tap: true,
@@ -170,7 +170,7 @@ Cell.prototype.drawMark = function (ctx, sprites, x, y, s, revealWolf) {
         return;
       }    
     }
-    const xg = sprites.get("x");
+    const xg = sprites.get( this.is("cave") ? "xl" : "x");
     xg.draw(ctx, px, py, box);
     // const g = sprites.get("x");
     // if (!g) return;
