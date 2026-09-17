@@ -27,7 +27,7 @@ const sprites = SpriteBank.defaults(function () {
 const playChrome = new PlayChrome();
 const planner = new Planner();
 const TAP_MS = 280;
-const HINT_CUT = [0.9, 0.93, 0.93, 0.95, 0.97];
+const HINT_CUT = [0.94, 0.93, 0.94, 0.95, 0.97];
 
 let n = Save.readSize();
 let grid = null;
@@ -115,10 +115,11 @@ function resetHintScore() {
   hintCut = 1;
 }
 
-function chargeHint(level) {
+function chargeHint(level, extra) {  
   const cut = HINT_CUT[level];
   if (!cut) return;
   hintCut *= cut;
+  if(extra) hintCut *= extra;
   hintCount += 1;
 }
 
@@ -303,7 +304,7 @@ function resetBoard() {
   for (let r = 0; r < grid.n; r++) {
     for (let c = 0; c < grid.n; c++) grid.at(r, c).resetMarks();
   }
-  resetHintScore();
+  /* do not reset hints, its the same board, same hints */
   persistBoard();
   paintScore();
   layout();
@@ -369,7 +370,7 @@ function onCheckHint() {
   const checkMode = grid.guessOCount() >= grid.n;
   const result = applyCheckStep();
   if (warns) {
-    chargeHint(0);
+    chargeHint( 0, Math.pow(0.98,warns) );    
     finishBoardAction(true);
     return;
   }
