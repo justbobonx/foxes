@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>foxes</title>
-    <link rel="stylesheet" href="css/style.css?v=1.0.1" />
+    <link rel="stylesheet" href="css/style.css?v=1.0.2" />
   </head>
   <body>
     <canvas id="board"></canvas>
@@ -53,6 +53,20 @@
       </div>
     </div>
 
+    <div id="plan-screen" class="overlay" hidden>
+      <button type="button" class="plan-card" id="plan-card">
+        <div class="plan-size">
+          <img src="images/sizes.png" width="32" height="32" alt="" />
+          <span id="plan-n">6</span>
+        </div>
+        <div class="plan-extras">
+          <div class="plan-extra-row" id="plan-extra-a"></div>
+          <div class="plan-extra-row" id="plan-extra-b"></div>
+        </div>
+        <span class="plan-select">select</span>
+      </button>
+    </div>
+
     <div id="win-screen" class="overlay" hidden>
       <div class="panel win-panel">
         <h1>FOXES FOUND!</h1>
@@ -74,15 +88,15 @@
       </div>
     </div>
 
-    <script src="js/sprite.js?v=1.0.1"></script>
-    <script src="js/cell.js?v=1.0.1"></script>
-    <script src="js/grid.js?v=1.0.1"></script>
-    <script src="js/solver.js?v=1.0.1"></script>
-    <script src="js/grid_builder.js?v=1.0.1"></script>
-    <script src="js/planner.js?v=1.0.1"></script>
-    <script src="js/hint.js?v=1.0.1"></script>
-    <script src="js/save.js?v=1.0.1"></script>
-    <script src="js/chrome.js?v=1.0.1"></script>
-    <script src="js/game.js?v=1.0.1"></script>
+    <script src="js/sprite.js?v=1.0.2"></script>
+    <script src="js/cell.js?v=1.0.2"></script>
+    <script src="js/grid.js?v=1.0.2"></script>
+    <script src="js/solver.js?v=1.0.2"></script>
+    <script src="js/grid_builder.js?v=1.0.2"></script>
+    <script src="js/planner.js?v=1.0.2"></script>
+    <script src="js/hint.js?v=1.0.2"></script>
+    <script src="js/save.js?v=1.0.2"></script>
+    <script src="js/chrome.js?v=1.0.2"></script>
+    <script src="js/game.js?v=1.0.2"></script>
   </body>
 </html>

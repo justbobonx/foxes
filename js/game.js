@@ -20,12 +20,22 @@ const elStart = document.getElementById("start-screen");
 const elMenu = document.getElementById("menu-screen");
 const elWin = document.getElementById("win-screen");
 const btnWinNew = document.getElementById("btn-win-new");
+const elPlan = document.getElementById("plan-screen");
+const elPlanCard = document.getElementById("plan-card");
+const elPlanN = document.getElementById("plan-n");
+const elPlanA = document.getElementById("plan-extra-a");
+const elPlanB = document.getElementById("plan-extra-b");
 
 const sprites = SpriteBank.defaults(function () {
   draw();
 });
 const playChrome = new PlayChrome();
 const planner = new Planner();
+const EXTRA_ICON = {
+  pond: "images/pond.png",
+  wolf: "images/wolf.png",
+  bunny: "images/bunny.png",
+};
 const TAP_MS = 280;
 const HINT_CUT = [0.94, 0.93, 0.94, 0.95, 0.97];
 
@@ -75,6 +85,10 @@ function barHeight(el, fallback) {
 
 function winOpen() {
   return !!(elWin && !elWin.hidden);
+}
+
+function planOpen() {
+  return !!(elPlan && !elPlan.hidden);
 }
 
 function clockReset() {
@@ -176,7 +190,7 @@ function hideMenu() {
 }
 
 function showMenu() {
-  if (!playing || winOpen()) return;
+  if (!playing || winOpen() || planOpen()) return;
   elMenu.hidden = false;
 }
 
@@ -283,6 +297,63 @@ function showBoard(keepWin) {
   draw();
 }
 
+function planExtras(plan) {
+  if (!plan) return [];
+  if (plan.extras && plan.extras.length) {
+    return plan.extras.map(function (extra) {
+      return extra && extra.type ? extra.type : extra;
+    });
+  }
+  const list = [];
+  const ponds = plan.ponds | 0;
+  for (let i = 0; i < ponds; i++) list.push("pond");
+  if (plan.wolf) list.push("wolf");
+  if (plan.bunny) list.push("bunny");
+  return list;
+}
+
+function extraSplit(count) {
+  if (count <= 2) return [count, 0];
+  if (count === 3) return [2, 1];
+  if (count === 4) return [2, 2];
+  if (count === 5) return [3, 2];
+  return [Math.ceil(count / 2), Math.floor(count / 2)];
+}
+
+function paintExtraRow(el, types) {
+  if (!el) return;
+  el.innerHTML = "";
+  for (let i = 0; i < types.length; i++) {
+    const src = EXTRA_ICON[types[i]];
+    if (!src) continue;
+    const img = document.createElement("img");
+    img.src = src;
+    img.width = 26;
+    img.height = 26;
+    img.alt = "";
+    el.appendChild(img);
+  }
+}
+
+function paintPlan(plan) {
+  const extras = planExtras(plan);
+  const split = extraSplit(extras.length);
+  if (elPlanN) elPlanN.textContent = String(plan && plan.n ? plan.n : n);
+  paintExtraRow(elPlanA, extras.slice(0, split[0]));
+  paintExtraRow(elPlanB, extras.slice(split[0]));
+}
+
+function showPlan() {
+  paintPlan(grid && grid.plan);
+  if (elPlan) elPlan.hidden = false;
+}
+
+function hidePlan() {
+  if (!elPlan || elPlan.hidden) return;
+  elPlan.hidden = true;
+  if (playing && !clockStarted) clockStarted = Date.now();
+}
+
 function newBoard() {
   hideWin();
   hideMenu();
@@ -291,13 +362,15 @@ function newBoard() {
   grid = GridBuilder.build(plan);
   Cell.dressGrid(grid);
   resetHintScore();
-  clockReset();
+  clockElapsed = 0;
+  clockStarted = 0;
   persistBoard();
   showBoard();
+  showPlan();
 }
 
 function resetBoard() {
-  if (!playing || !grid || winOpen()) return;
+  if (!playing || !grid || winOpen() || planOpen()) return;
   hideWin();
   hideMenu();
   grid.wolfShown = false;
@@ -312,7 +385,7 @@ function resetBoard() {
 }
 
 function clearMarks() {
-  if (!playing || !grid || winOpen()) return;
+  if (!playing || !grid || winOpen() || planOpen()) return;
   hideMenu();
   const foxes = [];
   for (let r = 0; r < grid.n; r++) {
@@ -365,7 +438,7 @@ function finishBoardAction(persist) {
 }
 
 function onCheckHint() {
-  if (!playing || !grid || menuOpen() || winOpen()) return;
+  if (!playing || !grid || menuOpen() || winOpen() || planOpen()) return;
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
   const result = applyCheckStep();
@@ -420,6 +493,7 @@ function showTitle() {
   playing = false;
   hideWin();
   hideMenu();
+  hidePlan();
   playChrome.leave();
   elStart.hidden = false;
 }
@@ -516,7 +590,7 @@ function menuOpen() {
 }
 
 function onBoardDown(e) {
-  if (!playing || !grid || !elWin.hidden || menuOpen()) return;
+  if (!playing || !grid || !elWin.hidden || menuOpen() || planOpen()) return;
   const hit = cellAtEvent(e);
   if (!hit) return;
   e.preventDefault();
@@ -575,6 +649,7 @@ function onViewport() {
 }
 
 btnStart.addEventListener("click", beginPlay);
+if (elPlan) elPlan.addEventListener("click", hidePlan);
 btnMenu.addEventListener("click", function () {
   if (!playing) return;
   if (menuOpen()) hideMenu();
