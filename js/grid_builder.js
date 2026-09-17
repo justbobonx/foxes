@@ -131,7 +131,7 @@ Grid.prototype.placeCave = function () {
   }
   if (!seeds.length) return false;
   const start = seeds[Math.floor(Math.random() * seeds.length)];
-  const want = 2 + Math.floor(Math.random() * 3);
+  const want = 2 + Math.floor(Math.random() * 2);
   const body = [start];
   const seedCell = this.cells[start.r][start.c];
   seedCell.setType("cave");
