@@ -21,6 +21,33 @@ const CELL_DELL_COLORS = [
   "#7a5a4e",
   "#4e5a6b",
   "#5a6b4e",
+ 
+  // "#8a6238", // oak brown
+  // "#7a4a42", // brick rust
+  // "#6b5238", // bark
+  // "#9a7a38", // ochre
+  // "#6a5a38", // olive-brown
+  // "#4e6a58", // swamp sage
+  // "#3a5e5e", // deep teal
+  // "#4a5262", // iron slate
+  // "#5a4a62", // dusty violet
+  // "#6a4654", // wine plum
+  // "#4a5248", // charcoal moss
+  // "#7a5a38", // toasted umber
+  
+  // "#9a7a38", // 1 ochre
+  // "#3a5e5e", // 2 deep teal
+  // "#6a4654", // 3 wine plum
+  // "#4a5262", // 4 iron slate
+  // "#8a6238", // 5 oak brown
+  // "#5a4a62", // 6 dusty violet
+  // "#7a4a42", // 7 brick rust
+  // "#4e6a58", // 8 swamp sage
+  // "#6a5a38", // 9 olive-brown
+  // "#4a5248", // 10 charcoal moss
+  // "#6b5238", // 11 bark
+  // "#7a5a38", // 12 toasted umber
+
 ];
 
 const CELL_TYPES = {
