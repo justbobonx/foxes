@@ -158,11 +158,11 @@ canvas {
   height: auto;
   min-height: 0;
   box-sizing: border-box;
-  padding: 10px 12px 6px;
+  padding: 10px 12px 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: #e6d3ae;
   border: 4px solid #706033;
   border-radius: 14px;
