@@ -150,10 +150,6 @@ canvas {
 #win-screen,
 #menu-screen,
 #plan-screen {
-  background: rgba(17, 17, 17, 0.12);
-}
-
-#plan-screen {
   background: rgba(17, 17, 17, 0.45);
 }
 
