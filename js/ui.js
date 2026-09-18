@@ -185,7 +185,7 @@ Ui.prototype.makeCard = function (card, forest, index) {
     const target = card.costTarget > 0 ? card.costTarget : forest.needStars();
     foot.textContent = target ? "\u2605 " + target : "locked";
   } else {
-    foot.textContent = "select";
+    foot.textContent = "SELECT";
   }
   btn.appendChild(foot);
 
