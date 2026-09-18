@@ -75,7 +75,7 @@ Planner.deeperCard = function (forest) {
   const item = forest.nextItem();
   const parsed = item ? Forest.parseUnlock(item.unlock) : null;
   const lockedNext = !!(item && !forest.canAfford());
-  const costLeft = item ? forest.costLeft() : 0;
+  const costTarget = item ? forest.needStars() : 0;
 
   if (loc.size < forest.maxN) {
     const size = loc.size + 1;
@@ -84,7 +84,7 @@ Planner.deeperCard = function (forest) {
 
   if (parsed && parsed.kind === "size") {
     const size = Save.clampSize(parsed.n);
-    return Planner.card("deeper", Planner.makePlan(size, Planner.rollFeatures(forest, size)), lockedNext, lockedNext ? costLeft : 0);
+    return Planner.card("deeper", Planner.makePlan(size, Planner.rollFeatures(forest, size)), lockedNext, lockedNext ? costTarget : 0);
   }
 
   if (parsed && parsed.kind === "feature") {
@@ -92,20 +92,20 @@ Planner.deeperCard = function (forest) {
     const need = spec ? spec.minN : Save.SIZE_MIN;
     const size = loc.size >= need ? loc.size : need;
     const features = Planner.forceFeature(Planner.rollFeatures(forest, size), parsed.type);
-    return Planner.card("deeper", Planner.makePlan(size, features), lockedNext, lockedNext ? costLeft : 0);
+    return Planner.card("deeper", Planner.makePlan(size, features), lockedNext, lockedNext ? costTarget : 0);
   }
 
   const size = loc.size < Save.SIZE_MAX ? loc.size + 1 : loc.size;
   return Planner.card("deeper", Planner.makePlan(size, Planner.rollFeatures(forest, size)), false, 0);
 };
 
-Planner.card = function (kind, plan, locked, costLeft) {
+Planner.card = function (kind, plan, locked, costTarget) {
   return {
     kind: kind,
     title: Planner.pickTitle(kind),
     plan: Forest.copyPlan(plan),
     locked: !!locked,
-    costLeft: costLeft | 0,
+    costTarget: costTarget | 0,
   };
 };
 
