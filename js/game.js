@@ -1,41 +1,12 @@
-const canvas = document.getElementById("board");
-const ctx = canvas.getContext("2d");
-const elOs = document.getElementById("os-count");
-const elStars = document.getElementById("score-stars");
-const elScore = document.getElementById("score-level");
-const elHud = document.getElementById("hud");
-const elHudBottom = document.getElementById("hud-bottom");
-const elWinScore = document.getElementById("win-score");
-const elWinTime = document.getElementById("win-time");
-const elWinHints = document.getElementById("win-hints");
-const btnMenu = document.getElementById("btn-menu");
-const btnReset = document.getElementById("btn-reset");
-const btnClear = document.getElementById("btn-clear");
-const btnNewMinus = document.getElementById("btn-new-minus");
-const btnNew = document.getElementById("btn-new");
-const btnNewPlus = document.getElementById("btn-new-plus");
-const btnCheck = document.getElementById("btn-check");
-const btnStart = document.getElementById("btn-start");
-const elStart = document.getElementById("start-screen");
-const elMenu = document.getElementById("menu-screen");
-const elWin = document.getElementById("win-screen");
-const btnWinNew = document.getElementById("btn-win-new");
-const elPlan = document.getElementById("plan-screen");
-const elPlanCard = document.getElementById("plan-card");
-const elPlanN = document.getElementById("plan-n");
-const elPlanA = document.getElementById("plan-extra-a");
-const elPlanB = document.getElementById("plan-extra-b");
+const ui = new Ui();
+const canvas = ui.canvas;
+const ctx = ui.ctx;
 
 const sprites = SpriteBank.defaults(function () {
   draw();
 });
 const playChrome = new PlayChrome();
 const planner = new Planner();
-const EXTRA_ICON = {
-  pond: "images/pond.png",
-  wolf: "images/wolf.png",
-  bunny: "images/bunny.png",
-};
 const TAP_MS = 280;
 const HINT_CUT = [0.94, 0.93, 0.94, 0.95, 0.97, 0.99]; //hint 5 for a clean up
 
@@ -77,20 +48,6 @@ function setSpriteFilter() {
   ctx.imageSmoothingEnabled = dest < TILE;
 }
 
-function barHeight(el, fallback) {
-  if (!el) return fallback;
-  const h = Math.ceil(el.getBoundingClientRect().height);
-  return h > 0 ? h : fallback;
-}
-
-function winOpen() {
-  return !!(elWin && !elWin.hidden);
-}
-
-function planOpen() {
-  return !!(elPlan && !elPlan.hidden);
-}
-
 function clockReset() {
   clockElapsed = 0;
   clockStarted = Date.now();
@@ -129,11 +86,11 @@ function resetHintScore() {
   hintCut = 1;
 }
 
-function chargeHint(level, extra) {  
+function chargeHint(level, extra) {
   const cut = HINT_CUT[level];
   if (!cut) return;
   hintCut *= cut;
-  if(extra) hintCut *= extra;
+  if (extra) hintCut *= extra;
   hintCount += 1;
 }
 
@@ -154,9 +111,7 @@ function levelScore() {
 }
 
 function paintWin() {
-  if (elWinScore) elWinScore.textContent = Math.round(hintCut * 100) + "%";
-  if (elWinTime) elWinTime.textContent = formatClock(clockNow());
-  if (elWinHints) elWinHints.textContent = String(hintCount);
+  ui.paintWin(Math.round(hintCut * 100) + "%", formatClock(clockNow()), String(hintCount));
 }
 
 function layout() {
@@ -165,8 +120,9 @@ function layout() {
   canvas.width = w;
   canvas.height = h;
   crisp();
-  const padTop = Math.max(52, barHeight(elHud, 52));
-  const padBot = Math.max(56, barHeight(elHudBottom, 56));
+  const pad = ui.hudPad();
+  const padTop = pad.top;
+  const padBot = pad.bot;
   const gap = 8;
   const usableW = w;
   const usableH = h - padTop - padBot - gap * 2;
@@ -176,22 +132,22 @@ function layout() {
   const boardW = size * cellSize;
   const boardH = size * cellSize;
   originX = Math.floor((w - boardW) / 2);
-  if (winOpen()) originY = padTop + gap;
+  if (ui.winOpen()) originY = padTop + gap;
   else originY = padTop + gap + Math.floor((usableH - boardH) / 2);
   setSpriteFilter();
 }
 
 function hideWin() {
-  elWin.hidden = true;
+  ui.hideWin();
 }
 
 function hideMenu() {
-  elMenu.hidden = true;
+  ui.hideMenu();
 }
 
 function showMenu() {
-  if (!playing || winOpen() || planOpen()) return;
-  elMenu.hidden = false;
+  if (!playing || ui.winOpen() || ui.planOpen()) return;
+  ui.showMenu();
 }
 
 function isClearedGrid(g) {
@@ -202,7 +158,7 @@ function persistBoard() {
   if (!playing || !grid) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
-  data.won = winOpen() || isClearedGrid(grid);
+  data.won = ui.winOpen() || isClearedGrid(grid);
   data.hintCount = hintCount;
   data.hintCut = hintCut;
   Save.writeBoard(data);
@@ -212,25 +168,14 @@ function persistScore() {
   Save.writeScore(score);
 }
 
-function paintCheckLabel() {
-  const marked = grid ? grid.guessOCount() : 0;
-  const size = grid ? grid.n : n;
-  btnCheck.textContent = marked >= size ? "CHECK" : "HINT";
-}
-
 function paintScore() {
-  if (elStars) elStars.textContent = "\u2605 " + score.cleared;
-  if (elScore) {
-    const pct = Math.round(hintCut * 100) + "%";
-    if (hintCount > 0) {
-      elScore.innerHTML = pct + "  <span class=\"bad\">(H: " + hintCount + ")</span>";
-    } else {
-      elScore.textContent = pct;
-    }
-  }
-  if (grid) elOs.textContent = grid.guessOCount() + "/" + grid.n;
-  else elOs.textContent = "0/" + n;
-  paintCheckLabel();
+  ui.paintScore({
+    cleared: score.cleared,
+    hintCut: hintCut,
+    hintCount: hintCount,
+    marked: grid ? grid.guessOCount() : 0,
+    size: grid ? grid.n : n,
+  });
 }
 
 function flagConflict(list) {
@@ -297,60 +242,13 @@ function showBoard(keepWin) {
   draw();
 }
 
-function planExtras(plan) {
-  if (!plan) return [];
-  if (plan.extras && plan.extras.length) {
-    return plan.extras.map(function (extra) {
-      return extra && extra.type ? extra.type : extra;
-    });
-  }
-  const list = [];
-  const ponds = plan.ponds | 0;
-  for (let i = 0; i < ponds; i++) list.push("pond");
-  if (plan.wolf) list.push("wolf");
-  if (plan.bunny) list.push("bunny");
-  return list;
-}
-
-function extraSplit(count) {
-  if (count <= 2) return [count, 0];
-  if (count === 3) return [2, 1];
-  if (count === 4) return [2, 2];
-  if (count === 5) return [3, 2];
-  return [Math.ceil(count / 2), Math.floor(count / 2)];
-}
-
-function paintExtraRow(el, types) {
-  if (!el) return;
-  el.innerHTML = "";
-  for (let i = 0; i < types.length; i++) {
-    const src = EXTRA_ICON[types[i]];
-    if (!src) continue;
-    const img = document.createElement("img");
-    img.src = src;
-    img.width = 26;
-    img.height = 26;
-    img.alt = "";
-    el.appendChild(img);
-  }
-}
-
-function paintPlan(plan) {
-  const extras = planExtras(plan);
-  const split = extraSplit(extras.length);
-  if (elPlanN) elPlanN.textContent = String(plan && plan.n ? plan.n : n);
-  paintExtraRow(elPlanA, extras.slice(0, split[0]));
-  paintExtraRow(elPlanB, extras.slice(split[0]));
-}
-
 function showPlan() {
-  paintPlan(grid && grid.plan);
-  if (elPlan) elPlan.hidden = false;
+  ui.paintPlan(grid && grid.plan, n);
+  ui.showPlan();
 }
 
 function hidePlan() {
-  if (!elPlan || elPlan.hidden) return;
-  elPlan.hidden = true;
+  if (!ui.hidePlan()) return;
   if (playing && !clockStarted) clockStarted = Date.now();
 }
 
@@ -370,7 +268,7 @@ function newBoard() {
 }
 
 function resetBoard() {
-  if (!playing || !grid || winOpen() || planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
   hideWin();
   hideMenu();
   grid.wolfShown = false;
@@ -385,7 +283,7 @@ function resetBoard() {
 }
 
 function clearMarks() {
-  if (!playing || !grid || winOpen() || planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
   hideMenu();
   const foxes = [];
   for (let r = 0; r < grid.n; r++) {
@@ -425,7 +323,7 @@ function applyCheckStep() {
     score.cleared += 1;
     clockOff();
     paintWin();
-    elWin.hidden = false;
+    ui.showWin();
   }
   persistScore();
   return result;
@@ -439,12 +337,12 @@ function finishBoardAction(persist) {
 }
 
 function onCheckHint() {
-  if (!playing || !grid || menuOpen() || winOpen() || planOpen()) return;
+  if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen()) return;
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
   const result = applyCheckStep();
   if (warns) {
-    chargeHint( 0, Math.pow(0.98,warns) );    
+    chargeHint(0, Math.pow(0.98, warns));
     finishBoardAction(true);
     return;
   }
@@ -478,7 +376,7 @@ function restoreBoard() {
   if (won) {
     clockOff();
     paintWin();
-    elWin.hidden = false;
+    ui.showWin();
     showBoard(true);
     return true;
   }
@@ -496,13 +394,13 @@ function showTitle() {
   hideMenu();
   hidePlan();
   playChrome.leave();
-  elStart.hidden = false;
+  ui.showStart();
 }
 
 function beginPlay() {
   playing = true;
   playChrome.enter().then(function () {
-    elStart.hidden = true;
+    ui.hideStart();
     if (!restoreBoard()) newBoard();
     else {
       layout();
@@ -586,12 +484,8 @@ function endDrag(e) {
   dragDirty = false;
 }
 
-function menuOpen() {
-  return !elMenu.hidden;
-}
-
 function onBoardDown(e) {
-  if (!playing || !grid || !elWin.hidden || menuOpen() || planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.menuOpen() || ui.planOpen()) return;
   const hit = cellAtEvent(e);
   if (!hit) return;
   e.preventDefault();
@@ -612,7 +506,7 @@ function onBoardDown(e) {
     cell.setGuess(null);
     dragMode = "clear";
     dragDirty = true;
-    paintScore();
+  paintScore();
     draw();
   } else {
     dragMode = cell.guessId === "x" ? "clear" : "x";
@@ -649,37 +543,40 @@ function onViewport() {
   draw();
 }
 
-btnStart.addEventListener("click", beginPlay);
-if (elPlan) elPlan.addEventListener("click", hidePlan);
-btnMenu.addEventListener("click", function () {
-  if (!playing) return;
-  if (menuOpen()) hideMenu();
-  else showMenu();
+ui.bind({
+  start: beginPlay,
+  planDismiss: hidePlan,
+  menu: function () {
+    if (!playing) return;
+    if (ui.menuOpen()) hideMenu();
+    else showMenu();
+  },
+  reset: resetBoard,
+  clear: clearMarks,
+  newMinus: function () {
+    if (!playing) return;
+    setLevel(n - 1);
+    newBoard();
+  },
+  newBoard: function () {
+    if (!playing) return;
+    newBoard();
+  },
+  newPlus: function () {
+    if (!playing) return;
+    setLevel(n + 1);
+    newBoard();
+  },
+  winNew: function () {
+    if (!playing) return;
+    newBoard();
+  },
+  check: onCheckHint,
+  menuBackdrop: function (e) {
+    if (e.target === ui.elMenu) hideMenu();
+  },
 });
-btnReset.addEventListener("click", resetBoard);
-btnClear.addEventListener("click", clearMarks);
-btnNewMinus.addEventListener("click", function () {
-  if (!playing) return;
-  setLevel(n - 1);
-  newBoard();
-});
-btnNew.addEventListener("click", function () {
-  if (!playing) return;
-  newBoard();
-});
-btnNewPlus.addEventListener("click", function () {
-  if (!playing) return;
-  setLevel(n + 1);
-  newBoard();
-});
-btnWinNew.addEventListener("click", function () {
-  if (!playing) return;
-  newBoard();
-});
-btnCheck.addEventListener("click", onCheckHint);
-elMenu.addEventListener("click", function (e) {
-  if (e.target === elMenu) hideMenu();
-});
+
 canvas.addEventListener("pointerdown", onBoardDown);
 canvas.addEventListener("pointermove", onBoardMove);
 canvas.addEventListener("pointerup", onBoardUp);
