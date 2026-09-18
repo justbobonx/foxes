@@ -8,7 +8,9 @@ const sprites = SpriteBank.defaults(function () {
 const playChrome = new PlayChrome();
 const planner = new Planner();
 const TAP_MS = 280;
-const HINT_CUT = [0.94, 0.93, 0.94, 0.95, 0.97, 0.99]; //hint 5 for a clean up
+const CHECK_CUT = 0.96;
+const CHECK_HIT = 0.98;
+const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.99]; // 2-4 prints, 5 clean up
 
 let n = Save.readSize();
 let grid = null;
@@ -90,6 +92,12 @@ function chargeHint(level, extra) {
   hintCount += 1;
 }
 
+function chargeCheck(infractions) {
+  const hits = Math.max(1, infractions | 0);
+  hintCut *= CHECK_CUT * Math.pow(CHECK_HIT, hits);
+  hintCount += 1;
+}
+
 function lockedFoxes(g) {
   if (!g) return 0;
   let n = 0;
@@ -100,6 +108,10 @@ function lockedFoxes(g) {
     }
   }
   return n;
+}
+
+function isOpenFox(cell) {
+  return !!(cell && cell.is("grass") && cell.guessId === "o" && !cell.locked && !cell.wrong);
 }
 
 function paintWin() {
@@ -181,7 +193,7 @@ function markGuessConflicts(g) {
     for (let c = 0; c < g.n; c++) {
       const cell = g.at(r, c);
       cell.warn = false;
-      if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
+      if (isOpenFox(cell)) foxes.push(cell);
     }
   }
   const rows = {};
@@ -330,9 +342,9 @@ function onCheckHint() {
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
   const result = grid.checkGuesses();
-  if (warns || result.wrongs > 0) {
-    if (warns) chargeHint(0, Math.pow(0.98, warns));
-    else chargeHint(1);
+  const infractions = warns + (result.wrongs | 0);
+  if (infractions) {
+    chargeCheck(infractions);
     finishBoardAction(true);
     return;
   }
