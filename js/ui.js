@@ -156,6 +156,7 @@ Ui.prototype.paintExtraRow = function (el, types) {
     img.alt = "";
     el.appendChild(img);
   }
+  el.hidden = !el.childNodes.length;
 };
 
 Ui.prototype.paintPlan = function (plan, fallbackN) {
@@ -164,6 +165,7 @@ Ui.prototype.paintPlan = function (plan, fallbackN) {
   if (this.elPlanN) this.elPlanN.textContent = String(plan && plan.n ? plan.n : fallbackN);
   this.paintExtraRow(this.elPlanA, extras.slice(0, split[0]));
   this.paintExtraRow(this.elPlanB, extras.slice(split[0]));
+  if (this.elPlanCard) this.elPlanCard.classList.toggle("no-extras", extras.length === 0);
 };
 
 Ui.prototype.bind = function (handlers) {
