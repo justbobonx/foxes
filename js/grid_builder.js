@@ -5,6 +5,14 @@ const DELL_TARGET = 3;
 const DELL_PAINT_TRIES = 40;
 const PLACE_TRIES = 200;
 const UNIQUE_TRIES = 250;
+const CAVE_SIZE = [2,3];
+const POND_MIN_LEVEL = 7;
+const POND_SHAPES = [
+  [ [2, 2], [2, 3], [3, 2] ],
+  [ [3, 3], [2, 4], [4, 2] ],
+  [ [2, 5], [5,2], [3, 4], [4, 3] ],
+];
+
 
 const DELL_DIRS = [
   [0, 1],
@@ -54,12 +62,9 @@ Grid.prototype.pondFits = function (r0, c0, h, w) {
 };
 
 Grid.prototype.tryPlaceOnePond = function () {
-  const shapes = [
-    [2, 2],
-    [2, 3],
-    [3, 2],
-  ];
-  const shape = shapes[Math.floor(Math.random() * shapes.length)];
+  const groupCount = Math.min( this.n - POND_MIN_LEVEL + 1, POND_SHAPES.length)
+  const available = POND_SHAPES.slice(0, groupCount).flat();
+  const shape = available[Math.floor(Math.random() * available.length)];
   const h = shape[0];
   const w = shape[1];
   const spots = [];
@@ -131,7 +136,7 @@ Grid.prototype.placeCave = function () {
   }
   if (!seeds.length) return false;
   const start = seeds[Math.floor(Math.random() * seeds.length)];
-  const want = 2 + Math.floor(Math.random() * 2);
+  const want = CAVE_SIZE[0] + Math.floor(Math.random() * (1+CAVE_SIZE[1]-CAVE_SIZE[0]));
   const body = [start];
   const seedCell = this.cells[start.r][start.c];
   seedCell.setType("cave");
