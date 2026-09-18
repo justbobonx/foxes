@@ -10,9 +10,10 @@ const planner = new Planner();
 const TAP_MS = 280;
 const CHECK_CUT = 0.96;
 const CHECK_HIT = 0.98;
-const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.99]; // 2-4 prints, 5 clean up
+const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.99];
 
-let n = Save.readSize();
+const forest = Forest.load();
+let n = forest.location.size;
 let grid = null;
 let cellSize = 32;
 let originX = 0;
@@ -29,10 +30,17 @@ let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
 
+if (forest.stars > score.cleared) score.cleared = forest.stars;
+else if (score.cleared > forest.stars) forest.stars = score.cleared;
+
 function setLevel(size) {
   n = Save.clampSize(size);
   Save.writeSize(n);
   return n;
+}
+
+function persistForest() {
+  Save.writeForest(forest.dump());
 }
 
 function crisp() {
@@ -44,11 +52,6 @@ function setSpriteFilter() {
   const tile = cellSize - inset * 2;
   const dest = Math.max(1, tile - Math.max(0, Math.floor(tile * 0.06)) * 2);
   ctx.imageSmoothingEnabled = dest < TILE;
-}
-
-function clockReset() {
-  clockElapsed = 0;
-  clockStarted = Date.now();
 }
 
 function clockLoad(ms) {
@@ -183,22 +186,24 @@ function isClearedGrid(g) {
 }
 
 function persistBoard() {
-  if (!playing || !grid) return;
+  if (!playing || !grid || ui.planOpen()) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
   data.won = ui.winOpen() || isClearedGrid(grid);
   data.hintCount = hintCount;
   data.hintCut = hintCut;
+  data.fieldPlan = grid.fieldPlan || Planner.fromBuilder(grid.plan);
   Save.writeBoard(data);
 }
 
 function persistScore() {
+  score.cleared = forest.stars;
   Save.writeScore(score);
 }
 
 function paintScore() {
   ui.paintScore({
-    cleared: score.cleared,
+    cleared: forest.stars,
     hintCut: hintCut,
     hintCount: hintCount,
     marked: grid ? grid.guessOCount() : 0,
@@ -272,29 +277,39 @@ function showBoard(keepWin) {
   draw();
 }
 
-function showPlan() {
-  ui.paintPlan(grid && grid.plan, n);
+function showOffers(cards) {
+  hideMenu();
+  ui.paintPlans(cards, forest);
+  persistForest();
   ui.showPlan();
 }
 
-function hidePlan() {
-  if (!ui.hidePlan()) return;
-  if (playing && !clockStarted) clockStarted = Date.now();
+function openTravel() {
+  showOffers(planner.travel(forest));
 }
 
-function newBoard() {
+function hidePlan() {
+  return ui.hidePlan();
+}
+
+function playCard(card) {
+  if (!card || card.locked) return;
   hideWin();
   hideMenu();
-  setLevel(n);
-  const plan = planner.roll(n);
-  grid = GridBuilder.build(plan);
+  ui.hideStart();
+  forest.enter(card.plan);
+  persistForest();
+  n = setLevel(card.plan.size);
+  const built = Planner.toBuilder(card.plan);
+  grid = GridBuilder.build(built);
+  grid.fieldPlan = Forest.copyPlan(card.plan);
   Cell.dressGrid(grid);
   resetHintScore();
   clockElapsed = 0;
-  clockStarted = 0;
+  clockStarted = Date.now();
   persistBoard();
+  hidePlan();
   showBoard();
-  showPlan();
 }
 
 function resetBoard() {
@@ -305,7 +320,6 @@ function resetBoard() {
   for (let r = 0; r < grid.n; r++) {
     for (let c = 0; c < grid.n; c++) grid.at(r, c).resetMarks();
   }
-  /* do not reset hints, its the same board, same hints */
   persistBoard();
   paintScore();
   layout();
@@ -347,13 +361,21 @@ function clearMarks() {
   draw();
 }
 
+function currentFieldPlan() {
+  if (grid && grid.fieldPlan) return grid.fieldPlan;
+  if (grid && grid.plan) return Planner.fromBuilder(grid.plan);
+  return forest.location;
+}
+
 function applyWin(result) {
   if (!result || !result.win) return;
-  score.cleared += 1;
+  forest.win(currentFieldPlan());
+  persistForest();
   clockOff();
   paintWin();
   ui.showWin();
   persistScore();
+  persistBoard();
 }
 
 function finishBoardAction(persist) {
@@ -396,6 +418,7 @@ function restoreBoard() {
   if (!loaded) return false;
   Cell.dressGrid(loaded);
   grid = loaded;
+  grid.fieldPlan = data.fieldPlan ? Forest.copyPlan(data.fieldPlan) : Planner.fromBuilder(loaded.plan);
   n = Save.clampSize(grid.n);
   Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
@@ -413,9 +436,29 @@ function restoreBoard() {
   return true;
 }
 
+function giveUpField() {
+  if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
+  hideMenu();
+  clockOff();
+  Save.clearBoard();
+  forest.offers = null;
+  persistForest();
+  showOffers(planner.giveUp(forest));
+}
+
+function onWinOk() {
+  hideWin();
+  Save.clearBoard();
+  forest.offers = null;
+  persistForest();
+  paintScore();
+  openTravel();
+}
+
 function showTitle() {
   if (playing) {
     persistBoard();
+    persistForest();
     clockOff();
   }
   playing = false;
@@ -429,13 +472,20 @@ function showTitle() {
 function beginPlay() {
   playing = true;
   playChrome.enter().then(function () {
-    ui.hideStart();
-    if (!restoreBoard()) newBoard();
-    else {
+    if (restoreBoard()) {
+      ui.hideStart();
       layout();
       draw();
+      return;
     }
+    openTravel();
   });
+}
+
+function onPlanBack() {
+  persistForest();
+  hidePlan();
+  showTitle();
 }
 
 function draw() {
@@ -574,32 +624,17 @@ function onViewport() {
 
 ui.bind({
   start: beginPlay,
-  planDismiss: hidePlan,
+  planPick: playCard,
+  planBack: onPlanBack,
   menu: function () {
-    if (!playing) return;
+    if (!playing || ui.planOpen()) return;
     if (ui.menuOpen()) hideMenu();
     else showMenu();
   },
   reset: resetBoard,
   clear: clearMarks,
-  newMinus: function () {
-    if (!playing) return;
-    setLevel(n - 1);
-    newBoard();
-  },
-  newBoard: function () {
-    if (!playing) return;
-    newBoard();
-  },
-  newPlus: function () {
-    if (!playing) return;
-    setLevel(n + 1);
-    newBoard();
-  },
-  winNew: function () {
-    if (!playing) return;
-    newBoard();
-  },
+  giveUp: giveUpField,
+  winNew: onWinOk,
   check: onCheckHint,
   menuBackdrop: function (e) {
     if (e.target === ui.elMenu) hideMenu();
@@ -623,6 +658,7 @@ document.addEventListener("visibilitychange", function () {
 window.addEventListener("pagehide", showTitle);
 
 setLevel(n);
+persistForest();
 paintScore();
 layout();
 draw();
