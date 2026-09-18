@@ -1,4 +1,4 @@
-const SAVE_BOARD = "dells_board";
+const SAVE_BOARD = "dells_field";
 const SAVE_SCORE = "dells_score";
 const SAVE_SIZE = "dells_size";
 const SAVE_FOREST = "dells_forest";
@@ -40,6 +40,7 @@ Save.writeScore = function (score) {
 
 Save.readBoard = function () {
   try {
+    localStorage.removeItem("dells_board");
     const data = JSON.parse(localStorage.getItem(SAVE_BOARD) || "null");
     return data && data.n && data.cells ? data : null;
   } catch (err) {
