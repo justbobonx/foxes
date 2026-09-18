@@ -131,6 +131,7 @@ Grid.prototype.checkGuesses = function () {
       const cell = this.cells[r][c];
       if (!cell.is("grass")) continue;
       if (cell.warn) {
+        cell.wrong = false;
         win = false;
         continue;
       }

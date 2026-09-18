@@ -309,16 +309,13 @@ function clearMarks() {
   draw();
 }
 
-function applyCheckStep() {
-  const result = grid.checkGuesses();
-  if (result.win) {
-    score.cleared += 1;
-    clockOff();
-    paintWin();
-    ui.showWin();
-  }
+function applyWin(result) {
+  if (!result || !result.win) return;
+  score.cleared += 1;
+  clockOff();
+  paintWin();
+  ui.showWin();
   persistScore();
-  return result;
 }
 
 function finishBoardAction(persist) {
@@ -332,18 +329,19 @@ function onCheckHint() {
   if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen()) return;
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
-  const result = applyCheckStep();
-  if (warns) {
-    chargeHint(0, Math.pow(0.98, warns));
+  const result = grid.checkGuesses();
+  if (warns || result.wrongs > 0) {
+    if (warns) chargeHint(0, Math.pow(0.98, warns));
+    else chargeHint(1);
     finishBoardAction(true);
     return;
   }
   if (result.win) {
+    applyWin(result);
     finishBoardAction(true);
     return;
   }
-  if (checkMode || result.wrongs > 0) {
-    if (result.wrongs > 0) chargeHint(1);
+  if (checkMode) {
     finishBoardAction(true);
     return;
   }
