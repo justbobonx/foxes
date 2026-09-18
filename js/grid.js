@@ -131,7 +131,6 @@ Grid.prototype.checkGuesses = function () {
       const cell = this.cells[r][c];
       if (!cell.is("grass")) continue;
       if (cell.warn) {
-        cell.wrong = false;
         win = false;
         continue;
       }
@@ -168,6 +167,7 @@ Grid.prototype.dump = function () {
         spriteId: cell.spriteId,
         guessId: cell.guessId,
         wrong: !!cell.wrong,
+        warn: !!cell.warn,
         locked: !!cell.locked,
       });
     }
@@ -200,6 +200,7 @@ Grid.load = function (data) {
       cell.spriteId = src.spriteId || null;
       cell.guessId = src.guessId === "w" ? "o" : src.guessId || null;
       cell.wrong = !!src.wrong;
+      cell.warn = !!src.warn;
       cell.locked = !!src.locked;
       const kind =
         src.type ||
