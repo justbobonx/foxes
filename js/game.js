@@ -110,8 +110,32 @@ function lockedFoxes(g) {
   return n;
 }
 
-function isOpenFox(cell) {
-  return !!(cell && cell.is("grass") && cell.guessId === "o" && !cell.locked && !cell.wrong);
+function isScoredFox(cell) {
+  return !!(cell && (cell.locked || cell.wrong));
+}
+
+function snapshotMarks(g) {
+  const out = {};
+  for (let r = 0; r < g.n; r++) {
+    for (let c = 0; c < g.n; c++) {
+      const cell = g.at(r, c);
+      out[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
+    }
+  }
+  return out;
+}
+
+function countNewBadMarks(g, before) {
+  let n = 0;
+  for (let r = 0; r < g.n; r++) {
+    for (let c = 0; c < g.n; c++) {
+      const cell = g.at(r, c);
+      const prev = before[r + "," + c] || {};
+      if (cell.warn && !prev.warn) n++;
+      if (cell.wrong && !prev.wrong) n++;
+    }
+  }
+  return n;
 }
 
 function paintWin() {
@@ -184,7 +208,10 @@ function paintScore() {
 
 function flagConflict(list) {
   if (!list || list.length < 2) return;
-  for (let i = 0; i < list.length; i++) list[i].warn = true;
+  for (let i = 0; i < list.length; i++) {
+    if (isScoredFox(list[i])) continue;
+    list[i].warn = true;
+  }
 }
 
 function markGuessConflicts(g) {
@@ -193,7 +220,7 @@ function markGuessConflicts(g) {
     for (let c = 0; c < g.n; c++) {
       const cell = g.at(r, c);
       cell.warn = false;
-      if (isOpenFox(cell)) foxes.push(cell);
+      if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
     }
   }
   const rows = {};
@@ -215,10 +242,9 @@ function markGuessConflicts(g) {
     for (let j = i + 1; j < foxes.length; j++) {
       const a = foxes[i];
       const b = foxes[j];
-      if (Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) <= 1) {
-        a.warn = true;
-        b.warn = true;
-      }
+      if (Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) > 1) continue;
+      if (!isScoredFox(a)) a.warn = true;
+      if (!isScoredFox(b)) b.warn = true;
     }
   }
   let nWarn = 0;
@@ -339,12 +365,13 @@ function finishBoardAction(persist) {
 
 function onCheckHint() {
   if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen()) return;
+  const before = snapshotMarks(grid);
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
   const result = grid.checkGuesses();
-  const infractions = warns + (result.wrongs | 0);
-  if (infractions) {
-    chargeCheck(infractions);
+  if (warns || result.wrongs > 0) {
+    const fresh = countNewBadMarks(grid, before);
+    if (fresh) chargeCheck(fresh);
     finishBoardAction(true);
     return;
   }
