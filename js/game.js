@@ -27,10 +27,6 @@ let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
 
-function clamp(n, lo, hi) {
-  return Math.max(lo, Math.min(hi, n));
-}
-
 function setLevel(size) {
   n = Save.clampSize(size);
   Save.writeSize(n);
