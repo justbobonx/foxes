@@ -153,16 +153,33 @@ canvas {
   background: rgba(17, 17, 17, 0.45);
 }
 
+#plan-screen {
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px;
+  padding-bottom: max(72px, calc(56px + env(safe-area-inset-bottom)));
+}
+
+.plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  max-width: 720px;
+}
+
 .plan-card {
-  width: min(168px, 58vw);
+  width: min(150px, 42vw);
   height: auto;
   min-height: 0;
   box-sizing: border-box;
-  padding: 10px 12px 2px;
+  padding: 8px 10px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: #e6d3ae;
   border: 4px solid #706033;
   border-radius: 14px;
@@ -170,6 +187,22 @@ canvas {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+}
+
+.plan-card.locked {
+  cursor: default;
+  opacity: 0.88;
+}
+
+.plan-title {
+  width: 100%;
+  min-height: 2.1em;
+  font-family: pixel_font_sm, sans-serif;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: #5a3a22;
 }
 
 .plan-size {
@@ -234,6 +267,23 @@ canvas {
   line-height: 1;
   letter-spacing: 0.08em;
   color: #5a3a22;
+}
+
+#btn-plan-back {
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  background: #2a5a3a;
+  color: #e8eef7;
+  border: 1px solid #7dffb3;
+  padding: 6px 14px;
+  letter-spacing: 0.16em;
+  font: 700 13px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+#btn-plan-back:hover {
+  background: #34744a;
 }
 
 #win-screen {
@@ -404,19 +454,4 @@ canvas {
   gap: 10px;
   min-width: 0;
   padding: 14px;
-}
-
-.menu-row {
-  display: flex;
-  gap: 8px;
-}
-
-.menu-row button {
-  flex: 1;
-}
-
-#btn-new-minus,
-#btn-new-plus {
-  flex: 0 0 44px;
-  padding: 10px 0;
 }
