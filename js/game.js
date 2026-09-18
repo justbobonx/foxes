@@ -413,12 +413,15 @@ function onCheckHint() {
 
 function restoreBoard() {
   const data = Save.readBoard();
-  if (!data) return false;
+  if (!data || !data.fieldPlan) {
+    Save.clearBoard();
+    return false;
+  }
   const loaded = Grid.load(data);
   if (!loaded) return false;
   Cell.dressGrid(loaded);
   grid = loaded;
-  grid.fieldPlan = data.fieldPlan ? Forest.copyPlan(data.fieldPlan) : Planner.fromBuilder(loaded.plan);
+  grid.fieldPlan = Forest.copyPlan(data.fieldPlan);
   n = Save.clampSize(grid.n);
   Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
