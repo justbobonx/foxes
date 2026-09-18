@@ -1,4 +1,4 @@
-/** Reads forest, returns 1-3 cards. Does not build a field. */
+/** Reads forest, returns 1–3 cards. Does not build a field. */
 
 const CARD_TITLES = {
   chill: ["let's chill out"],
@@ -127,14 +127,26 @@ Planner.dedupe = function (cards) {
   return out;
 };
 
+Planner.refreshLocked = function (cards, forest) {
+  const target = forest.needStars();
+  for (let i = 0; i < cards.length; i++) {
+    if (!cards[i] || !cards[i].locked) continue;
+    cards[i].costTarget = target;
+    cards[i].costLeft = 0;
+  }
+  return cards;
+};
+
 Planner.prototype.travel = function (forest) {
-  if (forest.offers && forest.offers.length) return forest.offers;
+  if (forest.offers && forest.offers.length) {
+    return Planner.refreshLocked(forest.offers, forest);
+  }
   const cards = [];
   const chill = Planner.chillPlan(forest);
   if (chill) cards.push(Planner.card("chill", chill, false, 0));
   cards.push(Planner.card("stay", Planner.stayPlan(forest), false, 0));
   cards.push(Planner.deeperCard(forest));
-  const offers = Planner.dedupe(cards);
+  const offers = Planner.refreshLocked(Planner.dedupe(cards), forest);
   forest.offers = offers;
   return offers;
 };
