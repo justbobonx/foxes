@@ -10,7 +10,7 @@ const planner = new Planner();
 const TAP_MS = 280;
 const CHECK_CUT = 0.96;
 const CHECK_HIT = 0.98;
-const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.99];
+const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.99]; // 2-4 prints, 5 clean up
 
 const forest = Forest.load();
 let n = forest.location.size;
@@ -30,8 +30,7 @@ let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
 
-if (forest.stars > score.cleared) score.cleared = forest.stars;
-else if (score.cleared > forest.stars) forest.stars = score.cleared;
+score.cleared = forest.stars;
 
 function setLevel(size) {
   n = Save.clampSize(size);
@@ -52,6 +51,11 @@ function setSpriteFilter() {
   const tile = cellSize - inset * 2;
   const dest = Math.max(1, tile - Math.max(0, Math.floor(tile * 0.06)) * 2);
   ctx.imageSmoothingEnabled = dest < TILE;
+}
+
+function clockReset() {
+  clockElapsed = 0;
+  clockStarted = Date.now();
 }
 
 function clockLoad(ms) {
@@ -411,17 +415,34 @@ function onCheckHint() {
   finishBoardAction(true);
 }
 
+function planFitsForest(plan) {
+  if (!plan || plan.size > forest.maxN) return false;
+  const list = plan.features || [];
+  for (let i = 0; i < list.length; i++) {
+    if (!list[i] || !list[i].type) return false;
+    if (forest.stateOf(list[i].type) === "locked") return false;
+  }
+  return true;
+}
+
 function restoreBoard() {
   const data = Save.readBoard();
-  if (!data || !data.fieldPlan) {
+  const plan = data && data.fieldPlan ? Forest.copyPlan(data.fieldPlan) : null;
+  if (!data || !plan || plan.size !== (data.n | 0) || !planFitsForest(plan)) {
     Save.clearBoard();
     return false;
   }
   const loaded = Grid.load(data);
-  if (!loaded) return false;
+  if (!loaded) {
+    Save.clearBoard();
+    return false;
+  }
   Cell.dressGrid(loaded);
   grid = loaded;
-  grid.fieldPlan = Forest.copyPlan(data.fieldPlan);
+  grid.fieldPlan = plan;
+  forest.location = Forest.copyPlan(plan);
+  forest.lastPlan = Forest.copyPlan(plan);
+  persistForest();
   n = Save.clampSize(grid.n);
   Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
@@ -443,6 +464,9 @@ function giveUpField() {
   if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
   hideMenu();
   clockOff();
+  const here = currentFieldPlan();
+  forest.location = Forest.copyPlan(here);
+  forest.lastPlan = Forest.copyPlan(here);
   Save.clearBoard();
   forest.offers = null;
   persistForest();
@@ -475,8 +499,8 @@ function showTitle() {
 function beginPlay() {
   playing = true;
   playChrome.enter().then(function () {
+    ui.hideStart();
     if (restoreBoard()) {
-      ui.hideStart();
       layout();
       draw();
       return;
