@@ -1,6 +1,7 @@
 const SAVE_BOARD = "dells_board";
 const SAVE_SCORE = "dells_score";
 const SAVE_SIZE = "dells_size";
+const SAVE_FOREST = "dells_forest";
 const SIZE_MIN = 6;
 const SIZE_MAX = 12;
 const DEFAULT_SIZE = SIZE_MIN;
@@ -69,5 +70,20 @@ Save.writeSize = function (n) {
 Save.clearBoard = function () {
   try {
     localStorage.removeItem(SAVE_BOARD);
+  } catch (err) {}
+};
+
+Save.readForest = function () {
+  try {
+    const data = JSON.parse(localStorage.getItem(SAVE_FOREST) || "null");
+    return data && typeof data === "object" ? data : null;
+  } catch (err) {
+    return null;
+  }
+};
+
+Save.writeForest = function (data) {
+  try {
+    localStorage.setItem(SAVE_FOREST, JSON.stringify(data));
   } catch (err) {}
 };

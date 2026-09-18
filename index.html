@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>foxes</title>
-    <link rel="stylesheet" href="css/style.css?v=1.1.2" />
+    <link rel="stylesheet" href="css/style.css?v=1.2.0" />
   </head>
   <body>
     <canvas id="board"></canvas>
@@ -45,26 +45,13 @@
       <div class="panel menu-panel">
         <button id="btn-clear" type="button">CLEAN UP</button>
         <button id="btn-reset" type="button">RESET</button>
-        <div class="menu-row">
-          <button id="btn-new" type="button">NEW</button>
-          <button id="btn-new-minus" type="button"> - </button>
-          <button id="btn-new-plus" type="button"> + </button>
-        </div>        
+        <button id="btn-give-up" type="button">GIVE UP</button>
       </div>
     </div>
 
     <div id="plan-screen" class="overlay" hidden>
-      <button type="button" class="plan-card" id="plan-card">
-        <div class="plan-size">
-          <img src="images/sizes.png" width="32" height="32" alt="" />
-          <span id="plan-n">6</span>
-        </div>
-        <div class="plan-extras">
-          <div class="plan-extra-row" id="plan-extra-a"></div>
-          <div class="plan-extra-row" id="plan-extra-b"></div>
-        </div>
-        <span class="plan-select">SELECT</span>
-      </button>
+      <div id="plan-row" class="plan-row"></div>
+      <button id="btn-plan-back" type="button">BACK</button>
     </div>
 
     <div id="win-screen" class="overlay" hidden>
@@ -88,16 +75,17 @@
       </div>
     </div>
 
-    <script src="js/sprite.js?v=1.1.2"></script>
-    <script src="js/cell.js?v=1.1.2"></script>
-    <script src="js/grid.js?v=1.1.2"></script>
-    <script src="js/solver.js?v=1.1.2"></script>
-    <script src="js/grid_builder.js?v=1.1.2"></script>
-    <script src="js/planner.js?v=1.1.2"></script>
-    <script src="js/hint.js?v=1.1.2"></script>
-    <script src="js/save.js?v=1.1.2"></script>
-    <script src="js/chrome.js?v=1.1.2"></script>
-    <script src="js/ui.js?v=1.1.2"></script>
-    <script src="js/game.js?v=1.1.2"></script>
+    <script src="js/sprite.js?v=1.2.0"></script>
+    <script src="js/cell.js?v=1.2.0"></script>
+    <script src="js/grid.js?v=1.2.0"></script>
+    <script src="js/solver.js?v=1.2.0"></script>
+    <script src="js/grid_builder.js?v=1.2.0"></script>
+    <script src="js/save.js?v=1.2.0"></script>
+    <script src="js/forest.js?v=1.2.0"></script>
+    <script src="js/planner.js?v=1.2.0"></script>
+    <script src="js/hint.js?v=1.2.0"></script>
+    <script src="js/chrome.js?v=1.2.0"></script>
+    <script src="js/ui.js?v=1.2.0"></script>
+    <script src="js/game.js?v=1.2.0"></script>
   </body>
 </html>
