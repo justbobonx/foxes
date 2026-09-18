@@ -1,9 +1,21 @@
 const SAVE_BOARD = "dells_board";
 const SAVE_SCORE = "dells_score";
 const SAVE_SIZE = "dells_size";
-const DEFAULT_SIZE = 6;
+const SIZE_MIN = 6;
+const SIZE_MAX = 12;
+const DEFAULT_SIZE = SIZE_MIN;
 
 function Save() {}
+
+Save.SIZE_MIN = SIZE_MIN;
+Save.SIZE_MAX = SIZE_MAX;
+
+Save.clampSize = function (n) {
+  n = n | 0;
+  if (n < SIZE_MIN) return SIZE_MIN;
+  if (n > SIZE_MAX) return SIZE_MAX;
+  return n;
+};
 
 Save.readScore = function () {
   try {
@@ -43,14 +55,14 @@ Save.writeBoard = function (data) {
 Save.readSize = function () {
   try {
     const n = parseInt(localStorage.getItem(SAVE_SIZE), 10);
-    if (n >= 4 && n <= 20) return n;
+    if (n >= SIZE_MIN && n <= SIZE_MAX) return n;
   } catch (err) {}
   return DEFAULT_SIZE;
 };
 
 Save.writeSize = function (n) {
   try {
-    localStorage.setItem(SAVE_SIZE, String(n));
+    localStorage.setItem(SAVE_SIZE, String(Save.clampSize(n)));
   } catch (err) {}
 };
 

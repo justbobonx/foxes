@@ -32,7 +32,7 @@ function clamp(n, lo, hi) {
 }
 
 function setLevel(size) {
-  n = clamp(size, 6, 12);
+  n = Save.clampSize(size);
   Save.writeSize(n);
   return n;
 }
@@ -104,10 +104,6 @@ function lockedFoxes(g) {
     }
   }
   return n;
-}
-
-function levelScore() {
-  return hintCut;
 }
 
 function paintWin() {
@@ -367,7 +363,7 @@ function restoreBoard() {
   if (!loaded) return false;
   Cell.dressGrid(loaded);
   grid = loaded;
-  n = grid.n;
+  n = Save.clampSize(grid.n);
   Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
   hintCount = data.hintCount | 0;
@@ -506,7 +502,7 @@ function onBoardDown(e) {
     cell.setGuess(null);
     dragMode = "clear";
     dragDirty = true;
-  paintScore();
+    paintScore();
     draw();
   } else {
     dragMode = cell.guessId === "x" ? "clear" : "x";
