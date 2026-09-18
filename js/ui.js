@@ -14,9 +14,7 @@ function Ui() {
   this.btnMenu = document.getElementById("btn-menu");
   this.btnReset = document.getElementById("btn-reset");
   this.btnClear = document.getElementById("btn-clear");
-  this.btnNewMinus = document.getElementById("btn-new-minus");
-  this.btnNew = document.getElementById("btn-new");
-  this.btnNewPlus = document.getElementById("btn-new-plus");
+  this.btnGiveUp = document.getElementById("btn-give-up");
   this.btnCheck = document.getElementById("btn-check");
   this.btnStart = document.getElementById("btn-start");
   this.elStart = document.getElementById("start-screen");
@@ -24,17 +22,12 @@ function Ui() {
   this.elWin = document.getElementById("win-screen");
   this.btnWinNew = document.getElementById("btn-win-new");
   this.elPlan = document.getElementById("plan-screen");
-  this.elPlanCard = document.getElementById("plan-card");
-  this.elPlanN = document.getElementById("plan-n");
-  this.elPlanA = document.getElementById("plan-extra-a");
-  this.elPlanB = document.getElementById("plan-extra-b");
+  this.elPlanRow = document.getElementById("plan-row");
+  this.btnPlanBack = document.getElementById("btn-plan-back");
+  this.onPlanPick = null;
 }
 
-Ui.EXTRA_ICON = {
-  pond: "images/pond.png",
-  wolf: "images/wolf.png",
-  bunny: "images/bunny.png",
-};
+Ui.UNKNOWN_ICON = "images/unknown.png";
 
 Ui.prototype.winOpen = function () {
   return !!(this.elWin && !this.elWin.hidden);
@@ -111,7 +104,7 @@ Ui.prototype.paintScore = function (view) {
   if (this.elScore) {
     const pct = Math.round(view.hintCut * 100) + "%";
     if (view.hintCount > 0) {
-      this.elScore.innerHTML = pct + "  <span class=\"bad\">(H: " + view.hintCount + ")</span>";
+      this.elScore.innerHTML = pct + '  <span class="bad">(H: ' + view.hintCount + ")</span>";
     } else {
       this.elScore.textContent = pct;
     }
@@ -120,19 +113,10 @@ Ui.prototype.paintScore = function (view) {
   this.paintCheckLabel(view.marked, view.size);
 };
 
-Ui.prototype.planExtras = function (plan) {
-  if (!plan) return [];
-  if (plan.extras && plan.extras.length) {
-    return plan.extras.map(function (extra) {
-      return extra && extra.type ? extra.type : extra;
-    });
-  }
-  const list = [];
-  const ponds = plan.ponds | 0;
-  for (let i = 0; i < ponds; i++) list.push("pond");
-  if (plan.wolf) list.push("wolf");
-  if (plan.bunny) list.push("bunny");
-  return list;
+Ui.prototype.featureIcon = function (type, state) {
+  if (state !== "seen") return Ui.UNKNOWN_ICON;
+  const spec = Forest.CATALOG[type];
+  return spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
 };
 
 Ui.prototype.extraSplit = function (count) {
@@ -143,14 +127,12 @@ Ui.prototype.extraSplit = function (count) {
   return [Math.ceil(count / 2), Math.floor(count / 2)];
 };
 
-Ui.prototype.paintExtraRow = function (el, types) {
-  if (!el) return;
+Ui.prototype.paintExtraRow = function (el, features, forest) {
   el.innerHTML = "";
-  for (let i = 0; i < types.length; i++) {
-    const src = Ui.EXTRA_ICON[types[i]];
-    if (!src) continue;
+  for (let i = 0; i < features.length; i++) {
+    const type = features[i].type;
     const img = document.createElement("img");
-    img.src = src;
+    img.src = this.featureIcon(type, forest.stateOf(type));
     img.width = 26;
     img.height = 26;
     img.alt = "";
@@ -159,27 +141,84 @@ Ui.prototype.paintExtraRow = function (el, types) {
   el.hidden = !el.childNodes.length;
 };
 
-Ui.prototype.paintPlan = function (plan, fallbackN) {
-  const extras = this.planExtras(plan);
-  const split = this.extraSplit(extras.length);
-  if (this.elPlanN) this.elPlanN.textContent = String(plan && plan.n ? plan.n : fallbackN);
-  this.paintExtraRow(this.elPlanA, extras.slice(0, split[0]));
-  this.paintExtraRow(this.elPlanB, extras.slice(split[0]));
-  if (this.elPlanCard) this.elPlanCard.classList.toggle("no-extras", extras.length === 0);
+Ui.prototype.makeCard = function (card, forest, index) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "plan-card" + (card.locked ? " locked" : "") + (card.plan.features.length ? "" : " no-extras");
+  btn.setAttribute("data-index", String(index));
+
+  const title = document.createElement("div");
+  title.className = "plan-title";
+  title.textContent = card.title || card.kind;
+  btn.appendChild(title);
+
+  const size = document.createElement("div");
+  size.className = "plan-size";
+  const img = document.createElement("img");
+  img.src = "images/sizes.png";
+  img.width = 32;
+  img.height = 32;
+  img.alt = "";
+  const n = document.createElement("span");
+  n.textContent = String(card.plan.size);
+  size.appendChild(img);
+  size.appendChild(n);
+  btn.appendChild(size);
+
+  const extras = document.createElement("div");
+  extras.className = "plan-extras";
+  const rowA = document.createElement("div");
+  rowA.className = "plan-extra-row";
+  const rowB = document.createElement("div");
+  rowB.className = "plan-extra-row";
+  const list = card.plan.features || [];
+  const split = this.extraSplit(list.length);
+  this.paintExtraRow(rowA, list.slice(0, split[0]), forest);
+  this.paintExtraRow(rowB, list.slice(split[0]), forest);
+  extras.appendChild(rowA);
+  extras.appendChild(rowB);
+  btn.appendChild(extras);
+
+  const foot = document.createElement("span");
+  foot.className = "plan-select";
+  if (card.locked) {
+    foot.textContent = card.costLeft ? "\u2605 " + card.costLeft : "locked";
+  } else {
+    foot.textContent = "select";
+  }
+  btn.appendChild(foot);
+
+  const self = this;
+  btn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (card.locked || !self.onPlanPick) return;
+    self.onPlanPick(card, index);
+  });
+  return btn;
+};
+
+Ui.prototype.paintPlans = function (cards, forest) {
+  if (!this.elPlanRow) return;
+  this.elPlanRow.innerHTML = "";
+  for (let i = 0; i < cards.length; i++) {
+    this.elPlanRow.appendChild(this.makeCard(cards[i], forest, i));
+  }
 };
 
 Ui.prototype.bind = function (handlers) {
   const on = function (el, ev, fn) {
     if (el && fn) el.addEventListener(ev, fn);
   };
+  this.onPlanPick = handlers.planPick || null;
   on(this.btnStart, "click", handlers.start);
-  on(this.elPlan, "click", handlers.planDismiss);
+  on(this.btnPlanBack, "click", function (e) {
+    e.stopPropagation();
+    if (handlers.planBack) handlers.planBack();
+  });
   on(this.btnMenu, "click", handlers.menu);
   on(this.btnReset, "click", handlers.reset);
   on(this.btnClear, "click", handlers.clear);
-  on(this.btnNewMinus, "click", handlers.newMinus);
-  on(this.btnNew, "click", handlers.newBoard);
-  on(this.btnNewPlus, "click", handlers.newPlus);
+  on(this.btnGiveUp, "click", handlers.giveUp);
   on(this.btnWinNew, "click", handlers.winNew);
   on(this.btnCheck, "click", handlers.check);
   on(this.elMenu, "click", handlers.menuBackdrop);
