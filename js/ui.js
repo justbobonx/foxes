@@ -182,7 +182,8 @@ Ui.prototype.makeCard = function (card, forest, index) {
   const foot = document.createElement("span");
   foot.className = "plan-select";
   if (card.locked) {
-    foot.textContent = card.costLeft ? "\u2605 " + card.costLeft : "locked";
+    const target = card.costTarget || card.costLeft;
+    foot.textContent = target ? "\u2605 " + target : "locked";
   } else {
     foot.textContent = "select";
   }
