@@ -469,52 +469,187 @@ Grid.prototype.hasNearbyO = function (row, col) {
   return false;
 };
 
+Grid.prototype.grassMasses = function () {
+  const n = this.n;
+  const seen = [];
+  for (let r = 0; r < n; r++) {
+    const row = [];
+    for (let c = 0; c < n; c++) row.push(false);
+    seen.push(row);
+  }
+  const masses = [];
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (seen[r][c] || this.cells[r][c].isHole()) continue;
+      const cells = [];
+      const q = [{ r: r, c: c }];
+      seen[r][c] = true;
+      while (q.length) {
+        const cur = q.pop();
+        cells.push(cur);
+        for (let d = 0; d < DELL_DIRS.length; d++) {
+          const nr = cur.r + DELL_DIRS[d][0];
+          const nc = cur.c + DELL_DIRS[d][1];
+          if (!this.inBoard(nr, nc) || seen[nr][nc]) continue;
+          if (this.cells[nr][nc].isHole()) continue;
+          seen[nr][nc] = true;
+          q.push({ r: nr, c: nc });
+        }
+      }
+      masses.push({ cells: cells, size: cells.length });
+    }
+  }
+  return masses;
+};
+
+Grid.prototype.massMap = function (masses) {
+  const n = this.n;
+  const map = [];
+  for (let r = 0; r < n; r++) {
+    const row = [];
+    for (let c = 0; c < n; c++) row.push(-1);
+    map.push(row);
+  }
+  for (let i = 0; i < masses.length; i++) {
+    const cells = masses[i].cells;
+    for (let k = 0; k < cells.length; k++) map[cells[k].r][cells[k].c] = i;
+  }
+  return map;
+};
+
+Grid.prototype.landMassesOk = function () {
+  const masses = this.grassMasses();
+  if (!masses.length) return false;
+  if (masses.length > this.n) return false;
+  let cap = 0;
+  for (let i = 0; i < masses.length; i++) {
+    if (masses[i].size < MIN_DELL_SIZE) return false;
+    cap += Math.floor(masses[i].size / MIN_DELL_SIZE);
+  }
+  return cap >= this.n;
+};
+
 Grid.prototype.placeOs = function () {
   for (let t = 0; t < PLACE_TRIES; t++) {
     if (this.tryPlaceOs()) return true;
   }
+  this.clearSprites();
   return false;
 };
 
 Grid.prototype.tryPlaceOs = function () {
   this.clearSprites();
+  const n = this.n;
+  const masses = this.grassMasses();
+  if (!masses.length || masses.length > n) return false;
+  const massId = this.massMap(masses);
+  const room = [];
+  const hits = [];
+  let cap = 0;
+  for (let i = 0; i < masses.length; i++) {
+    if (masses[i].size < MIN_DELL_SIZE) return false;
+    room[i] = Math.floor(masses[i].size / MIN_DELL_SIZE);
+    hits[i] = 0;
+    cap += room[i];
+  }
+  if (cap < n) return false;
+
   const rows = [];
   const cols = [];
-  for (let i = 0; i < this.n; i++) {
+  for (let i = 0; i < n; i++) {
     rows.push(i);
     cols.push(i);
   }
+
+  const self = this;
+  function takeSeat(r, c) {
+    const mid = massId[r][c];
+    if (mid < 0 || !room[mid]) return false;
+    if (!self.foxSeatOk(r, c)) return false;
+    if (self.hasNearbyO(r, c)) return false;
+    const ri = rows.indexOf(r);
+    const ci = cols.indexOf(c);
+    if (ri < 0 || ci < 0) return false;
+    self.cells[r][c].setSprite("o");
+    rows.splice(ri, 1);
+    cols.splice(ci, 1);
+    room[mid]--;
+    hits[mid]++;
+    return true;
+  }
+
   const bunny = this.findBunny();
   if (bunny) {
     const pairs = this.bunnyPairs(bunny.row, bunny.col);
     if (!pairs.length) return false;
-    const pair = pairs[Math.floor(Math.random() * pairs.length)];
-    for (let i = 0; i < pair.length; i++) {
-      const seat = pair[i];
-      this.cells[seat.r][seat.c].setSprite("o");
-      const ri = rows.indexOf(seat.r);
-      const ci = cols.indexOf(seat.c);
-      if (ri < 0 || ci < 0) return false;
-      rows.splice(ri, 1);
-      cols.splice(ci, 1);
+    shuffleInPlace(pairs);
+    let planted = false;
+    for (let i = 0; i < pairs.length; i++) {
+      const a = pairs[i][0];
+      const b = pairs[i][1];
+      const ma = massId[a.r][a.c];
+      const mb = massId[b.r][b.c];
+      if (ma < 0 || mb < 0) continue;
+      if (ma === mb && room[ma] < 2) continue;
+      if (ma !== mb && (!room[ma] || !room[mb])) continue;
+      if (!takeSeat(a.r, a.c)) continue;
+      if (!takeSeat(b.r, b.c)) {
+        this.cells[a.r][a.c].clearSprite();
+        const mid = massId[a.r][a.c];
+        room[mid]++;
+        hits[mid]--;
+        rows.push(a.r);
+        cols.push(a.c);
+        continue;
+      }
+      planted = true;
+      break;
     }
+    if (!planted) return false;
   }
+
+  const order = [];
+  for (let i = 0; i < masses.length; i++) order.push(i);
+  order.sort(function (a, b) {
+    return masses[a].size - masses[b].size;
+  });
+
+  for (let i = 0; i < order.length; i++) {
+    const mid = order[i];
+    if (hits[mid]) continue;
+    const opts = [];
+    const cells = masses[mid].cells;
+    for (let k = 0; k < cells.length; k++) {
+      const r = cells[k].r;
+      const c = cells[k].c;
+      if (rows.indexOf(r) < 0 || cols.indexOf(c) < 0) continue;
+      if (!this.foxSeatOk(r, c)) continue;
+      if (this.hasNearbyO(r, c)) continue;
+      opts.push({ r: r, c: c });
+    }
+    if (!opts.length) return false;
+    const pick = opts[Math.floor(Math.random() * opts.length)];
+    if (!takeSeat(pick.r, pick.c)) return false;
+  }
+
   while (rows.length) {
     const opts = [];
     for (let i = 0; i < rows.length; i++) {
       for (let j = 0; j < cols.length; j++) {
-        if (this.isHole(rows[i], cols[j])) continue;
-        if (this.nearWolf(rows[i], cols[j])) continue;
-        if (!this.hasNearbyO(rows[i], cols[j])) {
-          opts.push({ i: i, j: j });
-        }
+        const r = rows[i];
+        const c = cols[j];
+        const mid = massId[r][c];
+        if (mid < 0 || !room[mid]) continue;
+        if (!this.foxSeatOk(r, c)) continue;
+        if (this.hasNearbyO(r, c)) continue;
+        opts.push({ i: i, j: j });
       }
     }
     if (!opts.length) return false;
     const pick = opts[Math.floor(Math.random() * opts.length)];
-    const row = rows.splice(pick.i, 1)[0];
-    const col = cols.splice(pick.j, 1)[0];
-    this.cells[row][col].setSprite("o");
+    const row = rows[pick.i];
+    const col = cols[pick.j];
+    if (!takeSeat(row, col)) return false;
   }
   return true;
 };
@@ -531,6 +666,43 @@ Grid.prototype.freeNeighbors = function (row, col) {
   return out;
 };
 
+Grid.prototype.resetDellIds = function () {
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      const cell = this.cells[r][c];
+      cell.dellId = cell.isHole() ? HOLE_DELL : -1;
+    }
+  }
+};
+
+Grid.prototype.foxSeeds = function () {
+  const out = [];
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      const cell = this.cells[r][c];
+      if (cell.spriteId === "o" && !cell.isHole()) out.push({ r: r, c: c });
+    }
+  }
+  return out;
+};
+
+Grid.prototype.hasUnclaimedGrass = function () {
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      if (this.cells[r][c].dellId === -1) return true;
+    }
+  }
+  return false;
+};
+
+Grid.prototype.prepLand = function () {
+  if (!this.placeWater()) return false;
+  if (!this.placeCave()) return false;
+  if (!this.placeBunny()) return false;
+  this.fillWaterIslands();
+  return this.landMassesOk();
+};
+
 Grid.prototype.paintDells = function () {
   for (let t = 0; t < DELL_PAINT_TRIES; t++) {
     if (this.tryPaintDells()) return true;
@@ -543,27 +715,15 @@ Grid.prototype.tryPaintDells = function () {
   const floor = Math.min(MIN_DELL_SIZE, n);
   const target = Math.min(DELL_TARGET, n);
   const tinyQuota = Math.random() < 0.5 ? 2 : 1;
-  const seeds = [];
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
-      const cell = this.cells[r][c];
-      if (cell.spriteId === "o" && !cell.isHole()) seeds.push({ r: r, c: c });
-    }
-  }
-  if (!seeds.length) return false;
+  const seeds = this.foxSeeds();
+  if (seeds.length !== n) return false;
 
-  for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
-      const cell = this.cells[r][c];
-      cell.dellId = cell.isHole() ? HOLE_DELL : -1;
-    }
-  }
+  this.resetDellIds();
 
   const sizes = [];
   const frontier = [];
   for (let i = 0; i < seeds.length; i++) {
     const s = seeds[i];
-    if (this.cells[s.r][s.c].isHole()) continue;
     this.cells[s.r][s.c].dellId = i;
     sizes[i] = 1;
     frontier.push({ r: s.r, c: s.c, id: i });
@@ -639,16 +799,7 @@ Grid.prototype.tryPaintDells = function () {
     });
   }
 
-  function unclaimed() {
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        if (self.cells[r][c].dellId === -1) return true;
-      }
-    }
-    return false;
-  }
-
-  while (unclaimed()) {
+  while (this.hasUnclaimedGrass()) {
     const opts = nextOpts();
     if (!opts.length) return false;
     shuffleInPlace(opts);
@@ -657,14 +808,10 @@ Grid.prototype.tryPaintDells = function () {
       const e = opts[i];
       if (this.cells[e.r][e.c].dellId !== -1) continue;
       this.cells[e.r][e.c].dellId = e.id;
-      if (new Solver(this).count(2) === 1) {
-        sizes[e.id]++;
-        frontier.push({ r: e.r, c: e.c, id: e.id });
-        placed = true;
-        break;
-      }
-      this.cells[e.r][e.c].dellId = -1;
-      this.backs++;
+      sizes[e.id]++;
+      frontier.push({ r: e.r, c: e.c, id: e.id });
+      placed = true;
+      break;
     }
     if (!placed) return false;
   }
@@ -683,15 +830,16 @@ Grid.prototype.rebuild = function (plan) {
   this.backs = 0;
   for (let t = 0; t < UNIQUE_TRIES; t++) {
     this.tries++;
-    if (!this.placeWater()) continue;
-    if (!this.placeCave()) continue;
-    if (!this.placeBunny()) continue;
-    this.placeOs();
-    this.paintDells();
-    if (new Solver(this).count(2) === 1) {
-      this.unique = true;
-      this.clearGuesses();
-      return true;
+    if (!this.prepLand()) continue;
+    for (let p = 0; p < 8; p++) {
+      if (!this.placeOs()) break;
+      if (!this.paintDells()) continue;
+      if (this.hasUnclaimedGrass()) continue;
+      if (new Solver(this).count(2) === 1) {
+        this.unique = true;
+        this.clearGuesses();
+        return true;
+      }
     }
   }
   return false;
