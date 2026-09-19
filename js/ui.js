@@ -156,8 +156,8 @@ Ui.prototype.makeCard = function (card, forest, index) {
   size.className = "plan-size";
   const img = document.createElement("img");
   img.src = "images/sizes.png";
-  img.width = 32;
-  img.height = 32;
+  img.width = 28;
+  img.height = 28;
   img.alt = "";
   const n = document.createElement("span");
   n.textContent = String(card.plan.size);
@@ -183,7 +183,18 @@ Ui.prototype.makeCard = function (card, forest, index) {
   foot.className = "plan-select";
   if (card.locked) {
     const target = card.costTarget > 0 ? card.costTarget : forest.needStars();
-    foot.textContent = target ? "\u2605 " + target : "locked";
+    if (!target) {
+      foot.textContent = "locked";
+    } else {
+      const star = document.createElement("span");
+      star.className = "plan-cost-star";
+      star.textContent = "\u2605";
+      const cost = document.createElement("span");
+      cost.className = "plan-cost-n";
+      cost.textContent = String(target);
+      foot.appendChild(star);
+      foot.appendChild(cost);
+    }
   } else {
     foot.textContent = "SELECT";
   }

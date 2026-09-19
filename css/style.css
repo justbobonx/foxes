@@ -218,22 +218,29 @@ button.plan-card.locked,
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
+  height: 28px;
 }
 
 .plan-size img {
   width: 28px;
   height: 28px;
+  display: block;
+  flex: 0 0 28px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
 
 .plan-size span {
   font-family: pixel_font, sans-serif;
-  font-size: 42px;
-  line-height: 0.8;
+  font-size: 28px;
+  line-height: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
   letter-spacing: 0;
+  transform: translateY(2px);
 }
 
 .plan-extras {
@@ -271,11 +278,31 @@ button.plan-card.locked,
 }
 
 .plan-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
   font-family: pixel_font_sm, sans-serif;
   font-size: 22px;
   line-height: 1;
   letter-spacing: 0.08em;
   color: #5a3a22;
+}
+
+.plan-cost-star {
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.plan-cost-n {
+  font-family: pixel_font, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0;
+  transform: translateY(2px);
 }
 
 #btn-plan-back {
