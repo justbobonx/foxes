@@ -63,14 +63,14 @@ Planner.waterParts = function (forest, n) {
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   for (const type in Forest.CATALOG) {
-    if (type === "pond" || type === "river") continue;
+    if (type === "water" || type === "pond" || type === "river") continue;
     if (!forest.canPut(type, n)) continue;
     if (Math.random() < Forest.CATALOG[type].p) out.push(Planner.featureItem(type));
   }
-  const pond = Forest.CATALOG.pond;
-  if (forest.canPut("pond", n) && pond && Math.random() < pond.p) {
-    const water = Planner.waterParts(forest, n);
-    for (let i = 0; i < water.length; i++) out.push(water[i]);
+  const water = Forest.CATALOG.water;
+  if (forest.canPut("water", n) && water && Math.random() < water.p) {
+    const parts = Planner.waterParts(forest, n);
+    for (let i = 0; i < parts.length; i++) out.push(parts[i]);
   }
   return out;
 };
@@ -83,8 +83,20 @@ Planner.sameFeatures = function (a, b) {
   return Forest.featureKey(a) === Forest.featureKey(b);
 };
 
-Planner.forceFeature = function (features, type) {
+Planner.forceFeature = function (features, type, forest, n) {
   const out = features.slice();
+  if (type === "water") {
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].type === "pond" || out[i].type === "river") return out;
+    }
+    const parts = forest && n ? Planner.waterParts(forest, n) : [];
+    if (parts.length) {
+      for (let i = 0; i < parts.length; i++) out.push(parts[i]);
+      return out;
+    }
+    out.push(Planner.featureItem("pond", 1));
+    return out;
+  }
   for (let i = 0; i < out.length; i++) {
     if (out[i].type === type) return out;
   }
@@ -145,7 +157,7 @@ Planner.deeperCard = function (forest) {
     const spec = Forest.CATALOG[parsed.type];
     const need = spec ? spec.minN : Save.SIZE_MIN;
     const size = loc.size >= need ? loc.size : need;
-    const features = Planner.forceFeature(Planner.rollFeatures(forest, size), parsed.type);
+    const features = Planner.forceFeature(Planner.rollFeatures(forest, size), parsed.type, forest, size);
     return Planner.card("deeper", Planner.makePlan(size, features), lockedNext, lockedNext ? costTarget : 0);
   }
 

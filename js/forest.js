@@ -10,7 +10,7 @@ const FEATURE_CATALOG = {
 
 const UNLOCK_CHART = [
   { unlock: "size-7", plus: 3 },
-  { unlock: "pond", plus: 3 },  
+  { unlock: "water", plus: 3 },
   { unlock: "size-8", plus: 3 },
   { unlock: "river", plus: 3 },
   { unlock: "wolf", plus: 5 },
@@ -58,6 +58,9 @@ Forest.normalizeState = function (src) {
   for (const type in out) {
     const v = src[type];
     if (v === "unlocked" || v === "seen" || v === "locked") out[type] = v;
+  }
+  if (out.water === "locked" && (src.pond === "seen" || src.pond === "unlocked")) {
+    out.water = src.pond;
   }
   return out;
 };
@@ -118,6 +121,10 @@ Forest.hasFeature = function (plan, type) {
   return false;
 };
 
+Forest.hasWater = function (plan) {
+  return Forest.hasFeature(plan, "pond") || Forest.hasFeature(plan, "river");
+};
+
 Forest.blank = function () {
   const loc = Forest.blankPlan();
   return {
@@ -146,6 +153,13 @@ Forest.prototype.dump = function () {
 };
 
 Forest.prototype.stateOf = function (type) {
+  if (type === "pond") {
+    const pond = this.featureState.pond || "locked";
+    const water = this.featureState.water || "locked";
+    if (pond === "seen" || water === "seen") return "seen";
+    if (pond === "unlocked" || water === "unlocked") return "unlocked";
+    return "locked";
+  }
   return this.featureState[type] || "locked";
 };
 
@@ -180,10 +194,13 @@ Forest.prototype.canPut = function (type, n) {
 
 Forest.prototype.markSeen = function (plan) {
   if (!plan || !plan.features) return;
+  let waterHit = false;
   for (let i = 0; i < plan.features.length; i++) {
     const type = plan.features[i].type;
+    if (type === "pond" || type === "river") waterHit = true;
     if (this.stateOf(type) === "unlocked") this.featureState[type] = "seen";
   }
+  if (waterHit && this.stateOf("water") === "unlocked") this.featureState.water = "seen";
 };
 
 Forest.prototype.enter = function (plan) {
@@ -200,6 +217,7 @@ Forest.prototype.matchesNext = function (plan) {
   const parsed = Forest.parseUnlock(item.unlock);
   if (!parsed) return false;
   if (parsed.kind === "size") return plan.size >= parsed.n;
+  if (parsed.type === "water") return Forest.hasWater(plan);
   return Forest.hasFeature(plan, parsed.type);
 };
 
