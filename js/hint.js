@@ -350,9 +350,29 @@ Hint.prototype.tryLevel4 = function () {
   return this.applyPrints(ranks[0].group);
 };
 
+Hint.prototype.tryLevel5 = function () {
+  const dells = this.dellMap();
+  const batches = [];
+  for (const id in dells) {
+    const cells = dells[id];
+    const xs = [];
+    let foxOpen = false;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      if (cell.spriteId === "o" && !this.isFoundFox(cell)) foxOpen = true;
+      if (this.isEmptyGrass(cell) && cell.spriteId !== "o") xs.push(cell);
+    }
+    if (foxOpen && xs.length) batches.push(xs);
+  }
+  if (!batches.length) return 0;
+  this.shuffle(batches);
+  return this.applyPrints(batches[0]);
+};
+
 Hint.prototype.apply = function () {
   if (this.tryLevel2()) return 2;
   if (this.tryLevel3()) return 3;
   if (this.tryLevel4()) return 4;
+  if (this.tryLevel5()) return 5;
   return 0;
 };
