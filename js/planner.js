@@ -8,6 +8,8 @@ const CARD_TITLES = {
   variant: ["maybe something else"],
 };
 
+const WATER_MAX = 4;
+
 function Planner() {}
 
 Planner.pickTitle = function (kind) {
@@ -15,20 +17,60 @@ Planner.pickTitle = function (kind) {
   return list[Math.floor(Math.random() * list.length)];
 };
 
-Planner.featureItem = function (type) {
+Planner.featureItem = function (type, size) {
   const spec = Forest.CATALOG[type];
   const item = { type: type };
   if (spec && spec.defaults) {
     for (const k in spec.defaults) item[k] = spec.defaults[k];
   }
+  if (size) item.size = size;
   return item;
+};
+
+Planner.waterCap = function (n) {
+  const min = typeof POND_MIN_LEVEL === "number" ? POND_MIN_LEVEL : 7;
+  const cap = n - min + 1;
+  if (cap < 1) return 0;
+  return cap > WATER_MAX ? WATER_MAX : cap;
+};
+
+Planner.waterParts = function (forest, n) {
+  const cap = Planner.waterCap(n);
+  if (cap < 1) return [];
+  const budget = 1 + Math.floor(Math.random() * cap);
+  const allowRiver = forest.canPut("river", n);
+  const parts = [];
+  let left = budget;
+  let hasPond = false;
+  let hasRiver = false;
+  while (left > 0) {
+    const chunk = 1 + Math.floor(Math.random() * left);
+    const opts = [];
+    opts.push(Planner.featureItem("pond", chunk));
+    if (allowRiver && !hasRiver) {
+      if (chunk === 2) opts.push(Planner.featureItem("river", 2));
+      if (chunk === 1 && hasPond) opts.push(Planner.featureItem("river", 1));
+    }
+    const pick = opts[Math.floor(Math.random() * opts.length)];
+    parts.push(pick);
+    if (pick.type === "pond") hasPond = true;
+    if (pick.type === "river") hasRiver = true;
+    left -= chunk;
+  }
+  return parts;
 };
 
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   for (const type in Forest.CATALOG) {
+    if (type === "pond" || type === "river") continue;
     if (!forest.canPut(type, n)) continue;
     if (Math.random() < Forest.CATALOG[type].p) out.push(Planner.featureItem(type));
+  }
+  const pond = Forest.CATALOG.pond;
+  if (forest.canPut("pond", n) && pond && Math.random() < pond.p) {
+    const water = Planner.waterParts(forest, n);
+    for (let i = 0; i < water.length; i++) out.push(water[i]);
   }
   return out;
 };
@@ -45,6 +87,18 @@ Planner.forceFeature = function (features, type) {
   const out = features.slice();
   for (let i = 0; i < out.length; i++) {
     if (out[i].type === type) return out;
+  }
+  if (type === "pond") {
+    out.push(Planner.featureItem("pond", 1));
+    return out;
+  }
+  if (type === "river") {
+    let hasPond = false;
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].type === "pond") hasPond = true;
+    }
+    out.push(Planner.featureItem("river", hasPond ? 1 : 2));
+    return out;
   }
   out.push(Planner.featureItem(type));
   return out;
@@ -163,11 +217,12 @@ Planner.prototype.giveUp = function (forest) {
 };
 
 Planner.toBuilder = function (plan) {
-  const out = { n: plan.size, ponds: 0, wolf: false, bunny: false };
+  const out = { n: plan.size, ponds: [], river: 0, wolf: false, bunny: false };
   const list = plan.features || [];
   for (let i = 0; i < list.length; i++) {
     const f = list[i];
-    if (f.type === "pond") out.ponds = f.amount | 0 || 1;
+    if (f.type === "pond") out.ponds.push(f.size | 0 || f.amount | 0 || 1);
+    if (f.type === "river") out.river = f.size | 0 || 2;
     if (f.type === "wolf") out.wolf = true;
     if (f.type === "bunny") out.bunny = true;
   }
@@ -178,8 +233,17 @@ Planner.fromBuilder = function (plan) {
   if (!plan) return Forest.blankPlan();
   if (plan.size && Array.isArray(plan.features)) return Forest.copyPlan(plan);
   const features = [];
-  const ponds = plan.ponds | 0;
-  if (ponds) features.push({ type: "pond", amount: ponds });
+  if (Array.isArray(plan.ponds)) {
+    for (let i = 0; i < plan.ponds.length; i++) {
+      const sz = plan.ponds[i] | 0;
+      if (sz) features.push({ type: "pond", size: sz });
+    }
+  } else {
+    const ponds = plan.ponds | 0;
+    if (ponds) features.push({ type: "pond", size: ponds });
+  }
+  const river = plan.river | 0;
+  if (river) features.push({ type: "river", size: river });
   if (plan.wolf) features.push({ type: "wolf" });
   if (plan.bunny) features.push({ type: "bunny" });
   return { size: Save.clampSize(plan.n || plan.size || Save.SIZE_MIN), features: features };

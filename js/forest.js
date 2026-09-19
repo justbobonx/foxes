@@ -1,7 +1,8 @@
 /** Persistent run state. Planner only reads this. Game owns the instance. */
 
 const FEATURE_CATALOG = {
-  pond: { minN: 7, p: 0.6, icon: "images/pond.png", defaults: { amount: 1 } },
+  pond: { minN: 7, p: 0.6, icon: "images/pond.png", defaults: { size: 1 } },
+  river: { minN: 8, p: 0, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
 };
@@ -65,6 +66,7 @@ Forest.copyFeature = function (f) {
     if (k === "type") continue;
     out[k] = f[k];
   }
+  if (out.amount && !out.size) out.size = out.amount;
   return out;
 };
 
@@ -84,13 +86,14 @@ Forest.featureKey = function (plan) {
   list.sort(function (a, b) {
     if (a.type < b.type) return -1;
     if (a.type > b.type) return 1;
-    return 0;
+    return (a.size || a.amount || 0) - (b.size || b.amount || 0);
   });
   const parts = [];
   for (let i = 0; i < list.length; i++) {
     const f = list[i];
     let bit = f.type;
-    if (f.amount) bit += ":" + f.amount;
+    const n = f.size || f.amount;
+    if (n) bit += ":" + n;
     parts.push(bit);
   }
   return (plan ? plan.size : 0) + "|" + parts.join(",");

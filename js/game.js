@@ -28,6 +28,83 @@ let dragCell = null;
 let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
+let loadedPlan = parsePlanQuery();
+if (loadedPlan && ui.btnStart) ui.btnStart.textContent = "Play URL Plan";
+let playingTest = false;
+
+function parsePlanQuery() {
+  let raw = "";
+  try {
+    raw = new URLSearchParams(window.location.search).get("plan") || "";
+  } catch (err) {
+    return null;
+  }
+  raw = raw.trim();
+  if (!raw) return null;
+  if (raw.charAt(0) === "{") {
+    try {
+      return normalizeTestPlan(JSON.parse(raw));
+    } catch (err) {
+      return null;
+    }
+  }
+  return parsePlanShort(raw);
+}
+
+function parsePlanShort(raw) {
+  const parts = raw.split(",");
+  const size = parseInt(parts[0], 10);
+  if (!size) return null;
+  const features = [];
+  let hasRiver = false;
+  for (let i = 1; i < parts.length; i++) {
+    const bit = parts[i].trim();
+    if (!bit) continue;
+    const kv = bit.split(":");
+    const type = kv[0].trim();
+    const sz = kv.length > 1 ? parseInt(kv[1], 10) : 0;
+    if (type === "pond") {
+      const pond = sz >= 1 && sz <= 4 ? sz : 1;
+      features.push({ type: "pond", size: pond });
+    } else if (type === "river") {
+      if (hasRiver) continue;
+      hasRiver = true;
+      features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+    } else if (type === "wolf" || type === "bunny") {
+      features.push({ type: type });
+    }
+  }
+  return Forest.copyPlan({ size: size, features: features });
+}
+
+function normalizeTestPlan(src) {
+  if (!src || typeof src !== "object") return null;
+  const features = [];
+  const list = Array.isArray(src.features) ? src.features : [];
+  let hasRiver = false;
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    if (!f || !f.type) continue;
+    if (f.type === "pond") {
+      const sz = f.size | 0 || f.amount | 0 || 1;
+      features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
+    } else if (f.type === "river") {
+      if (hasRiver) continue;
+      hasRiver = true;
+      const sz = f.size | 0;
+      features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+    } else if (f.type === "wolf" || f.type === "bunny") {
+      features.push({ type: f.type });
+    }
+  }
+  return Forest.copyPlan({ size: src.size || src.n, features: features });
+}
+
+function clearTestPlan() {
+  loadedPlan = null;
+  playingTest = false;
+  if (ui.btnStart) ui.btnStart.textContent = "Adventure";
+}
 
 function setLevel(size) {
   n = Save.clampSize(size);
@@ -193,6 +270,7 @@ function persistBoard() {
   data.hintCount = hintCount;
   data.hintCut = hintCut;
   data.fieldPlan = grid.fieldPlan || Planner.fromBuilder(grid.plan);
+  data.testPlan = !!playingTest;
   Save.writeBoard(data);
 }
 
@@ -287,17 +365,15 @@ function hidePlan() {
   return ui.hidePlan();
 }
 
-function playCard(card) {
-  if (!card || card.locked) return;
+function startField(plan, isTest) {
   hideWin();
   hideMenu();
   ui.hideStart();
-  forest.enter(card.plan);
-  persistForest();
-  n = setLevel(card.plan.size);
-  const built = Planner.toBuilder(card.plan);
+  playingTest = !!isTest;
+  n = setLevel(plan.size);
+  const built = Planner.toBuilder(plan);
   grid = GridBuilder.build(built);
-  grid.fieldPlan = Forest.copyPlan(card.plan);
+  grid.fieldPlan = Forest.copyPlan(plan);
   Cell.dressGrid(grid);
   resetHintScore();
   clockElapsed = 0;
@@ -305,6 +381,13 @@ function playCard(card) {
   persistBoard();
   hidePlan();
   showBoard();
+}
+
+function playCard(card) {
+  if (!card || card.locked) return;
+  forest.enter(card.plan);
+  persistForest();
+  startField(card.plan, false);
 }
 
 function resetBoard() {
@@ -364,11 +447,13 @@ function currentFieldPlan() {
 
 function applyWin(result) {
   if (!result || !result.win) return;
-  forest.win(currentFieldPlan());
-  persistForest();
+  if (!playingTest) {
+    forest.win(currentFieldPlan());
+    persistForest();
+  }
   clockOff();
   paintWin();
-  ui.showWin();  
+  ui.showWin();
 }
 
 function finishBoardAction(persist) {
@@ -417,7 +502,7 @@ function planFitsForest(plan) {
 function restoreBoard() {
   const data = Save.readBoard();
   const plan = data && data.fieldPlan ? Forest.copyPlan(data.fieldPlan) : null;
-  if (!data || !plan || plan.size !== (data.n | 0) || !planFitsForest(plan)) {
+  if (!data || data.testPlan || !plan || plan.size !== (data.n | 0) || !planFitsForest(plan)) {
     Save.clearBoard();
     return false;
   }
@@ -436,6 +521,7 @@ function restoreBoard() {
   clockLoad(data.elapsedMs || 0);
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;
+  playingTest = false;
   const won = !!(data.won || isClearedGrid(loaded));
   if (won) {
     clockOff();
@@ -458,6 +544,12 @@ function giveUpField() {
   Save.clearBoard();
   forest.offers = null;
   persistForest();
+  const wasTest = playingTest;
+  clearTestPlan();
+  if (wasTest) {
+    showTitle();
+    return;
+  }
   showOffers(planner.giveUp(forest));
 }
 
@@ -467,6 +559,12 @@ function onWinOk() {
   forest.offers = null;
   persistForest();
   paintScore();
+  const wasTest = playingTest;
+  clearTestPlan();
+  if (wasTest) {
+    showTitle();
+    return;
+  }
   openTravel();
 }
 
@@ -488,6 +586,10 @@ function beginPlay() {
   playing = true;
   playChrome.enter().then(function () {
     ui.hideStart();
+    if (loadedPlan) {
+      startField(loadedPlan, true);
+      return;
+    }
     if (restoreBoard()) {
       layout();
       draw();

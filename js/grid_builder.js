@@ -5,13 +5,14 @@ const DELL_TARGET = 3;
 const DELL_PAINT_TRIES = 40;
 const PLACE_TRIES = 200;
 const UNIQUE_TRIES = 250;
-const CAVE_SIZE = [2,3];
+const WATER_TRIES = 50;
+const CAVE_SIZE = [2, 3];
 const POND_MIN_LEVEL = 7;
 const POND_SHAPES = [
-  [ [2, 2], [2, 3], [3, 2] ],         //sm pond -   4-6 area                 1 sm
-  [ [2, 4], [4, 2], [3, 3] ],         //md pond -   8-9 area  (sm * 1.5/2)   2 sm
-  [ [2, 5], [5,2], [3, 4], [4, 3] ],  //lg pond - 10-12 area  (sm * 2 / 3)   3 sm
-  [ [3,5], [5, 3], [4, 4] ],          //lake!   - 15-16 area  (sm * 3 / 4)   4 sm
+  [[2, 2], [2, 3], [3, 2]],         // sm pond -   4-6 area                 1 sm
+  [[2, 4], [4, 2], [3, 3]],         // md pond -   8-9 area  (sm * 1.5/2)   2 sm
+  [[2, 5], [5, 2], [3, 4], [4, 3]], // lg pond - 10-12 area  (sm * 2 / 3)   3 sm
+  [[3, 5], [5, 3], [4, 4]],         // lake!   - 15-16 area  (sm * 3 / 4)   4 sm
 ];
 // 4, 6, 6, 8, 8, 9, 10, 10, 12, 12, 15, 15, 16
 
@@ -21,6 +22,13 @@ const DELL_DIRS = [
   [0, -1],
   [-1, 0],
 ];
+
+const RIVER_FLOW = {
+  n: { dr: -1, dc: 0, far: "n" },
+  s: { dr: 1, dc: 0, far: "s" },
+  w: { dr: 0, dc: -1, far: "w" },
+  e: { dr: 0, dc: 1, far: "e" },
+};
 
 function GridBuilder() {}
 
@@ -38,6 +46,14 @@ function shuffleInPlace(arr) {
     arr[j] = tmp;
   }
   return arr;
+}
+
+function riverLeft(flow) {
+  return { dr: -flow.dc, dc: flow.dr };
+}
+
+function riverRight(flow) {
+  return { dr: flow.dc, dc: -flow.dr };
 }
 
 Grid.prototype.clearPonds = function () {
@@ -62,10 +78,14 @@ Grid.prototype.pondFits = function (r0, c0, h, w) {
   return true;
 };
 
-Grid.prototype.tryPlaceOnePond = function () {
-  const groupCount = Math.min( this.n - POND_MIN_LEVEL + 1, POND_SHAPES.length)
-  const available = POND_SHAPES.slice(0, groupCount).flat();
-  const shape = available[Math.floor(Math.random() * available.length)];
+Grid.prototype.pondShapePool = function (size) {
+  if (size > 0 && size <= POND_SHAPES.length) return POND_SHAPES[size - 1];
+  const groupCount = Math.min(this.n - POND_MIN_LEVEL + 1, POND_SHAPES.length);
+  if (groupCount < 1) return [];
+  return POND_SHAPES.slice(0, groupCount).flat();
+};
+
+Grid.prototype.tryPlacePondShape = function (shape) {
   const h = shape[0];
   const w = shape[1];
   const spots = [];
@@ -85,13 +105,206 @@ Grid.prototype.tryPlaceOnePond = function () {
   return true;
 };
 
+Grid.prototype.tryPlaceOnePond = function (size) {
+  const available = this.pondShapePool(size || 0);
+  if (!available.length) return false;
+  const shape = available[Math.floor(Math.random() * available.length)];
+  return this.tryPlacePondShape(shape);
+};
+
+Grid.prototype.pondJobs = function () {
+  const plan = this.plan || {};
+  const src = plan.ponds;
+  const out = [];
+  if (Array.isArray(src)) {
+    for (let i = 0; i < src.length; i++) {
+      const sz = src[i] | 0;
+      if (sz >= 1 && sz <= POND_SHAPES.length) out.push(sz);
+    }
+    return out;
+  }
+  const want = src | 0;
+  for (let i = 0; i < want; i++) out.push(0);
+  return out;
+};
+
 Grid.prototype.placePonds = function () {
-  this.clearPonds();
-  const want = this.plan && this.plan.ponds ? this.plan.ponds : 0;
-  for (let i = 0; i < want; i++) {
-    if (!this.tryPlaceOnePond()) return false;
+  const jobs = this.pondJobs();
+  for (let i = 0; i < jobs.length; i++) {
+    if (!this.tryPlaceOnePond(jobs[i])) return false;
   }
   return true;
+};
+
+Grid.prototype.riverSize = function () {
+  return (this.plan && this.plan.river) | 0;
+};
+
+Grid.prototype.inBoard = function (r, c) {
+  return r >= 0 && c >= 0 && r < this.n && c < this.n;
+};
+
+Grid.prototype.isWaterAt = function (r, c) {
+  if (!this.inBoard(r, c)) return false;
+  return this.cells[r][c].is("pond");
+};
+
+Grid.prototype.onRiverFar = function (r, c, flow) {
+  if (flow.far === "n") return r === 0;
+  if (flow.far === "s") return r === this.n - 1;
+  if (flow.far === "w") return c === 0;
+  return c === this.n - 1;
+};
+
+Grid.prototype.paintRiverCell = function (r, c) {
+  if (!this.inBoard(r, c)) return false;
+  const cell = this.cells[r][c];
+  if (cell.is("pond")) return true;
+  if (cell.isHole()) return false;
+  cell.setType("pond");
+  this.markHole(cell);
+  return true;
+};
+
+Grid.prototype.sideOk = function (r, c, flow) {
+  if (!this.inBoard(r, c)) return false;
+  return !this.isWaterAt(r - flow.dr, c - flow.dc);
+};
+
+Grid.prototype.riverStep = function (r, c, flow, mustForward) {
+  const fwd = { r: r + flow.dr, c: c + flow.dc };
+  if (mustForward) return this.inBoard(fwd.r, fwd.c) ? fwd : null;
+  const left = riverLeft(flow);
+  const right = riverRight(flow);
+  const L = { r: r + left.dr, c: c + left.dc };
+  const R = { r: r + right.dr, c: c + right.dc };
+  const roll = Math.random();
+  if (roll < 0.5) return this.inBoard(fwd.r, fwd.c) ? fwd : null;
+  if (roll < 0.75) {
+    if (this.sideOk(L.r, L.c, flow)) return L;
+    return this.inBoard(fwd.r, fwd.c) ? fwd : null;
+  }
+  if (this.sideOk(R.r, R.c, flow)) return R;
+  return this.inBoard(fwd.r, fwd.c) ? fwd : null;
+};
+
+Grid.prototype.walkRiver = function (r, c, flow) {
+  if (!this.paintRiverCell(r, c)) return false;
+  if (this.onRiverFar(r, c, flow)) return true;
+  let lastMeander = false;
+  const cap = this.n * this.n;
+  for (let i = 0; i < cap; i++) {
+    const next = this.riverStep(r, c, flow, lastMeander);
+    if (!next) return false;
+    lastMeander = next.r !== r + flow.dr || next.c !== c + flow.dc;
+    r = next.r;
+    c = next.c;
+    if (!this.paintRiverCell(r, c)) return false;
+    if (this.onRiverFar(r, c, flow)) return true;
+  }
+  return false;
+};
+
+Grid.prototype.fullRiverStarts = function () {
+  const n = this.n;
+  const lo = 2;
+  const hi = n - 3;
+  const out = [];
+  if (hi < lo) return out;
+  for (let i = lo; i <= hi; i++) {
+    out.push({ r: 0, c: i, flow: RIVER_FLOW.s });
+    out.push({ r: n - 1, c: i, flow: RIVER_FLOW.n });
+    out.push({ r: i, c: 0, flow: RIVER_FLOW.e });
+    out.push({ r: i, c: n - 1, flow: RIVER_FLOW.w });
+  }
+  return out;
+};
+
+Grid.prototype.placeFullRiver = function () {
+  const starts = this.fullRiverStarts();
+  if (!starts.length) return false;
+  const pick = starts[Math.floor(Math.random() * starts.length)];
+  return this.walkRiver(pick.r, pick.c, pick.flow);
+};
+
+Grid.prototype.pondCells = function () {
+  const out = [];
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      if (this.cells[r][c].is("pond")) out.push({ r: r, c: c });
+    }
+  }
+  return out;
+};
+
+Grid.prototype.halfRiverFlow = function (r, c) {
+  const n = this.n;
+  const opts = [
+    { dist: r, flow: RIVER_FLOW.n },
+    { dist: n - 1 - r, flow: RIVER_FLOW.s },
+    { dist: c, flow: RIVER_FLOW.w },
+    { dist: n - 1 - c, flow: RIVER_FLOW.e },
+  ];
+  let best = -1;
+  const top = [];
+  for (let i = 0; i < opts.length; i++) {
+    if (opts[i].dist > best) {
+      best = opts[i].dist;
+      top.length = 0;
+      top.push(opts[i].flow);
+    } else if (opts[i].dist === best) {
+      top.push(opts[i].flow);
+    }
+  }
+  if (best <= 0 || !top.length) return null;
+  return top[Math.floor(Math.random() * top.length)];
+};
+
+Grid.prototype.placeHalfRiver = function () {
+  const ponds = this.pondCells();
+  if (!ponds.length) return false;
+  const pick = ponds[Math.floor(Math.random() * ponds.length)];
+  const flow = this.halfRiverFlow(pick.r, pick.c);
+  if (!flow) return false;
+  return this.walkRiver(pick.r, pick.c, flow);
+};
+
+Grid.prototype.waterLinesOk = function () {
+  const n = this.n;
+  for (let r = 0; r < n; r++) {
+    let grass = false;
+    for (let c = 0; c < n; c++) {
+      if (!this.cells[r][c].is("pond")) {
+        grass = true;
+        break;
+      }
+    }
+    if (!grass) return false;
+  }
+  for (let c = 0; c < n; c++) {
+    let grass = false;
+    for (let r = 0; r < n; r++) {
+      if (!this.cells[r][c].is("pond")) {
+        grass = true;
+        break;
+      }
+    }
+    if (!grass) return false;
+  }
+  return true;
+};
+
+Grid.prototype.placeWater = function () {
+  const river = this.riverSize();
+  for (let t = 0; t < WATER_TRIES; t++) {
+    this.clearPonds();
+    if (river === 2 && !this.placeFullRiver()) continue;
+    if (!this.placePonds()) continue;
+    if (river === 1 && !this.placeHalfRiver()) continue;
+    if (!this.waterLinesOk()) continue;
+    return true;
+  }
+  return false;
 };
 
 Grid.prototype.clearCaves = function () {
@@ -137,7 +350,7 @@ Grid.prototype.placeCave = function () {
   }
   if (!seeds.length) return false;
   const start = seeds[Math.floor(Math.random() * seeds.length)];
-  const want = CAVE_SIZE[0] + Math.floor(Math.random() * (1+CAVE_SIZE[1]-CAVE_SIZE[0]));
+  const want = CAVE_SIZE[0] + Math.floor(Math.random() * (1 + CAVE_SIZE[1] - CAVE_SIZE[0]));
   const body = [start];
   const seedCell = this.cells[start.r][start.c];
   seedCell.setType("cave");
@@ -440,14 +653,14 @@ Grid.prototype.tryPaintDells = function () {
 };
 
 Grid.prototype.rebuild = function (plan) {
-  this.plan = plan || this.plan || { n: this.n, ponds: 0, wolf: false, bunny: false };
+  this.plan = plan || this.plan || { n: this.n, ponds: 0, river: 0, wolf: false, bunny: false };
   this.unique = false;
   this.wolfShown = false;
   this.tries = 0;
   this.backs = 0;
   for (let t = 0; t < UNIQUE_TRIES; t++) {
     this.tries++;
-    if (!this.placePonds()) continue;
+    if (!this.placeWater()) continue;
     if (!this.placeCave()) continue;
     if (!this.placeBunny()) continue;
     this.placeOs();
