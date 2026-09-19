@@ -243,7 +243,8 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
 };
 
 Cell.dellFill = function (dellId) {
-  return CELL_DELL_COLORS[((dellId % CELL_DELL_COLORS.length) + CELL_DELL_COLORS.length) % CELL_DELL_COLORS.length];
+  if( dellId<0 || dellId > CELL_DELL_COLORS.length-1)  return "#000000";
+  return CELL_DELL_COLORS[dellId];
 };
 
 Cell.samePatch = function (grid, cell, row, col) {
