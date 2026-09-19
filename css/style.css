@@ -458,6 +458,16 @@ button.plan-card.locked,
   letter-spacing: 0.02em;
 }
 
+#startVer {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  color: #666;
+  font: 500 12px system-ui, sans-serif;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
 #startEmail:hover,
 #startEmail:focus {
   color: #d0d0d0;
