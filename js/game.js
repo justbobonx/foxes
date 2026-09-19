@@ -7,7 +7,7 @@ const sprites = SpriteBank.defaults(function () {
 });
 const playChrome = new PlayChrome();
 const planner = new Planner();
-const TAP_MS = 280;
+const TAP_MS = 350;
 const CHECK_CUT = 0.96;
 const CHECK_HIT = 0.98;
 const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.98, 0.99]; // 2-5 prints, 6 clean up
