@@ -2,8 +2,8 @@
 
 const CARD_TITLES = {
   chill: ["let's chill out"],
-  stay: ["stay on the path"],
-  deeper: ["let's go deeper..."],
+  stay: ["wander on the path"],
+  deeper: ["deeper into the forest..."],
   retry: ["let's try again!", "one more try!"],
   variant: ["maybe something else"],
 };

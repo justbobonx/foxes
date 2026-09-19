@@ -191,7 +191,7 @@ Ui.prototype.makeCard = function (card, forest, index) {
       star.textContent = "\u2605";
       const cost = document.createElement("span");
       cost.className = "plan-cost-n";
-      cost.textContent = String(target);
+      cost.textContent = String(target) +" ["+String(forest.stars)+"]";
       foot.appendChild(star);
       foot.appendChild(cost);
     }
