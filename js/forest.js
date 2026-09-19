@@ -1,7 +1,8 @@
 /** Persistent run state. Planner only reads this. Game owns the instance. */
 
 const FEATURE_CATALOG = {
-  pond: { minN: 7, p: 0.6, icon: "images/pond.png", defaults: { size: 1 } },
+  water: { minN: 7, p: 0.6 },
+  pond: { minN: 7, p: 0, icon: "images/pond.png", defaults: { size: 1 } },
   river: { minN: 8, p: 0, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
