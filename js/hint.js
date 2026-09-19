@@ -1,4 +1,10 @@
-/** Local hint painter. 2/3 paint missed Xs. 4 leaks a small group from the key. */
+/** 
+  Local hint painter, gives missed Xs (hint level 2-5, 0-1 are O validty checks elsewhere)
+    2 paints 1 missed rule forced logic.
+    3 paints 1 missed intersectional logic.
+    4 leaks a small group of thruth Xs from the key, always leaves at least 2.
+    5 no more 2-4, so paints final truth Xs of an area giving away an O.
+ */
 
 function Hint(grid) {
   this.grid = grid;
