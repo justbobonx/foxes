@@ -205,9 +205,9 @@ button.plan-card.locked,
 
 .plan-title {
   width: 100%;
-  min-height: 2.1em;
+  min-height: 1.0em;
   font-family: pixel_font_sm, sans-serif;
-  font-size: 20px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: 0.02em;
   text-align: center;
@@ -231,7 +231,7 @@ button.plan-card.locked,
 
 .plan-size span {
   font-family: pixel_font, sans-serif;
-  font-size: 40px;
+  font-size: 42px;
   line-height: 0.8;
   letter-spacing: 0;
 }
