@@ -52,7 +52,7 @@ const CELL_DELL_COLORS = [
 
 const CELL_TYPES = {
   grass: {
-    glyphColor: "#2a2118",
+    glyphColor: "#000000", //"#2a2118",  //odd color as this should be given a dell color
     tap: true,
     markO: "o",
   },

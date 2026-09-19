@@ -269,6 +269,28 @@ Grid.prototype.placeHalfRiver = function () {
   return this.walkRiver(pick.r, pick.c, flow);
 };
 
+Grid.prototype.fillWaterIslands = function () {
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      if (this.cells[r][c].isHole()) continue;
+      let grass = false;
+      for (let d = 0; d < DELL_DIRS.length; d++) {
+        const nr = r + DELL_DIRS[d][0];
+        const nc = c + DELL_DIRS[d][1];
+        if (!this.inBoard(nr, nc)) continue;
+        if (!this.cells[nr][nc].isHole()) {
+          grass = true;
+          break;
+        }
+      }
+      if (grass) continue;
+      const cell = this.cells[r][c];
+      cell.setType("pond");
+      this.markHole(cell);
+    }
+  }
+};
+
 Grid.prototype.waterLinesOk = function () {
   const n = this.n;
   for (let r = 0; r < n; r++) {
@@ -301,6 +323,7 @@ Grid.prototype.placeWater = function () {
     if (river === 2 && !this.placeFullRiver()) continue;
     if (!this.placePonds()) continue;
     if (river === 1 && !this.placeHalfRiver()) continue;
+    this.fillWaterIslands();
     if (!this.waterLinesOk()) continue;
     return true;
   }
