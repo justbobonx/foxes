@@ -9,8 +9,9 @@ const FEATURE_CATALOG = {
 
 const UNLOCK_CHART = [
   { unlock: "size-7", plus: 3 },
-  { unlock: "pond", plus: 3 },
+  { unlock: "pond", plus: 3 },  
   { unlock: "size-8", plus: 3 },
+  { unlock: "river", plus: 3 },
   { unlock: "wolf", plus: 5 },
   { unlock: "bunny", plus: 5 },
   { unlock: "size-9", plus: 6 },
