@@ -395,9 +395,9 @@ button.plan-card.locked,
   color: #ff6b6b;
 }
 
-#btn-start {
+.btn-title {
   display: block;
-  margin: 40px auto;
+  margin: 18px auto;
   min-width: 160px;
   padding: 10px 28px;
   background: #2a5a3a;
@@ -409,7 +409,7 @@ button.plan-card.locked,
   cursor: pointer;
 }
 
-#btn-start:hover {
+.btn-title:hover {
   background: #34744a;
 }
 

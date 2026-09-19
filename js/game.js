@@ -21,7 +21,6 @@ let originY = 0;
 let tapTimer = 0;
 let tapCell = null;
 let playing = false;
-let score = Save.readScore();
 let clockElapsed = 0;
 let clockStarted = 0;
 let dragMode = null;
@@ -30,11 +29,8 @@ let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
 
-score.cleared = forest.stars;
-
 function setLevel(size) {
   n = Save.clampSize(size);
-  Save.writeSize(n);
   return n;
 }
 
@@ -198,11 +194,6 @@ function persistBoard() {
   data.hintCut = hintCut;
   data.fieldPlan = grid.fieldPlan || Planner.fromBuilder(grid.plan);
   Save.writeBoard(data);
-}
-
-function persistScore() {
-  score.cleared = forest.stars;
-  Save.writeScore(score);
 }
 
 function paintScore() {
@@ -377,9 +368,7 @@ function applyWin(result) {
   persistForest();
   clockOff();
   paintWin();
-  ui.showWin();
-  persistScore();
-  persistBoard();
+  ui.showWin();  
 }
 
 function finishBoardAction(persist) {
@@ -444,7 +433,6 @@ function restoreBoard() {
   forest.lastPlan = Forest.copyPlan(plan);
   persistForest();
   n = Save.clampSize(grid.n);
-  Save.writeSize(n);
   clockLoad(data.elapsedMs || 0);
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;

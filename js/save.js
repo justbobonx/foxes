@@ -1,7 +1,5 @@
-const SAVE_BOARD = "dells_field";
-const SAVE_SCORE = "dells_score";
-const SAVE_SIZE = "dells_size";
-const SAVE_FOREST = "dells_forest";
+const SAVE_BOARD = "foxes_field";
+const SAVE_FOREST = "foxes_forest";
 const SIZE_MIN = 6;
 const SIZE_MAX = 12;
 const DEFAULT_SIZE = SIZE_MIN;
@@ -18,26 +16,6 @@ Save.clampSize = function (n) {
   return n;
 };
 
-Save.readScore = function () {
-  try {
-    const data = JSON.parse(localStorage.getItem(SAVE_SCORE) || "null");
-    if (!data || typeof data !== "object") return { cleared: 0, rights: 0, wrongs: 0 };
-    return {
-      cleared: data.cleared | 0,
-      rights: data.rights | 0,
-      wrongs: data.wrongs | 0,
-    };
-  } catch (err) {
-    return { cleared: 0, rights: 0, wrongs: 0 };
-  }
-};
-
-Save.writeScore = function (score) {
-  try {
-    localStorage.setItem(SAVE_SCORE, JSON.stringify(score));
-  } catch (err) {}
-};
-
 Save.readBoard = function () {
   try {
     localStorage.removeItem("dells_board");
@@ -51,20 +29,6 @@ Save.readBoard = function () {
 Save.writeBoard = function (data) {
   try {
     localStorage.setItem(SAVE_BOARD, JSON.stringify(data));
-  } catch (err) {}
-};
-
-Save.readSize = function () {
-  try {
-    const n = parseInt(localStorage.getItem(SAVE_SIZE), 10);
-    if (n >= SIZE_MIN && n <= SIZE_MAX) return n;
-  } catch (err) {}
-  return DEFAULT_SIZE;
-};
-
-Save.writeSize = function (n) {
-  try {
-    localStorage.setItem(SAVE_SIZE, String(Save.clampSize(n)));
   } catch (err) {}
 };
 
