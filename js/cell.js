@@ -1,7 +1,7 @@
 /** One board square. type is the kind. spriteId is hidden fox. guessId is the mark. */
 
 const CELL_DELL_COLORS = [
-  // "#6b8f4e",  this one is the default grass
+  "#6b8f4e",  //this one is the default grass
   "#8a6b3f",
   "#4e7a6b",
   "#a08a4a",
@@ -9,8 +9,8 @@ const CELL_DELL_COLORS = [
   "#7a4e4e",
   //"#4e6a8a",  too much like water
   //"#7a7a4e",  too much like other brown / oranges
-  //"#5a7a5a",  too much like grass
-  //"#8a5a6a", too pink??
+  "#5a7a5a",  //too much like grass
+  "#8a5a6a", //too pink??
   "#4e5a4e",
   "#6b5a3f",
   "#3f6b6b",
