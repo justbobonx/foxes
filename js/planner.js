@@ -68,8 +68,18 @@ Planner.rollFeatures = function (forest, n) {
   return out;
 };
 
+Planner.terrainFirst = function (features) {
+  const rank = { pond: 0, river: 1, wolf: 2, bunny: 3 };
+  return (features || []).slice().sort(function (a, b) {
+    const aa = rank[a.type] != null ? rank[a.type] : 9;
+    const bb = rank[b.type] != null ? rank[b.type] : 9;
+    if (aa !== bb) return aa - bb;
+    return (a.size || 0) - (b.size || 0);
+  });
+};
+
 Planner.makePlan = function (size, features) {
-  return { size: Save.clampSize(size), features: features || [] };
+  return { size: Save.clampSize(size), features: this.terrainFirst(features) };
 };
 
 Planner.sameFeatures = function (a, b) {
