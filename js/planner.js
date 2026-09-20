@@ -8,8 +8,6 @@ const CARD_TITLES = {
   variant: ["maybe something else"],
 };
 
-const WATER_MAX = 4;
-
 function Planner() {}
 
 Planner.pickTitle = function (kind) {
@@ -27,36 +25,30 @@ Planner.featureItem = function (type, size) {
   return item;
 };
 
-Planner.waterCap = function (n) {
+Planner.waterAmount = function (n) {
   const min = typeof POND_MIN_LEVEL === "number" ? POND_MIN_LEVEL : 7;
-  const cap = n - min + 1;
-  if (cap < 1) return 0;
-  return cap > WATER_MAX ? WATER_MAX : cap;
+  const amount = n - min + 1;
+  return amount > 0 ? amount : 0;
 };
 
 Planner.waterParts = function (forest, n) {
-  const cap = Planner.waterCap(n);
-  if (cap < 1) return [];
-  let budget = 1 + Math.floor(Math.random() * cap);
+  let amount = Planner.waterAmount(n);
+  if (amount < 1) return [];
   const allowRiver = forest.canPut("river", n);
   const parts = [];
-
-  if (allowRiver && Math.random() < 0.5) {
-    if (budget === 1 || Math.random() < 0.5) {
-      parts.push(Planner.featureItem("river", 2));
-      budget = budget > 2 ? budget - 2 : 0;
+  let hasPond = false;
+  let hasRiver = false;
+  while (amount > 0) {
+    const take = 1 + Math.floor(Math.random() * Math.min(amount, 4));
+    const riverOk = allowRiver && !hasRiver && take <= 2 && (take === 2 || hasPond);
+    if (riverOk && Math.random() < 0.5) {
+      parts.push(Planner.featureItem("river", take));
+      hasRiver = true;
     } else {
-      const pondSize = 1 + Math.floor(Math.random() * (budget - 1));
-      parts.push(Planner.featureItem("pond", pondSize));
-      parts.push(Planner.featureItem("river", 1));
-      budget -= pondSize + 1;
+      parts.push(Planner.featureItem("pond", take));
+      hasPond = true;
     }
-  }
-
-  while (budget > 0) {
-    const chunk = 1 + Math.floor(Math.random() * budget);
-    parts.push(Planner.featureItem("pond", chunk));
-    budget -= chunk;
+    amount -= take;
   }
   return parts;
 };
