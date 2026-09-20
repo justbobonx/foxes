@@ -119,6 +119,15 @@ Ui.prototype.featureIcon = function (type, state) {
   return spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
 };
 
+Ui.prototype.extraState = function (type, forest) {
+  const state = forest.stateOf(type);
+  if (state === "seen") return state;
+  if ((type === "pond" || type === "river") && forest.waterKnown()) {
+    return forest.stateOf("water") === "seen" ? "seen" : state;
+  }
+  return state;
+};
+
 Ui.prototype.extraSplit = function (count) {
   if (count <= 2) return [count, 0];
   if (count === 3) return [2, 1];
@@ -132,7 +141,7 @@ Ui.prototype.paintExtraRow = function (el, features, forest) {
   for (let i = 0; i < features.length; i++) {
     const type = features[i].type;
     const img = document.createElement("img");
-    img.src = this.featureIcon(type, forest.stateOf(type));
+    img.src = this.featureIcon(type, this.extraState(type, forest));
     img.width = 26;
     img.height = 26;
     img.alt = "";
