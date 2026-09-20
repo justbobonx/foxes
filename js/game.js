@@ -494,7 +494,7 @@ function planFitsForest(plan) {
   const list = plan.features || [];
   for (let i = 0; i < list.length; i++) {
     if (!list[i] || !list[i].type) return false;
-    if (forest.stateOf(list[i].type) === "locked") return false;
+    if (!forest.allowsFeature(list[i].type, plan.size)) return false;
   }
   return true;
 }
