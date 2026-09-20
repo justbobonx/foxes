@@ -1,7 +1,7 @@
 /** Persistent run state. Planner only reads this. Game owns the instance. */
 
 const FEATURE_CATALOG = {
-  water: { minN: 7, p: 0.6 },
+  water: { minN: 7, p: 0.7 },
   pond: { minN: 7, p: 0, icon: "images/pond.png", defaults: { size: 1 } },
   river: { minN: 8, p: 0, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
@@ -14,11 +14,9 @@ const UNLOCK_CHART = [
   { unlock: "size-8", plus: 3 },
   { unlock: "river", plus: 3 },
   { unlock: "wolf", plus: 5 },
-  { unlock: "bunny", plus: 5 },
-  { unlock: "size-9", plus: 6 },
-  { unlock: "size-10", plus: 6 },
-  { unlock: "size-11", plus: 7 },
-  { unlock: "size-12", plus: 8 },
+  { unlock: "size-9", plus: 3 },
+  { unlock: "bunny", plus: 3 },  
+  { unlock: "size-10", plus: 5 },
 ];
 
 function Forest(data) {
