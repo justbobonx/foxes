@@ -154,7 +154,7 @@ Planner.deeperCard = function (forest) {
     size = Save.clampSize(size);
     const features = Planner.forceFeature(Planner.rollFeatures(forest, size), parsed.type, forest, size);
     const lock = !!(lockedNext && size >= need);
-    return Planner.card("deeper", Planner.makePlan(size, features, parsed.type), lock, lock ? costTarget : 0);
+    return Planner.card("deeper", Planner.makePlan(size, features), lock, lock ? costTarget : 0);
   }
 
   if (loc.size < forest.maxN) {

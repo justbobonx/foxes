@@ -50,13 +50,10 @@ const CELL_TYPES = {
   hawk: {
     fill: "#3a4a58",
     edge: "#3E9CCC",
+    bandFrac: 0.04,
     tap: false,
     stand: "h",
   },
-};
-
-const CELL_TRACES = {
-  hawk: { color: "#3E9CCC", widthFrac: 0.04 },
 };
 
 function Cell(row, col) {
@@ -77,7 +74,6 @@ function Cell(row, col) {
 }
 
 Cell.types = CELL_TYPES;
-Cell.traces = CELL_TRACES;
 
 Cell.prototype.is = function (name) {
   return this.type === name;
