@@ -1,10 +1,10 @@
 /** Reads forest, returns 1–3 cards. Does not build a field. */
 
 const CARD_TITLES = {
-  chill: ["let's chill out"],
-  stay: ["wander on the path"],
-  deeper: ["deeper into the forest..."],
-  retry: ["let's try again!", "one more try!"],
+  chill: ["lighter","quieter"],
+  stay: ["hang around"],
+  deeper: ["deeper...","further..."],
+  retry: ["let's try again", "one more try"],
   variant: ["maybe something else"],
 };
 

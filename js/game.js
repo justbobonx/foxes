@@ -653,11 +653,43 @@ function onPlanBack() {
   showTitle();
 }
 
+function hawkBandPoints() {
+  const inset = Math.max(1, Math.floor(cellSize * 0.06));
+  const s = cellSize - inset * 2;
+  const pts = [];
+  for (let r = 0; r < grid.n; r++) {
+    const c = grid.hawk === "L" ? r : grid.n - 1 - r;
+    pts.push({
+      x: originX + c * cellSize + inset + s / 2,
+      y: originY + r * cellSize + inset + s / 2,
+    });
+  }
+  return pts;
+}
+
+function drawHawkBand() {
+  if (!grid || !grid.hawk) return;
+  const spec = Cell.types.hawk;
+  const pts = hawkBandPoints();
+  ctx.save();
+  ctx.strokeStyle = spec.edge;
+  ctx.globalAlpha = 0.9;
+  ctx.lineWidth = Math.max(4, Math.floor(cellSize * (spec.bandFrac || 0.2)));
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#111111";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!grid) return;
+  drawHawkBand();
   const inset = Math.max(1, Math.floor(cellSize * 0.06));
   const s = cellSize - inset * 2;
   for (let r = 0; r < grid.n; r++) {

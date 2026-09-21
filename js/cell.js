@@ -49,14 +49,14 @@ const CELL_TYPES = {
   },
   hawk: {
     fill: "#3a4a58",
-    edge: "#8ebdd4",
+    edge: "#3E9CCC",
     tap: false,
     stand: "h",
   },
 };
 
 const CELL_TRACES = {
-  hawk: { color: "#8ebdd4", widthFrac: 0.04 },
+  hawk: { color: "#3E9CCC", widthFrac: 0.04 },
 };
 
 function Cell(row, col) {
@@ -209,18 +209,12 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     this.round[1] ? rad : 0,
     this.round[2] ? rad : 0,
     this.round[3] ? rad : 0,
-  ];
+  ];  
   ctx.fillStyle = this.fill || look.fill || "#6b8f4e";
-  this.fillRound(ctx, x, y, s, s, corners);
-  const spec = this.trace ? CELL_TRACES[this.trace] : null;
-  if (spec) {
-    ctx.strokeStyle = spec.color;
-    ctx.lineWidth = Math.max(1, Math.floor(s * (spec.widthFrac || 0.04)));
-    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
-  }
+  this.fillRound(ctx, x, y, s, s, corners);  
   if (look.edge) {
     const checkW = Math.max(2, Math.floor(s * 0.07));
-    ctx.strokeStyle = look.edge;
+    ctx.strokeStyle = look.edge;    
     ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.60)));
     this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
   }
@@ -260,7 +254,7 @@ Cell.dressGrid = function (grid) {
       const kind = cell.type || "grass";
       cell.look = CELL_TYPES[kind] || CELL_TYPES.grass;
       cell.fill = kind === "grass" ? Cell.dellFill(cell.dellId) : cell.look.fill;
-      cell.trace = grid.onHawkDiag && grid.onHawkDiag(r, c) ? "hawk" : null;
+      cell.trace = (!cell.isHole() && grid.onHawkDiag && grid.onHawkDiag(r, c)) ? "hawk" : null;
       cell.flipStand = !!(cell.is("hawk") && grid.hawk === "R");
       const up = Cell.samePatch(grid, cell, r - 1, c);
       const down = Cell.samePatch(grid, cell, r + 1, c);
