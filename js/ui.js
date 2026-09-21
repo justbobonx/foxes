@@ -142,8 +142,8 @@ Ui.prototype.paintExtraRow = function (el, features, forest) {
     const type = features[i].type;
     const img = document.createElement("img");
     img.src = this.featureIcon(type, this.extraState(type, forest));
-    img.width = 26;
-    img.height = 26;
+    img.width = 32;
+    img.height = 32;
     img.alt = "";
     el.appendChild(img);
   }
@@ -165,8 +165,8 @@ Ui.prototype.makeCard = function (card, forest, index) {
   size.className = "plan-size";
   const img = document.createElement("img");
   img.src = "images/sizes.png";
-  img.width = 28;
-  img.height = 28;
+  img.width = 32;
+  img.height = 32;
   img.alt = "";
   const n = document.createElement("span");
   n.textContent = String(card.plan.size);

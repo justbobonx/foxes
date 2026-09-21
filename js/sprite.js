@@ -6,7 +6,7 @@ function Sprite(id, glyph, color, scale) {
   this.id = id;
   this.glyph = glyph || "";
   this.color = color || "#f4f1e6";
-  this.scale = scale || 0.82;
+  this.scale = scale || 1;
   this.image = null;
   this.tile = TILE;
 }
@@ -50,12 +50,12 @@ SpriteBank.prototype.get = function (id) {
 
 SpriteBank.defaults = function (onReady) {
   const bank = new SpriteBank();
-  const fox = bank.add(new Sprite("o", "V", "#f4f1e6", 0.82));
-  const wolf = bank.add(new Sprite("w", "W", "#f4f1e6", 0.82));
-  const bunny = bank.add(new Sprite("b", "B", "#f4f1e6", 0.82));
-  const prints = bank.add(new Sprite("p", "x", "#2a2118", 0.82));
-  const gx = bank.add(new Sprite("x", "X", "#2a2118", 0.82));
-  const gxl = bank.add(new Sprite("xl", "X", "#c8c8c8", 0.82));
+  const fox = bank.add(new Sprite("o", "V", "#f4f1e6", 1));
+  const wolf = bank.add(new Sprite("w", "W", "#f4f1e6", 1));
+  const bunny = bank.add(new Sprite("b", "B", "#f4f1e6",1));
+  const prints = bank.add(new Sprite("p", "x", "#2a2118", 1));
+  const gx = bank.add(new Sprite("x", "X", "#2a2118", 1));
+  const gxl = bank.add(new Sprite("xl", "X", "#c8c8c8", 1));
   //bank.add(new Sprite("x", "X", "#2a2118", 0.6));
   //bank.add(new Sprite("xl", "X", "#c8c8c8", 0.6));
   let left = 4;
