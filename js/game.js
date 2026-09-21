@@ -254,7 +254,7 @@ function hideMenu() {
 }
 
 function showMenu() {
-  if (!playing || ui.winOpen() || ui.planOpen()) return;
+  if (!playing || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   ui.showMenu();
 }
 
@@ -263,7 +263,7 @@ function isClearedGrid(g) {
 }
 
 function persistBoard() {
-  if (!playing || !grid || ui.planOpen()) return;
+  if (!playing || !grid || ui.planOpen() || ui.storyOpen()) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
   data.won = ui.winOpen() || isClearedGrid(grid);
@@ -368,6 +368,7 @@ function hidePlan() {
 function startField(plan, isTest) {
   hideWin();
   hideMenu();
+  ui.hideStory();
   ui.hideStart();
   playingTest = !!isTest;
   n = setLevel(plan.size);
@@ -383,15 +384,43 @@ function startField(plan, isTest) {
   showBoard();
 }
 
+function presentStory(pages, done) {
+  const list = pages || [];
+  let i = 0;
+  function step() {
+    if (i >= list.length) {
+      ui.hideStory();
+      if (done) done();
+      return;
+    }
+    ui.paintStory(list[i++]);
+    ui.showStory();
+  }
+  ui.onStoryContinue = step;
+  step();
+}
+
 function playCard(card) {
   if (!card || card.locked) return;
-  forest.enter(card.plan);
+  const id = forest.planStory(card.plan);
+  const pages = Story.pages(id);
+  function go() {
+    forest.enter(card.plan);
+    persistForest();
+    startField(card.plan, false);
+  }
+  if (!pages.length) {
+    go();
+    return;
+  }
+  forest.markStory(id);
   persistForest();
-  startField(card.plan, false);
+  hidePlan();
+  presentStory(pages, go);
 }
 
 function resetBoard() {
-  if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   hideWin();
   hideMenu();
   grid.wolfShown = false;
@@ -405,7 +434,7 @@ function resetBoard() {
 }
 
 function clearMarks() {
-  if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   hideMenu();
   const foxes = [];
   for (let r = 0; r < grid.n; r++) {
@@ -464,7 +493,7 @@ function finishBoardAction(persist) {
 }
 
 function onCheckHint() {
-  if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen()) return;
+  if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   const before = snapshotMarks(grid);
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
@@ -535,7 +564,7 @@ function restoreBoard() {
 }
 
 function giveUpField() {
-  if (!playing || !grid || ui.winOpen() || ui.planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   hideMenu();
   clockOff();
   const here = currentFieldPlan();
@@ -578,6 +607,7 @@ function showTitle() {
   hideWin();
   hideMenu();
   hidePlan();
+  ui.hideStory();
   playChrome.leave();
   ui.showStart();
 }
@@ -681,7 +711,7 @@ function endDrag(e) {
 }
 
 function onBoardDown(e) {
-  if (!playing || !grid || ui.winOpen() || ui.menuOpen() || ui.planOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.menuOpen() || ui.planOpen() || ui.storyOpen()) return;
   const hit = cellAtEvent(e);
   if (!hit) return;
   e.preventDefault();
@@ -744,7 +774,7 @@ ui.bind({
   planPick: playCard,
   planBack: onPlanBack,
   menu: function () {
-    if (!playing || ui.planOpen()) return;
+    if (!playing || ui.planOpen() || ui.storyOpen()) return;
     if (ui.menuOpen()) hideMenu();
     else showMenu();
   },
