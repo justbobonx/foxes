@@ -53,68 +53,6 @@ Planner.waterParts = function (forest, n) {
   return parts;
 };
 
-Planner.hasType = function (features, type) {
-  const list = features || [];
-  for (let i = 0; i < list.length; i++) {
-    if (list[i] && list[i].type === type) return true;
-  }
-  return false;
-};
-
-Planner.pondSizeSum = function (features) {
-  let n = 0;
-  const list = features || [];
-  for (let i = 0; i < list.length; i++) {
-    if (!list[i] || list[i].type !== "pond") continue;
-    n += list[i].size | 0 || list[i].amount | 0 || 1;
-  }
-  return n;
-};
-
-Planner.compat = function (features, prefer) {
-  const src = features || [];
-  const out = [];
-  for (let i = 0; i < src.length; i++) out.push(src[i]);
-  if (!Planner.hasType(out, "hawk")) return out;
-
-  if (Planner.hasType(out, "river")) {
-    if (prefer === "hawk") {
-      const kept = [];
-      for (let i = 0; i < out.length; i++) {
-        if (out[i].type !== "river") kept.push(out[i]);
-      }
-      out.length = 0;
-      for (let i = 0; i < kept.length; i++) out.push(kept[i]);
-    } else {
-      const kept = [];
-      for (let i = 0; i < out.length; i++) {
-        if (out[i].type !== "hawk") kept.push(out[i]);
-      }
-      return kept;
-    }
-  }
-
-  if (Planner.pondSizeSum(out) <= 2) return out;
-  const ponds = [];
-  const rest = [];
-  for (let i = 0; i < out.length; i++) {
-    if (out[i].type === "pond") ponds.push(out[i]);
-    else rest.push(out[i]);
-  }
-  ponds.sort(function (a, b) {
-    return (a.size || a.amount || 1) - (b.size || b.amount || 1);
-  });
-  const keptPonds = [];
-  let acc = 0;
-  for (let i = 0; i < ponds.length; i++) {
-    const sz = ponds[i].size | 0 || ponds[i].amount | 0 || 1;
-    if (acc + sz > 2) continue;
-    keptPonds.push(ponds[i]);
-    acc += sz;
-  }
-  return rest.concat(keptPonds);
-};
-
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   for (const type in Forest.CATALOG) {
@@ -140,8 +78,8 @@ Planner.terrainFirst = function (features) {
   });
 };
 
-Planner.makePlan = function (size, features, prefer) {
-  return { size: Save.clampSize(size), features: this.terrainFirst(Planner.compat(features, prefer)) };
+Planner.makePlan = function (size, features) {
+  return { size: Save.clampSize(size), features: this.terrainFirst(features) };
 };
 
 Planner.sameFeatures = function (a, b) {

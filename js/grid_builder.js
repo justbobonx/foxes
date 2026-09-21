@@ -448,6 +448,18 @@ Grid.prototype.clearHawk = function () {
   }
 };
 
+Grid.prototype.hawkOpenSeats = function (side) {
+  const out = [];
+  if (!side) return out;
+  for (let r = 1; r < this.n; r++) {
+    const c = side === "L" ? r : this.n - 1 - r;
+    if (!this.inBoard(r, c)) continue;
+    if (this.cells[r][c].isHole()) continue;
+    out.push({ r: r, c: c });
+  }
+  return out;
+};
+
 Grid.prototype.hawkLineSeats = function (side) {
   const out = [];
   const use = side || this.hawk;
@@ -467,7 +479,7 @@ Grid.prototype.placeHawk = function () {
     const side = sides[i];
     const col = side === "L" ? 0 : this.n - 1;
     if (this.cells[0][col].isHole()) continue;
-    if (this.hawkLineSeats(side).length < 2) continue;
+    if (this.hawkOpenSeats(side).length < 5) continue;
     const cell = this.cells[0][col];
     cell.setType("hawk");
     this.markHole(cell);
