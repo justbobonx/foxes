@@ -24,7 +24,10 @@ function Ui() {
   this.elPlan = document.getElementById("plan-screen");
   this.elPlanRow = document.getElementById("plan-row");
   this.btnPlanBack = document.getElementById("btn-plan-back");
+  this.elStory = document.getElementById("story-screen");
+  this.elStorySlot = document.getElementById("story-slot");
   this.onPlanPick = null;
+  this.onStoryContinue = null;
 }
 
 Ui.UNKNOWN_ICON = "images/unknown.png";
@@ -35,6 +38,10 @@ Ui.prototype.winOpen = function () {
 
 Ui.prototype.planOpen = function () {
   return !!(this.elPlan && !this.elPlan.hidden);
+};
+
+Ui.prototype.storyOpen = function () {
+  return !!(this.elStory && !this.elStory.hidden);
 };
 
 Ui.prototype.menuOpen = function () {
@@ -72,6 +79,16 @@ Ui.prototype.showPlan = function () {
 Ui.prototype.hidePlan = function () {
   if (!this.elPlan || this.elPlan.hidden) return false;
   this.elPlan.hidden = true;
+  return true;
+};
+
+Ui.prototype.showStory = function () {
+  if (this.elStory) this.elStory.hidden = false;
+};
+
+Ui.prototype.hideStory = function () {
+  if (!this.elStory || this.elStory.hidden) return false;
+  this.elStory.hidden = true;
   return true;
 };
 
@@ -226,11 +243,49 @@ Ui.prototype.paintPlans = function (cards, forest) {
   }
 };
 
+Ui.prototype.paintStory = function (page) {
+  if (!this.elStorySlot || !page) return;
+  this.elStorySlot.innerHTML = "";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "story-card";
+
+  if (page.image) {
+    const img = document.createElement("img");
+    img.className = "story-art";
+    img.src = page.image;
+    img.width = page.sizex || 64;
+    img.height = page.sizey || 64;
+    img.alt = "";
+    btn.appendChild(img);
+  }
+
+  if (page.text) {
+    const body = document.createElement("div");
+    body.className = "story-text";
+    body.textContent = page.text;
+    btn.appendChild(body);
+  }
+
+  const foot = document.createElement("span");
+  foot.className = "story-continue";
+  foot.textContent = "TAP TO CONTINUE";
+  btn.appendChild(foot);
+
+  const self = this;
+  btn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (self.onStoryContinue) self.onStoryContinue();
+  });
+  this.elStorySlot.appendChild(btn);
+};
+
 Ui.prototype.bind = function (handlers) {
   const on = function (el, ev, fn) {
     if (el && fn) el.addEventListener(ev, fn);
   };
   this.onPlanPick = handlers.planPick || null;
+  this.onStoryContinue = handlers.storyContinue || null;
   on(this.btnStart, "click", handlers.start);
   on(this.btnPlanBack, "click", function (e) {
     e.stopPropagation();
