@@ -17,6 +17,7 @@ function Ui() {
   this.btnGiveUp = document.getElementById("btn-give-up");
   this.btnCheck = document.getElementById("btn-check");
   this.btnStart = document.getElementById("btn-start");
+  this.btnHelp = document.getElementById("btn-help");
   this.elStart = document.getElementById("start-screen");
   this.elMenu = document.getElementById("menu-screen");
   this.elWin = document.getElementById("win-screen");
@@ -287,6 +288,7 @@ Ui.prototype.bind = function (handlers) {
   this.onPlanPick = handlers.planPick || null;
   this.onStoryContinue = handlers.storyContinue || null;
   on(this.btnStart, "click", handlers.start);
+  on(this.btnHelp, "click", handlers.help);
   on(this.btnPlanBack, "click", function (e) {
     e.stopPropagation();
     if (handlers.planBack) handlers.planBack();

@@ -624,9 +624,19 @@ function beginPlay() {
       layout();
       draw();
       return;
+    }    
+    if( ! forest.sawStory("start") ){
+      forest.markStory("start");  persistForest();
+      presentStory(Story.pages("start"), openTravel);      
+    }else{
+      openTravel();
     }
-    openTravel();
+    
   });
+}
+
+function showHelp() {
+  presentStory(Story.pages("start"));
 }
 
 function onPlanBack() {
@@ -771,6 +781,7 @@ function onViewport() {
 
 ui.bind({
   start: beginPlay,
+  help: showHelp,
   planPick: playCard,
   planBack: onPlanBack,
   menu: function () {

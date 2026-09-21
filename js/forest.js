@@ -9,7 +9,7 @@ const FEATURE_CATALOG = {
 };
 
 const UNLOCK_CHART = [
-  { unlock: "size-7", plus: 3, story: "" },
+  { unlock: "size-7", plus: 3, story: "first_7" },
   { unlock: "water", plus: 3, story: "first_pond" },
   { unlock: "size-8", plus: 3, story: "" },
   { unlock: "river", plus: 3, story: "first_river" },
@@ -207,7 +207,9 @@ Forest.prototype.markStory = function (id) {
 Forest.prototype.planStory = function (plan) {
   const item = this.nextItem();
   if (!item || !item.story) return "";
-  if (!plan || !this.planHasUnknown(plan)) return "";
+  if (!plan) return "";
+  const parsed = Forest.parseUnlock(item.unlock);
+  if (parsed && parsed.kind === "feature" && !this.planHasUnknown(plan)) return "";
   if (!this.matchesNext(plan)) return "";
   if (this.sawStory(item.story)) return "";
   return item.story;
