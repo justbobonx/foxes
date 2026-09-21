@@ -7,6 +7,8 @@ function Solver(grid) {
   this.blocked = [];
   this.bunnyRing = {};
   this.needBunny = 0;
+  this.hawkLine = {};
+  this.needHawk = 0;
   const bunny = grid.findBunny && grid.findBunny();
   if (bunny) {
     this.needBunny = 2;
@@ -18,6 +20,13 @@ function Solver(grid) {
         if (r < 0 || c < 0 || r >= this.n || c >= this.n) continue;
         this.bunnyRing[r + "," + c] = true;
       }
+    }
+  }
+  if (grid.hawk) {
+    this.needHawk = 1;
+    for (let r = 1; r < this.n; r++) {
+      const c = grid.hawk === "L" ? r : this.n - 1 - r;
+      this.hawkLine[r + "," + c] = true;
     }
   }
   for (let r = 0; r < this.n; r++) {
@@ -40,13 +49,16 @@ Solver.prototype.count = function (limit) {
   const blocked = this.blocked;
   const bunnyRing = this.bunnyRing;
   const needBunny = this.needBunny;
+  const hawkLine = this.hawkLine;
+  const needHawk = this.needHawk;
   let found = 0;
 
-  function walk(row, prevCol, usedCols, usedDells, ringHits) {
+  function walk(row, prevCol, usedCols, usedDells, ringHits, hawkHits) {
     if (found >= cap) return;
     if (ringHits > needBunny) return;
+    if (hawkHits > needHawk) return;
     if (row === n) {
-      if (ringHits === needBunny) found++;
+      if (ringHits === needBunny && hawkHits === needHawk) found++;
       return;
     }
     for (let col = 0; col < n; col++) {
@@ -56,11 +68,12 @@ Solver.prototype.count = function (limit) {
       const dell = dells[row][col];
       if (dell < 0 || usedDells & (1 << dell)) continue;
       const hit = bunnyRing[row + "," + col] ? 1 : 0;
-      walk(row + 1, col, usedCols | (1 << col), usedDells | (1 << dell), ringHits + hit);
+      const hawk = hawkLine[row + "," + col] ? 1 : 0;
+      walk(row + 1, col, usedCols | (1 << col), usedDells | (1 << dell), ringHits + hit, hawkHits + hawk);
       if (found >= cap) return;
     }
   }
 
-  walk(0, -1, 0, 0, 0);
+  walk(0, -1, 0, 0, 0, 0);
   return found;
 };

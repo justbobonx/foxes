@@ -102,17 +102,33 @@ Hint.prototype.ringTargets = function (fox) {
   return out;
 };
 
+Hint.prototype.hawkTargets = function (fox) {
+  const g = this.grid;
+  if (!g.hawk || !g.onHawkLine(fox.row, fox.col)) return [];
+  const out = [];
+  for (let r = 0; r < g.n; r++) {
+    for (let c = 0; c < g.n; c++) {
+      if (r === fox.row && c === fox.col) continue;
+      if (!g.onHawkLine(r, c)) continue;
+      const cell = g.at(r, c);
+      if (this.isEmptyGrass(cell)) out.push(cell);
+    }
+  }
+  return out;
+};
+
 Hint.prototype.level2Targets = function (rule, fox) {
   if (rule === "row") return this.rowTargets(fox);
   if (rule === "col") return this.colTargets(fox);
   if (rule === "dell") return this.dellTargets(fox);
+  if (rule === "hawk") return this.hawkTargets(fox);
   return this.ringTargets(fox);
 };
 
 Hint.prototype.tryLevel2 = function () {
   const foxes = this.foundFoxes();
   if (!foxes.length) return 0;
-  const rules = this.shuffle(["row", "col", "ring", "dell"]);
+  const rules = this.shuffle(["row", "col", "ring", "dell", "hawk"]);
   this.shuffle(foxes);
   for (let i = 0; i < rules.length; i++) {
     for (let f = 0; f < foxes.length; f++) {

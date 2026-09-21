@@ -4,13 +4,14 @@ const HOLE_DELL = -2;
 
 function Grid(n) {
   this.n = n;
-  this.plan = { n: n, ponds: 0, wolf: false, bunny: false };
+  this.plan = { n: n, ponds: 0, wolf: false, bunny: false, hawk: false };
   this.tries = 0;
   this.backs = 0;
   this.unique = false;
   this.wolfShown = false;
   this.wolfRow = -1;
   this.wolfCol = -1;
+  this.hawk = null;
   this.cells = [];
   for (let r = 0; r < n; r++) {
     const row = [];
@@ -46,6 +47,29 @@ Grid.prototype.findWolf = function () {
 Grid.prototype.nearWolf = function (row, col) {
   if (this.wolfRow < 0) return false;
   return Math.max(Math.abs(row - this.wolfRow), Math.abs(col - this.wolfCol)) <= 1;
+};
+
+Grid.prototype.hawkCol = function () {
+  if (this.hawk === "L") return 0;
+  if (this.hawk === "R") return this.n - 1;
+  return -1;
+};
+
+Grid.prototype.findHawk = function () {
+  const c = this.hawkCol();
+  if (c < 0) return null;
+  return this.cells[0][c];
+};
+
+Grid.prototype.onHawkDiag = function (row, col) {
+  if (!this.hawk) return false;
+  if (this.hawk === "L") return row === col;
+  return row + col === this.n - 1;
+};
+
+Grid.prototype.onHawkLine = function (row, col) {
+  if (!this.onHawkDiag(row, col)) return false;
+  return !(row === 0 && col === this.hawkCol());
 };
 
 Grid.prototype.findBunny = function () {
@@ -178,6 +202,7 @@ Grid.prototype.dump = function () {
     wolfShown: !!this.wolfShown,
     wolfRow: this.wolfRow,
     wolfCol: this.wolfCol,
+    hawk: this.hawk || null,
     plan: this.plan,
     cells: cells,
   };
@@ -188,9 +213,10 @@ Grid.load = function (data) {
   const grid = new Grid(data.n);
   grid.unique = !!data.unique;
   grid.wolfShown = !!data.wolfShown;
-  grid.plan = data.plan || { n: data.n, ponds: 0, wolf: false, bunny: false };
+  grid.plan = data.plan || { n: data.n, ponds: 0, wolf: false, bunny: false, hawk: false };
   grid.wolfRow = typeof data.wolfRow === "number" ? data.wolfRow : -1;
   grid.wolfCol = typeof data.wolfCol === "number" ? data.wolfCol : -1;
+  grid.hawk = data.hawk === "L" || data.hawk === "R" ? data.hawk : null;
   let i = 0;
   for (let r = 0; r < data.n; r++) {
     for (let c = 0; c < data.n; c++) {
@@ -205,11 +231,14 @@ Grid.load = function (data) {
       const kind =
         src.type ||
         src.specialId ||
-        (src.pond ? "pond" : src.cave || src.wolf ? "cave" : src.bunny ? "bunny" : "grass");
+        (src.pond ? "pond" : src.cave || src.wolf ? "cave" : src.bunny ? "bunny" : src.hawk ? "hawk" : "grass");
       cell.setType(kind);
       if (src.wolf) {
         grid.wolfRow = r;
         grid.wolfCol = c;
+      }
+      if (cell.is("hawk") && !grid.hawk) {
+        grid.hawk = c === 0 ? "L" : "R";
       }
       if (cell.isHole()) {
         cell.dellId = HOLE_DELL;

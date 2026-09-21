@@ -70,7 +70,7 @@ function parsePlanShort(raw) {
       if (hasRiver) continue;
       hasRiver = true;
       features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-    } else if (type === "wolf" || type === "bunny") {
+    } else if (type === "wolf" || type === "bunny" || type === "hawk") {
       features.push({ type: type });
     }
   }
@@ -93,7 +93,7 @@ function normalizeTestPlan(src) {
       hasRiver = true;
       const sz = f.size | 0;
       features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-    } else if (f.type === "wolf" || f.type === "bunny") {
+    } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
       features.push({ type: f.type });
     }
   }
@@ -316,6 +316,13 @@ function markGuessConflicts(g) {
   for (const k in rows) flagConflict(rows[k]);
   for (const k in cols) flagConflict(cols[k]);
   for (const k in dells) flagConflict(dells[k]);
+  if (g.hawk) {
+    const line = [];
+    for (let i = 0; i < foxes.length; i++) {
+      if (g.onHawkLine(foxes[i].row, foxes[i].col)) line.push(foxes[i]);
+    }
+    flagConflict(line);
+  }
   for (let i = 0; i < foxes.length; i++) {
     for (let j = i + 1; j < foxes.length; j++) {
       const a = foxes[i];
@@ -337,6 +344,7 @@ function level2Forced(cell, foxes) {
     if (cell.col === fox.col) return true;
     if (cell.dellId === fox.dellId) return true;
     if (Math.max(Math.abs(cell.row - fox.row), Math.abs(cell.col - fox.col)) <= 1) return true;
+    if (grid && grid.hawk && grid.onHawkLine(fox.row, fox.col) && grid.onHawkLine(cell.row, cell.col)) return true;
   }
   return false;
 }

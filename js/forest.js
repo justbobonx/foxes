@@ -6,6 +6,7 @@ const FEATURE_CATALOG = {
   river: { minN: 8, p: 0, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
+  hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
 };
 
 const UNLOCK_CHART = [
@@ -13,10 +14,11 @@ const UNLOCK_CHART = [
   { unlock: "water", plus: 3, story: "first_pond" },
   { unlock: "size-8", plus: 3, story: "" },
   { unlock: "river", plus: 3, story: "first_river" },
-  { unlock: "wolf", plus: 5, story: "first_wolf" },
+  { unlock: "wolf", plus: 3, story: "first_wolf" },
   { unlock: "size-9", plus: 3, story: "" },
-  { unlock: "bunny", plus: 3, story: "first_bunny" },
-  { unlock: "size-10", plus: 5, story: "" },
+  { unlock: "bunny", plus: 3, story: "first_bunny" },  
+  { unlock: "size-10", plus: 3, story: "" },
+  { unlock: "hawk", plus: 3, story: "first_hawk" },
 ];
 
 function Forest(data) {

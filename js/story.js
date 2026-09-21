@@ -24,6 +24,11 @@ that means more foxes`
   first_river: { image: "images/stream.png", sizex: 64, sizey: 64, text: "rivers" },
   first_wolf: { image: "images/wolf.png", sizex: 64, sizey: 64, text: "wolfs is scary" },
   first_bunny: { image: "images/bunny.png", sizex: 64, sizey: 64, text: "bunny go hop hop" },
+  first_hawk: { image: "images/hawk.png", sizex: 64, sizey: 64, text:
+`a hawk stares down
+from the corner of the forest
+exactly one fox on that line`
+  },
 };
 
 function Story() {}

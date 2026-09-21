@@ -435,6 +435,48 @@ Grid.prototype.bunnyPairs = function (row, col) {
   return out;
 };
 
+Grid.prototype.clearHawk = function () {
+  this.hawk = null;
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      const cell = this.cells[r][c];
+      if (cell.is("hawk")) {
+        cell.setType("grass");
+        cell.dellId = -1;
+      }
+    }
+  }
+};
+
+Grid.prototype.hawkLineSeats = function (side) {
+  const out = [];
+  const use = side || this.hawk;
+  if (!use) return out;
+  for (let r = 1; r < this.n; r++) {
+    const c = use === "L" ? r : this.n - 1 - r;
+    if (this.foxSeatOk(r, c)) out.push({ r: r, c: c });
+  }
+  return out;
+};
+
+Grid.prototype.placeHawk = function () {
+  this.clearHawk();
+  if (!this.plan || !this.plan.hawk) return true;
+  const sides = shuffleInPlace(["L", "R"].slice());
+  for (let i = 0; i < sides.length; i++) {
+    const side = sides[i];
+    const col = side === "L" ? 0 : this.n - 1;
+    if (this.cells[0][col].isHole()) continue;
+    if (this.hawkLineSeats(side).length < 2) continue;
+    const cell = this.cells[0][col];
+    cell.setType("hawk");
+    this.markHole(cell);
+    this.hawk = side;
+    return true;
+  }
+  return false;
+};
+
 Grid.prototype.placeBunny = function () {
   this.clearBunny();
   if (!this.plan || !this.plan.bunny) return true;
@@ -444,6 +486,7 @@ Grid.prototype.placeBunny = function () {
     for (let c = 0; c < this.n; c++) {
       if ((r === 0 || r === last) && (c === 0 || c === last)) continue;
       if (this.cells[r][c].isHole()) continue;
+      if (this.bunnySeats(r, c).length < 4) continue;
       if (!this.bunnyPairs(r, c).length) continue;
       spots.push({ r: r, c: c });
     }
@@ -562,11 +605,13 @@ Grid.prototype.tryPlaceOs = function () {
   }
 
   const self = this;
+  let hawkPlanted = false;
   function takeSeat(r, c) {
     const mid = massId[r][c];
     if (mid < 0 || !room[mid]) return false;
     if (!self.foxSeatOk(r, c)) return false;
     if (self.hasNearbyO(r, c)) return false;
+    if (hawkPlanted && self.onHawkLine(r, c)) return false;
     const ri = rows.indexOf(r);
     const ci = cols.indexOf(c);
     if (ri < 0 || ci < 0) return false;
@@ -576,6 +621,18 @@ Grid.prototype.tryPlaceOs = function () {
     room[mid]--;
     hits[mid]++;
     return true;
+  }
+
+  if (this.hawk) {
+    const seats = this.hawkLineSeats(this.hawk);
+    shuffleInPlace(seats);
+    for (let i = 0; i < seats.length; i++) {
+      if (takeSeat(seats[i].r, seats[i].c)) {
+        hawkPlanted = true;
+        break;
+      }
+    }
+    if (!hawkPlanted) return false;
   }
 
   const bunny = this.findBunny();
@@ -697,6 +754,7 @@ Grid.prototype.hasUnclaimedGrass = function () {
 
 Grid.prototype.prepLand = function () {
   if (!this.placeWater()) return false;
+  if (!this.placeHawk()) return false;
   if (!this.placeCave()) return false;
   if (!this.placeBunny()) return false;
   this.fillWaterIslands();
@@ -823,7 +881,7 @@ Grid.prototype.tryPaintDells = function () {
 };
 
 Grid.prototype.rebuild = function (plan) {
-  this.plan = plan || this.plan || { n: this.n, ponds: 0, river: 0, wolf: false, bunny: false };
+  this.plan = plan || this.plan || { n: this.n, ponds: 0, river: 0, wolf: false, bunny: false, hawk: false };
   this.unique = false;
   this.wolfShown = false;
   this.tries = 0;

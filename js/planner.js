@@ -53,6 +53,68 @@ Planner.waterParts = function (forest, n) {
   return parts;
 };
 
+Planner.hasType = function (features, type) {
+  const list = features || [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] && list[i].type === type) return true;
+  }
+  return false;
+};
+
+Planner.pondSizeSum = function (features) {
+  let n = 0;
+  const list = features || [];
+  for (let i = 0; i < list.length; i++) {
+    if (!list[i] || list[i].type !== "pond") continue;
+    n += list[i].size | 0 || list[i].amount | 0 || 1;
+  }
+  return n;
+};
+
+Planner.compat = function (features, prefer) {
+  const src = features || [];
+  const out = [];
+  for (let i = 0; i < src.length; i++) out.push(src[i]);
+  if (!Planner.hasType(out, "hawk")) return out;
+
+  if (Planner.hasType(out, "river")) {
+    if (prefer === "hawk") {
+      const kept = [];
+      for (let i = 0; i < out.length; i++) {
+        if (out[i].type !== "river") kept.push(out[i]);
+      }
+      out.length = 0;
+      for (let i = 0; i < kept.length; i++) out.push(kept[i]);
+    } else {
+      const kept = [];
+      for (let i = 0; i < out.length; i++) {
+        if (out[i].type !== "hawk") kept.push(out[i]);
+      }
+      return kept;
+    }
+  }
+
+  if (Planner.pondSizeSum(out) <= 2) return out;
+  const ponds = [];
+  const rest = [];
+  for (let i = 0; i < out.length; i++) {
+    if (out[i].type === "pond") ponds.push(out[i]);
+    else rest.push(out[i]);
+  }
+  ponds.sort(function (a, b) {
+    return (a.size || a.amount || 1) - (b.size || b.amount || 1);
+  });
+  const keptPonds = [];
+  let acc = 0;
+  for (let i = 0; i < ponds.length; i++) {
+    const sz = ponds[i].size | 0 || ponds[i].amount | 0 || 1;
+    if (acc + sz > 2) continue;
+    keptPonds.push(ponds[i]);
+    acc += sz;
+  }
+  return rest.concat(keptPonds);
+};
+
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   for (const type in Forest.CATALOG) {
@@ -69,7 +131,7 @@ Planner.rollFeatures = function (forest, n) {
 };
 
 Planner.terrainFirst = function (features) {
-  const rank = { pond: 0, river: 1, wolf: 2, bunny: 3 };
+  const rank = { pond: 0, river: 1, wolf: 2, bunny: 3, hawk: 4 };
   return (features || []).slice().sort(function (a, b) {
     const aa = rank[a.type] != null ? rank[a.type] : 9;
     const bb = rank[b.type] != null ? rank[b.type] : 9;
@@ -78,8 +140,8 @@ Planner.terrainFirst = function (features) {
   });
 };
 
-Planner.makePlan = function (size, features) {
-  return { size: Save.clampSize(size), features: this.terrainFirst(features) };
+Planner.makePlan = function (size, features, prefer) {
+  return { size: Save.clampSize(size), features: this.terrainFirst(Planner.compat(features, prefer)) };
 };
 
 Planner.sameFeatures = function (a, b) {
@@ -154,7 +216,7 @@ Planner.deeperCard = function (forest) {
     size = Save.clampSize(size);
     const features = Planner.forceFeature(Planner.rollFeatures(forest, size), parsed.type, forest, size);
     const lock = !!(lockedNext && size >= need);
-    return Planner.card("deeper", Planner.makePlan(size, features), lock, lock ? costTarget : 0);
+    return Planner.card("deeper", Planner.makePlan(size, features, parsed.type), lock, lock ? costTarget : 0);
   }
 
   if (loc.size < forest.maxN) {
@@ -235,7 +297,7 @@ Planner.prototype.giveUp = function (forest) {
 };
 
 Planner.toBuilder = function (plan) {
-  const out = { n: plan.size, ponds: [], river: 0, wolf: false, bunny: false };
+  const out = { n: plan.size, ponds: [], river: 0, wolf: false, bunny: false, hawk: false };
   const list = plan.features || [];
   for (let i = 0; i < list.length; i++) {
     const f = list[i];
@@ -243,6 +305,7 @@ Planner.toBuilder = function (plan) {
     if (f.type === "river") out.river = f.size | 0 || 2;
     if (f.type === "wolf") out.wolf = true;
     if (f.type === "bunny") out.bunny = true;
+    if (f.type === "hawk") out.hawk = true;
   }
   return out;
 };
@@ -264,5 +327,6 @@ Planner.fromBuilder = function (plan) {
   if (river) features.push({ type: "river", size: river });
   if (plan.wolf) features.push({ type: "wolf" });
   if (plan.bunny) features.push({ type: "bunny" });
+  if (plan.hawk) features.push({ type: "hawk" });
   return { size: Save.clampSize(plan.n || plan.size || Save.SIZE_MIN), features: features };
 };

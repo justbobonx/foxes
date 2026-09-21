@@ -21,38 +21,11 @@ const CELL_DELL_COLORS = [
   "#7a5a4e",
   "#4e5a6b",
   "#5a6b4e",
- 
-  // "#8a6238", // oak brown
-  // "#7a4a42", // brick rust
-  // "#6b5238", // bark
-  // "#9a7a38", // ochre
-  // "#6a5a38", // olive-brown
-  // "#4e6a58", // swamp sage
-  // "#3a5e5e", // deep teal
-  // "#4a5262", // iron slate
-  // "#5a4a62", // dusty violet
-  // "#6a4654", // wine plum
-  // "#4a5248", // charcoal moss
-  // "#7a5a38", // toasted umber
-  
-  // "#9a7a38", // 1 ochre
-  // "#3a5e5e", // 2 deep teal
-  // "#6a4654", // 3 wine plum
-  // "#4a5262", // 4 iron slate
-  // "#8a6238", // 5 oak brown
-  // "#5a4a62", // 6 dusty violet
-  // "#7a4a42", // 7 brick rust
-  // "#4e6a58", // 8 swamp sage
-  // "#6a5a38", // 9 olive-brown
-  // "#4a5248", // 10 charcoal moss
-  // "#6b5238", // 11 bark
-  // "#7a5a38", // 12 toasted umber
-
 ];
 
 const CELL_TYPES = {
   grass: {
-    glyphColor: "#000000", //"#2a2118",  //odd color as this should be given a dell color
+    glyphColor: "#000000",
     tap: true,
     markO: "o",
   },
@@ -74,6 +47,16 @@ const CELL_TYPES = {
     tap: false,
     stand: "b",
   },
+  hawk: {
+    fill: "#3a4a58",
+    edge: "#8ebdd4",
+    tap: false,
+    stand: "h",
+  },
+};
+
+const CELL_TRACES = {
+  hawk: { color: "#8ebdd4", widthFrac: 0.04 },
 };
 
 function Cell(row, col) {
@@ -86,12 +69,15 @@ function Cell(row, col) {
   this.wrong = false;
   this.warn = false;
   this.locked = false;
+  this.trace = null;
+  this.flipStand = false;
   this.look = CELL_TYPES.grass;
   this.fill = null;
   this.round = [true, true, true, true];
 }
 
 Cell.types = CELL_TYPES;
+Cell.traces = CELL_TRACES;
 
 Cell.prototype.is = function (name) {
   return this.type === name;
@@ -169,6 +155,20 @@ Cell.prototype.strokeRound = function (ctx, x, y, w, h, rad) {
   ctx.strokeRect(x, y, w, h);
 };
 
+Cell.prototype.drawStand = function (ctx, sprites, id, px, py, box) {
+  const stand = sprites.get(id);
+  if (!stand) return;
+  if (this.flipStand) {
+    ctx.save();
+    ctx.translate(px + box, py);
+    ctx.scale(-1, 1);
+    stand.draw(ctx, 0, 0, box);
+    ctx.restore();
+    return;
+  }
+  stand.draw(ctx, px, py, box);
+};
+
 Cell.prototype.drawMark = function (ctx, sprites, x, y, s, revealWolf) {
   const look = this.look || CELL_TYPES[this.type] || CELL_TYPES.grass;
   const pad = Math.max(0, Math.floor(s * 0.06));
@@ -176,8 +176,7 @@ Cell.prototype.drawMark = function (ctx, sprites, x, y, s, revealWolf) {
   const px = x + pad;
   const py = y + pad;
   if (look.stand) {
-    const stand = sprites.get(look.stand);
-    if (stand) stand.draw(ctx, px, py, box);
+    this.drawStand(ctx, sprites, look.stand, px, py, box);
   }
   if (this.is("cave") && (this.guessId === "o" || revealWolf)) {
     const sprite = sprites.get(look.markO || "w");
@@ -195,17 +194,10 @@ Cell.prototype.drawMark = function (ctx, sprites, x, y, s, revealWolf) {
       if (print) {
         print.draw(ctx, px, py, box);
         return;
-      }    
+      }
     }
-    const xg = sprites.get( this.is("cave") ? "xl" : "x");
+    const xg = sprites.get(this.is("cave") ? "xl" : "x");
     xg.draw(ctx, px, py, box);
-    // const g = sprites.get("x");
-    // if (!g) return;
-    // ctx.fillStyle = look.glyphColor || g.color || "#2a2118";
-    // ctx.font = "bold " + Math.floor(box * (g.scale || 0.42)) + "px ui-sans-serif, sans-serif";
-    // ctx.textAlign = "center";
-    // ctx.textBaseline = "middle";
-    // ctx.fillText(g.glyph || "X", px + box / 2, py + box / 2 + 1);
   }
 };
 
@@ -220,6 +212,12 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   ];
   ctx.fillStyle = this.fill || look.fill || "#6b8f4e";
   this.fillRound(ctx, x, y, s, s, corners);
+  const spec = this.trace ? CELL_TRACES[this.trace] : null;
+  if (spec) {
+    ctx.strokeStyle = spec.color;
+    ctx.lineWidth = Math.max(1, Math.floor(s * (spec.widthFrac || 0.04)));
+    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
+  }
   if (look.edge) {
     const checkW = Math.max(2, Math.floor(s * 0.07));
     ctx.strokeStyle = look.edge;
@@ -243,7 +241,7 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
 };
 
 Cell.dellFill = function (dellId) {
-  if( dellId<0 || dellId > CELL_DELL_COLORS.length-1)  return "#000000";
+  if (dellId < 0 || dellId > CELL_DELL_COLORS.length - 1) return "#000000";
   return CELL_DELL_COLORS[dellId];
 };
 
@@ -262,6 +260,8 @@ Cell.dressGrid = function (grid) {
       const kind = cell.type || "grass";
       cell.look = CELL_TYPES[kind] || CELL_TYPES.grass;
       cell.fill = kind === "grass" ? Cell.dellFill(cell.dellId) : cell.look.fill;
+      cell.trace = grid.onHawkDiag && grid.onHawkDiag(r, c) ? "hawk" : null;
+      cell.flipStand = !!(cell.is("hawk") && grid.hawk === "R");
       const up = Cell.samePatch(grid, cell, r - 1, c);
       const down = Cell.samePatch(grid, cell, r + 1, c);
       const left = Cell.samePatch(grid, cell, r, c - 1);
