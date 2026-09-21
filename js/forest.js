@@ -9,14 +9,14 @@ const FEATURE_CATALOG = {
 };
 
 const UNLOCK_CHART = [
-  { unlock: "size-7", plus: 3 },
-  { unlock: "water", plus: 3 },
-  { unlock: "size-8", plus: 3 },
-  { unlock: "river", plus: 3 },
-  { unlock: "wolf", plus: 5 },
-  { unlock: "size-9", plus: 3 },
-  { unlock: "bunny", plus: 3 },  
-  { unlock: "size-10", plus: 5 },
+  { unlock: "size-7", plus: 3, story: "" },
+  { unlock: "water", plus: 3, story: "first_pond" },
+  { unlock: "size-8", plus: 3, story: "" },
+  { unlock: "river", plus: 3, story: "first_river" },
+  { unlock: "wolf", plus: 5, story: "first_wolf" },
+  { unlock: "size-9", plus: 3, story: "" },
+  { unlock: "bunny", plus: 3, story: "first_bunny" },
+  { unlock: "size-10", plus: 5, story: "" },
 ];
 
 function Forest(data) {
@@ -35,6 +35,7 @@ function Forest(data) {
   this.location = Forest.copyPlan(data.location || fresh.location);
   this.lastPlan = Forest.copyPlan(data.lastPlan || this.location);
   this.offers = Array.isArray(data.offers) ? data.offers : null;
+  this.shownStories = Forest.copyShown(data.shownStories);
 }
 
 Forest.CATALOG = FEATURE_CATALOG;
@@ -47,6 +48,15 @@ Forest.blankPlan = function () {
 Forest.blankState = function () {
   const out = {};
   for (const type in FEATURE_CATALOG) out[type] = "locked";
+  return out;
+};
+
+Forest.copyShown = function (src) {
+  const out = {};
+  if (!src || typeof src !== "object") return out;
+  for (const k in src) {
+    if (src[k]) out[k] = true;
+  }
   return out;
 };
 
@@ -134,6 +144,7 @@ Forest.blank = function () {
     location: loc,
     lastPlan: Forest.copyPlan(loc),
     offers: null,
+    shownStories: {},
   };
 };
 
@@ -147,6 +158,7 @@ Forest.prototype.dump = function () {
     location: Forest.copyPlan(this.location),
     lastPlan: Forest.copyPlan(this.lastPlan),
     offers: this.offers,
+    shownStories: Forest.copyShown(this.shownStories),
   };
 };
 
@@ -164,6 +176,41 @@ Forest.prototype.stateOf = function (type) {
 Forest.prototype.waterKnown = function () {
   const water = this.stateOf("water");
   return water === "unlocked" || water === "seen";
+};
+
+Forest.prototype.iconState = function (type) {
+  const state = this.stateOf(type);
+  if (state === "seen") return state;
+  if ((type === "pond" || type === "river") && this.waterKnown()) {
+    return this.stateOf("water") === "seen" ? "seen" : state;
+  }
+  return state;
+};
+
+Forest.prototype.planHasUnknown = function (plan) {
+  const list = plan && plan.features ? plan.features : [];
+  for (let i = 0; i < list.length; i++) {
+    if (!list[i] || !list[i].type) continue;
+    if (this.iconState(list[i].type) !== "seen") return true;
+  }
+  return false;
+};
+
+Forest.prototype.sawStory = function (id) {
+  return !!(id && this.shownStories[id]);
+};
+
+Forest.prototype.markStory = function (id) {
+  if (id) this.shownStories[id] = true;
+};
+
+Forest.prototype.planStory = function (plan) {
+  const item = this.nextItem();
+  if (!item || !item.story) return "";
+  if (!plan || !this.planHasUnknown(plan)) return "";
+  if (!this.matchesNext(plan)) return "";
+  if (this.sawStory(item.story)) return "";
+  return item.story;
 };
 
 Forest.prototype.nextItem = function () {
