@@ -180,20 +180,11 @@ Forest.prototype.waterKnown = function () {
   return water === "unlocked" || water === "seen";
 };
 
-Forest.prototype.iconState = function (type) {
-  const state = this.stateOf(type);
-  if (state === "seen") return state;
-  if ((type === "pond" || type === "river") && this.waterKnown()) {
-    return this.stateOf("water") === "seen" ? "seen" : state;
-  }
-  return state;
-};
-
 Forest.prototype.planHasUnknown = function (plan) {
   const list = plan && plan.features ? plan.features : [];
   for (let i = 0; i < list.length; i++) {
     if (!list[i] || !list[i].type) continue;
-    if (this.iconState(list[i].type) !== "seen") return true;
+    if (this.stateOf(list[i].type) !== "seen") return true;
   }
   return false;
 };
