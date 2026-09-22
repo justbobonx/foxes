@@ -209,38 +209,3 @@ Planner.prototype.giveUp = function (forest) {
   forest.offers = offers;
   return offers;
 };
-
-Planner.toBuilder = function (plan) {
-  const out = { n: plan.size, ponds: [], river: 0, wolf: false, bunny: false, hawk: false };
-  const list = plan.features || [];
-  for (let i = 0; i < list.length; i++) {
-    const f = list[i];
-    if (f.type === "pond") out.ponds.push(f.size | 0 || f.amount | 0 || 1);
-    if (f.type === "river") out.river = f.size | 0 || 2;
-    if (f.type === "wolf") out.wolf = true;
-    if (f.type === "bunny") out.bunny = true;
-    if (f.type === "hawk") out.hawk = true;
-  }
-  return out;
-};
-
-Planner.fromBuilder = function (plan) {
-  if (!plan) return Forest.blankPlan();
-  if (plan.size && Array.isArray(plan.features)) return Forest.copyPlan(plan);
-  const features = [];
-  if (Array.isArray(plan.ponds)) {
-    for (let i = 0; i < plan.ponds.length; i++) {
-      const sz = plan.ponds[i] | 0;
-      if (sz) features.push({ type: "pond", size: sz });
-    }
-  } else {
-    const ponds = plan.ponds | 0;
-    if (ponds) features.push({ type: "pond", size: ponds });
-  }
-  const river = plan.river | 0;
-  if (river) features.push({ type: "river", size: river });
-  if (plan.wolf) features.push({ type: "wolf" });
-  if (plan.bunny) features.push({ type: "bunny" });
-  if (plan.hawk) features.push({ type: "hawk" });
-  return { size: Save.clampSize(plan.n || plan.size || Save.SIZE_MIN), features: features };
-};

@@ -198,7 +198,7 @@ function persistBoard() {
   data.won = ui.winOpen() || isClearedGrid(grid);
   data.hintCount = hintCount;
   data.hintCut = hintCut;
-  data.fieldPlan = grid.fieldPlan || Planner.fromBuilder(grid.plan);
+  data.fieldPlan = grid.fieldPlan;
   data.testPlan = !!playingTest;
   Save.writeBoard(data);
 }
@@ -299,9 +299,7 @@ function startField(plan, isTest) {
   ui.hideStart();
   playingTest = !!isTest;
   n = setLevel(plan.size);
-  const built = Planner.toBuilder(plan);
-  grid = GridBuilder.build(built);
-  grid.fieldPlan = Forest.copyPlan(plan);
+  grid = GridBuilder.build(plan);
   Cell.dressGrid(grid);
   hintCount = 0;
   hintCut = 1;
@@ -413,8 +411,7 @@ function clearMarks() {
 }
 
 function currentFieldPlan() {
-  if (grid && grid.fieldPlan) return grid.fieldPlan;
-  if (grid && grid.plan) return Planner.fromBuilder(grid.plan);
+  if (grid && grid.plan) return grid.plan;
   return forest.location;
 }
 
@@ -476,7 +473,8 @@ function onCheckHint() {
 
 function restoreBoard() {
   const data = Save.readBoard();
-  const plan = data && data.fieldPlan ? Forest.copyPlan(data.fieldPlan) : null;
+  const rawPlan = data && (data.fieldPlan || data.plan);
+  const plan = rawPlan ? Forest.copyPlan(rawPlan) : null;
   let fits = !!(plan && plan.size <= forest.maxN);
   if (fits) {
     const list = plan.features || [];
@@ -498,7 +496,6 @@ function restoreBoard() {
   }
   Cell.dressGrid(loaded);
   grid = loaded;
-  grid.fieldPlan = plan;
   forest.location = Forest.copyPlan(plan);
   forest.lastPlan = Forest.copyPlan(plan);
   persistForest();
