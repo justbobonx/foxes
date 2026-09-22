@@ -48,10 +48,29 @@ function GridBuilder(plan) {
   this.grid.plan = spec;
 }
 
+GridBuilder.SLICE_MS = 90;
+
 GridBuilder.build = function (plan) {
   const builder = new GridBuilder(plan);
   builder.run();
   return builder.grid;
+};
+
+GridBuilder.buildAsync = function (plan, onSlice) {
+  const builder = new GridBuilder(plan);
+  builder.startSearch();
+  return new Promise(function (resolve) {
+    function pump() {
+      const result = builder.searchSlice(GridBuilder.SLICE_MS);
+      if (result === "yield") {
+        if (onSlice) onSlice();
+        setTimeout(pump, 0);
+        return;
+      }
+      resolve(builder.grid);
+    }
+    pump();
+  });
 };
 
 GridBuilder.prototype.hasFeature = function (type) {
@@ -726,6 +745,17 @@ GridBuilder.prototype.paintDells = function () {
   return false;
 };
 
+GridBuilder.prototype.startSearch = function () {
+  const g = this.grid;
+  g.plan = this.plan;
+  g.unique = false;
+  g.wolfShown = false;
+  this.searchT = 0;
+  this.searchP = 0;
+  this.searchD = 0;
+  this.searchLand = false;
+};
+
 GridBuilder.prototype.tryPaintDells = function () {
   const g = this.grid;
   const n = g.n;
@@ -860,20 +890,46 @@ GridBuilder.prototype.tryPaintDells = function () {
 };
 
 GridBuilder.prototype.run = function () {
-  const g = this.grid;
-  g.plan = this.plan;
-  g.unique = false;
-  g.wolfShown = false;
-  for (let t = 0; t < UNIQUE_TRIES; t++) {
-    this.resetLand();
-    if (!this.prepLand()) continue;
-    for (let p = 0; p < PACK_TRIES; p++) {
-      if (!this.placeOs()) break;
-      if (!this.paintDells()) continue;
-      g.unique = true;
-      g.clearGuesses();
-      return true;
-    }
+  this.startSearch();
+  while (true) {
+    const result = this.searchSlice(1e9);
+    if (result !== "yield") return result === "done";
   }
-  return false;
+};
+
+GridBuilder.prototype.searchSlice = function (budgetMs) {
+  const g = this.grid;
+  const end = Date.now() + (budgetMs > 0 ? budgetMs : 90);
+  while (this.searchT < UNIQUE_TRIES) {
+    if (!this.searchLand) {
+      this.resetLand();
+      this.searchP = 0;
+      this.searchD = 0;
+      if (!this.prepLand()) {
+        this.searchT++;
+        if (Date.now() >= end) return "yield";
+        continue;
+      }
+      this.searchLand = true;
+    }
+    while (this.searchP < PACK_TRIES) {
+      if (this.searchD === 0 && !this.placeOs()) break;
+      while (this.searchD < DELL_PAINT_TRIES) {
+        if (this.tryPaintDells()) {
+          g.unique = true;
+          g.clearGuesses();
+          return "done";
+        }
+        this.searchD++;
+        if (Date.now() >= end) return "yield";
+      }
+      this.searchP++;
+      this.searchD = 0;
+      if (Date.now() >= end) return "yield";
+    }
+    this.searchLand = false;
+    this.searchT++;
+    if (Date.now() >= end) return "yield";
+  }
+  return "fail";
 };

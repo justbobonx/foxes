@@ -27,6 +27,8 @@ function Ui() {
   this.btnPlanBack = document.getElementById("btn-plan-back");
   this.elStory = document.getElementById("story-screen");
   this.elStorySlot = document.getElementById("story-slot");
+  this.elFind = document.getElementById("find-screen");
+  this.elFindFoxes = document.getElementById("find-foxes");
   this.onPlanPick = null;
   this.onStoryContinue = null;
 }
@@ -91,6 +93,34 @@ Ui.prototype.hideStory = function () {
   if (!this.elStory || this.elStory.hidden) return false;
   this.elStory.hidden = true;
   return true;
+};
+
+Ui.prototype.findOpen = function () {
+  return !!(this.elFind && !this.elFind.hidden);
+};
+
+Ui.prototype.showFind = function () {
+  if (this.elFind) this.elFind.hidden = false;
+};
+
+Ui.prototype.hideFind = function () {
+  if (this.elFind) this.elFind.hidden = true;
+  if (this.elFindFoxes) this.elFindFoxes.innerHTML = "";
+};
+
+Ui.prototype.setFindFoxes = function (count) {
+  if (!this.elFindFoxes) return;
+  const want = count | 0;
+  let have = this.elFindFoxes.childNodes.length;
+  while (have < want) {
+    const img = document.createElement("img");
+    img.src = "images/fox.png";
+    img.width = 40;
+    img.height = 40;
+    img.alt = "";
+    this.elFindFoxes.appendChild(img);
+    have++;
+  }
 };
 
 Ui.prototype.hudPad = function () {

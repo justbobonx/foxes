@@ -8,6 +8,9 @@ const sprites = SpriteBank.defaults(function () {
 const playChrome = new PlayChrome();
 const planner = new Planner();
 const TAP_MS = 350;
+const FIND_WAIT_MS = 500;
+const FIND_FOX_MS = 1000;
+const FIND_FOX_MAX = 6;
 const CHECK_CUT = 0.96;
 const CHECK_HIT = 0.98;
 const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.98, 0.99]; // 2-5 prints, 6 clean up
@@ -31,6 +34,8 @@ let hintCut = 1;
 let loadedPlan = Planner.fromQuery(window.location.search);
 if (loadedPlan && ui.btnStart) ui.btnStart.textContent = "Play URL Plan";
 let playingTest = false;
+let buildGen = 0;
+let building = false;
 
 function clearTestPlan() {
   loadedPlan = null;
@@ -106,12 +111,12 @@ function layout() {
 }
 
 function showMenu() {
-  if (!playing || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.showMenu();
 }
 
 function persistBoard() {
-  if (!playing || !grid || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || !grid || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
   data.won = ui.winOpen() || grid.isCleared();
@@ -156,17 +161,38 @@ function startField(plan, isTest) {
   ui.hideMenu();
   ui.hideStory();
   ui.hideStart();
+  ui.hideFind();
   playingTest = !!isTest;
   n = setLevel(plan.size);
-  grid = GridBuilder.build(plan);
-  Cell.dressGrid(grid);
-  hintCount = 0;
-  hintCut = 1;
-  clockElapsed = 0;
-  clockStarted = Date.now();
-  persistBoard();
-  ui.hidePlan();
-  showBoard();
+  building = true;
+  const gen = ++buildGen;
+  const started = Date.now();
+  let foxes = 0;
+  function tickFind() {
+    if (gen !== buildGen) return;
+    const elapsed = Date.now() - started;
+    if (elapsed < FIND_WAIT_MS) return;
+    if (!ui.findOpen()) ui.showFind();
+    const want = Math.min(FIND_FOX_MAX, 1 + Math.floor((elapsed - FIND_WAIT_MS) / FIND_FOX_MS));
+    if (want > foxes) {
+      foxes = want;
+      ui.setFindFoxes(foxes);
+    }
+  }
+  GridBuilder.buildAsync(plan, tickFind).then(function (built) {
+    if (gen !== buildGen) return;
+    building = false;
+    ui.hideFind();
+    grid = built;
+    Cell.dressGrid(grid);
+    hintCount = 0;
+    hintCut = 1;
+    clockElapsed = 0;
+    clockStarted = Date.now();
+    persistBoard();
+    ui.hidePlan();
+    showBoard();
+  });
 }
 
 function presentStory(pages, done) {
@@ -186,7 +212,7 @@ function presentStory(pages, done) {
 }
 
 function playCard(card) {
-  if (!card || card.locked) return;
+  if (!card || card.locked || building) return;
   const id = forest.planStory(card.plan);
   const pages = Story.pages(id);
   function go() {
@@ -205,7 +231,7 @@ function playCard(card) {
 }
 
 function resetBoard() {
-  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideWin();
   ui.hideMenu();
   grid.resetMarks();
@@ -216,7 +242,7 @@ function resetBoard() {
 }
 
 function clearMarks() {
-  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideMenu();
   grid.clearLooseMarks();
   chargeHint(6);
@@ -238,7 +264,7 @@ function finishBoardAction(persist) {
 }
 
 function onCheckHint() {
-  if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   const before = {};
   grid.each(function (cell, r, c) {
     before[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
@@ -327,7 +353,7 @@ function restoreBoard() {
 }
 
 function giveUpField() {
-  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideMenu();
   clockOff();
   const here = currentFieldPlan();
@@ -361,6 +387,8 @@ function onWinOk() {
 }
 
 function showTitle() {
+  buildGen++;
+  building = false;
   if (playing) {
     persistBoard();
     persistForest();
@@ -371,6 +399,7 @@ function showTitle() {
   ui.hideMenu();
   ui.hidePlan();
   ui.hideStory();
+  ui.hideFind();
   playChrome.leave();
   ui.showStart();
 }
@@ -503,7 +532,7 @@ function endDrag(e) {
 }
 
 function onBoardDown(e) {
-  if (!playing || !grid || ui.winOpen() || ui.menuOpen() || ui.planOpen() || ui.storyOpen()) return;
+  if (!playing || !grid || ui.winOpen() || ui.menuOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   const hit = cellAtEvent(e);
   if (!hit) return;
   e.preventDefault();
@@ -567,7 +596,7 @@ ui.bind({
   planPick: playCard,
   planBack: onPlanBack,
   menu: function () {
-    if (!playing || ui.planOpen() || ui.storyOpen()) return;
+    if (!playing || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
     if (ui.menuOpen()) ui.hideMenu();
     else showMenu();
   },
