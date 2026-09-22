@@ -18,7 +18,6 @@ Save.clampSize = function (n) {
 
 Save.readBoard = function () {
   try {
-    localStorage.removeItem("dells_board");
     const data = JSON.parse(localStorage.getItem(SAVE_BOARD) || "null");
     return data && data.n && data.cells ? data : null;
   } catch (err) {

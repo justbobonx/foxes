@@ -66,7 +66,6 @@ function Cell(row, col) {
   this.wrong = false;
   this.warn = false;
   this.locked = false;
-  this.trace = null;
   this.flipStand = false;
   this.look = CELL_TYPES.grass;
   this.fill = null;
@@ -245,9 +244,7 @@ Cell.dressGrid = function (grid) {
         cell.fill = id < 0 || id > CELL_DELL_COLORS.length - 1 ? "#000000" : CELL_DELL_COLORS[id];
       } else {
         cell.fill = cell.look.fill;
-      }
-      const onHawk = !!(grid.hawk && (grid.hawk === "L" ? r === c : r + c === grid.n - 1));
-      cell.trace = !cell.isHole() && onHawk ? "hawk" : null;
+      }      
       cell.flipStand = !!(cell.is("hawk") && grid.hawk === "R");
       const up = Cell.samePatch(grid, cell, r - 1, c);
       const down = Cell.samePatch(grid, cell, r + 1, c);

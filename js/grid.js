@@ -65,6 +65,25 @@ Grid.prototype.inBoard = function (r, c) {
   return r >= 0 && c >= 0 && r < this.n && c < this.n;
 };
 
+Grid.prototype.each = function (fn) {
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      if (fn(this.cells[r][c], r, c) === false) return;
+    }
+  }
+};
+
+Grid.prototype.findType = function (name) {
+  let found = null;
+  this.each(function (cell) {
+    if (cell.is(name)) {
+      found = cell;
+      return false;
+    }
+  });
+  return found;
+};
+
 Grid.prototype.isHole = function (row, col) {
   return this.cells[row][col].isHole();
 };
@@ -92,16 +111,11 @@ Grid.prototype.onHawkLine = function (row, col) {
 };
 
 Grid.prototype.findBunny = function () {
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      if (this.cells[r][c].is("bunny")) return this.cells[r][c];
-    }
-  }
-  return null;
+  return this.findType("bunny");
 };
 
 Grid.prototype.foxSeatOk = function (row, col) {
-  if (row < 0 || col < 0 || row >= this.n || col >= this.n) return false;
+  if (!this.inBoard(row, col)) return false;
   if (this.isHole(row, col)) return false;
   if (this.nearWolf(row, col)) return false;
   return true;
@@ -112,30 +126,132 @@ Grid.prototype.setSprite = function (row, col, id) {
 };
 
 Grid.prototype.clearSprites = function () {
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      this.cells[r][c].clearSprite();
-      this.cells[r][c].clearGuess();
-    }
-  }
+  this.each(function (cell) {
+    cell.clearSprite();
+    cell.clearGuess();
+  });
 };
 
 Grid.prototype.clearGuesses = function () {
   this.wolfShown = false;
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) this.cells[r][c].clearGuess();
-  }
+  this.each(function (cell) {
+    cell.clearGuess();
+  });
+};
+
+Grid.prototype.resetMarks = function () {
+  this.wolfShown = false;
+  this.each(function (cell) {
+    cell.resetMarks();
+  });
 };
 
 Grid.prototype.guessOCount = function () {
   let n = 0;
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      const cell = this.cells[r][c];
-      if (cell.guessId === "o" && cell.is("grass")) n++;
+  this.each(function (cell) {
+    if (cell.guessId === "o" && cell.is("grass")) n++;
+  });
+  return n;
+};
+
+Grid.prototype.isCleared = function () {
+  let locked = 0;
+  this.each(function (cell) {
+    if (cell.spriteId === "o" && cell.locked) locked++;
+  });
+  return locked === this.n;
+};
+
+Grid.prototype.markConflicts = function () {
+  function scored(cell) {
+    return !!(cell && (cell.locked || cell.wrong));
+  }
+  function flag(list) {
+    if (!list || list.length < 2) return;
+    for (let i = 0; i < list.length; i++) {
+      if (scored(list[i])) continue;
+      list[i].warn = true;
     }
   }
-  return n;
+  const foxes = [];
+  this.each(function (cell) {
+    cell.warn = false;
+    if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
+  });
+  const rows = {};
+  const cols = {};
+  const dells = {};
+  for (let i = 0; i < foxes.length; i++) {
+    const cell = foxes[i];
+    if (!rows[cell.row]) rows[cell.row] = [];
+    if (!cols[cell.col]) cols[cell.col] = [];
+    if (!dells[cell.dellId]) dells[cell.dellId] = [];
+    rows[cell.row].push(cell);
+    cols[cell.col].push(cell);
+    dells[cell.dellId].push(cell);
+  }
+  for (const k in rows) flag(rows[k]);
+  for (const k in cols) flag(cols[k]);
+  for (const k in dells) flag(dells[k]);
+  if (this.hawk) {
+    const line = [];
+    for (let i = 0; i < foxes.length; i++) {
+      if (this.onHawkLine(foxes[i].row, foxes[i].col)) line.push(foxes[i]);
+    }
+    flag(line);
+  }
+  for (let i = 0; i < foxes.length; i++) {
+    for (let j = i + 1; j < foxes.length; j++) {
+      const a = foxes[i];
+      const b = foxes[j];
+      if (Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) > 1) continue;
+      if (!scored(a)) a.warn = true;
+      if (!scored(b)) b.warn = true;
+    }
+  }
+  let nWarn = 0;
+  for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) nWarn++;
+  return nWarn;
+};
+
+Grid.prototype.clearLooseMarks = function () {
+  const foxes = [];
+  this.each(function (cell) {
+    if (!cell.is("grass") || cell.guessId !== "o") return;
+    if (cell.wrong || cell.warn) {
+      if (cell.locked) {
+        cell.wrong = false;
+        cell.warn = false;
+        foxes.push(cell);
+      } else {
+        cell.setGuess(null);
+      }
+      return;
+    }
+    foxes.push(cell);
+  });
+  const g = this;
+  this.each(function (cell) {
+    if (!cell.is("grass") || cell.guessId !== "x") return;
+    if (cell.locked) return;
+    let forced = false;
+    for (let i = 0; i < foxes.length; i++) {
+      const fox = foxes[i];
+      if (cell.row === fox.row || cell.col === fox.col || cell.dellId === fox.dellId) {
+        forced = true;
+        break;
+      }
+      if (Math.max(Math.abs(cell.row - fox.row), Math.abs(cell.col - fox.col)) <= 1) {
+        forced = true;
+        break;
+      }
+      if (g.hawk && g.onHawkLine(fox.row, fox.col) && g.onHawkLine(cell.row, cell.col)) {
+        forced = true;
+        break;
+      }
+    }
+    if (!forced) cell.setGuess(null);
+  });
 };
 
 Grid.prototype.checkGuesses = function () {
@@ -143,55 +259,50 @@ Grid.prototype.checkGuesses = function () {
   let found = 0;
   let rights = 0;
   let wrongs = 0;
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      const cell = this.cells[r][c];
-      if (!cell.is("grass")) continue;
-      if (cell.warn) {
-        win = false;
-        continue;
-      }
-      if (cell.guessId === "o") {
-        if (cell.spriteId === "o") {
-          found++;
-          if (!cell.locked) rights++;
-          cell.locked = true;
-          cell.wrong = false;
-        } else {
-          cell.wrong = true;
-          win = false;
-          wrongs++;
-        }
-      } else {
-        cell.wrong = false;
-        if (cell.spriteId === "o") win = false;
-      }
+  this.each(function (cell) {
+    if (!cell.is("grass")) return;
+    if (cell.warn) {
+      win = false;
+      return;
     }
-  }
+    if (cell.guessId === "o") {
+      if (cell.spriteId === "o") {
+        found++;
+        if (!cell.locked) rights++;
+        cell.locked = true;
+        cell.wrong = false;
+      } else {
+        cell.wrong = true;
+        win = false;
+        wrongs++;
+      }
+    } else {
+      cell.wrong = false;
+      if (cell.spriteId === "o") win = false;
+    }
+  });
   const won = win && found === this.n;
 
   const wolf = this.wolfRow < 0 ? null : this.cells[this.wolfRow][this.wolfCol];
   this.wolfShown = !!(won && wolf);
   let wolfRight = false;
   let wolfWrongs = 0;
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      const cell = this.cells[r][c];
-      if (!cell.is("cave")) continue;
-      if (cell.guessId === "o") {
-        if (this.isWolfAt(r, c)) {
-          wolfRight = true;
-          cell.wrong = false;
-        } else {
-          cell.wrong = true;
-          wolfWrongs++;
-        }
-      } else {
+  const self = this;
+  this.each(function (cell, r, c) {
+    if (!cell.is("cave")) return;
+    if (cell.guessId === "o") {
+      if (self.isWolfAt(r, c)) {
+        wolfRight = true;
         cell.wrong = false;
+      } else {
+        cell.wrong = true;
+        wolfWrongs++;
       }
-      if (!this.isWolfAt(r, c)) cell.locked = false;
+    } else {
+      cell.wrong = false;
     }
-  }
+    if (!self.isWolfAt(r, c)) cell.locked = false;
+  });
   if (wolf) wolf.locked = !!(won && wolfRight && wolfWrongs === 0);
 
   return { win: won, rights: rights, wrongs: wrongs };
@@ -199,20 +310,17 @@ Grid.prototype.checkGuesses = function () {
 
 Grid.prototype.dump = function () {
   const cells = [];
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      const cell = this.cells[r][c];
-      cells.push({
-        dellId: cell.dellId,
-        type: cell.type,
-        spriteId: cell.spriteId,
-        guessId: cell.guessId,
-        wrong: !!cell.wrong,
-        warn: !!cell.warn,
-        locked: !!cell.locked,
-      });
-    }
-  }
+  this.each(function (cell) {
+    cells.push({
+      dellId: cell.dellId,
+      type: cell.type,
+      spriteId: cell.spriteId,
+      guessId: cell.guessId,
+      wrong: !!cell.wrong,
+      warn: !!cell.warn,
+      locked: !!cell.locked,
+    });
+  });
   return {
     n: this.n,
     unique: this.unique,

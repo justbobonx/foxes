@@ -28,70 +28,9 @@ let dragCell = null;
 let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
-let loadedPlan = parsePlanQuery();
+let loadedPlan = Planner.fromQuery(window.location.search);
 if (loadedPlan && ui.btnStart) ui.btnStart.textContent = "Play URL Plan";
 let playingTest = false;
-
-function parsePlanQuery() {
-  let raw = "";
-  try {
-    raw = new URLSearchParams(window.location.search).get("plan") || "";
-  } catch (err) {
-    return null;
-  }
-  raw = raw.trim();
-  if (!raw) return null;
-  if (raw.charAt(0) === "{") {
-    try {
-      const src = JSON.parse(raw);
-      if (!src || typeof src !== "object") return null;
-      const features = [];
-      const list = Array.isArray(src.features) ? src.features : [];
-      let hasRiver = false;
-      for (let i = 0; i < list.length; i++) {
-        const f = list[i];
-        if (!f || !f.type) continue;
-        if (f.type === "pond") {
-          const sz = f.size | 0 || f.amount | 0 || 1;
-          features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
-        } else if (f.type === "river") {
-          if (hasRiver) continue;
-          hasRiver = true;
-          const sz = f.size | 0;
-          features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-        } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
-          features.push({ type: f.type });
-        }
-      }
-      return Forest.copyPlan({ size: src.size || src.n, features: features });
-    } catch (err) {
-      return null;
-    }
-  }
-  const parts = raw.split(",");
-  const size = parseInt(parts[0], 10);
-  if (!size) return null;
-  const features = [];
-  let hasRiver = false;
-  for (let i = 1; i < parts.length; i++) {
-    const bit = parts[i].trim();
-    if (!bit) continue;
-    const kv = bit.split(":");
-    const type = kv[0].trim();
-    const sz = kv.length > 1 ? parseInt(kv[1], 10) : 0;
-    if (type === "pond") {
-      const pond = sz >= 1 && sz <= 4 ? sz : 1;
-      features.push({ type: "pond", size: pond });
-    } else if (type === "river") {
-      if (hasRiver) continue;
-      hasRiver = true;
-      features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-    } else if (type === "wolf" || type === "bunny" || type === "hawk") {
-      features.push({ type: type });
-    }
-  }
-  return Forest.copyPlan({ size: size, features: features });
-}
 
 function clearTestPlan() {
   loadedPlan = null;
@@ -166,39 +105,18 @@ function layout() {
   ctx.imageSmoothingEnabled = dest < TILE;
 }
 
-function hideWin() {
-  ui.hideWin();
-}
-
-function hideMenu() {
-  ui.hideMenu();
-}
-
 function showMenu() {
   if (!playing || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   ui.showMenu();
-}
-
-function isClearedGrid(g) {
-  if (!g) return false;
-  let locked = 0;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      if (cell.spriteId === "o" && cell.locked) locked++;
-    }
-  }
-  return locked === g.n;
 }
 
 function persistBoard() {
   if (!playing || !grid || ui.planOpen() || ui.storyOpen()) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
-  data.won = ui.winOpen() || isClearedGrid(grid);
+  data.won = ui.winOpen() || grid.isCleared();
   data.hintCount = hintCount;
   data.hintCut = hintCut;
-  data.fieldPlan = grid.fieldPlan;
   data.testPlan = !!playingTest;
   Save.writeBoard(data);
 }
@@ -213,64 +131,9 @@ function paintScore() {
   });
 }
 
-function markGuessConflicts(g) {
-  function scored(cell) {
-    return !!(cell && (cell.locked || cell.wrong));
-  }
-  function flag(list) {
-    if (!list || list.length < 2) return;
-    for (let i = 0; i < list.length; i++) {
-      if (scored(list[i])) continue;
-      list[i].warn = true;
-    }
-  }
-  const foxes = [];
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      cell.warn = false;
-      if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
-    }
-  }
-  const rows = {};
-  const cols = {};
-  const dells = {};
-  for (let i = 0; i < foxes.length; i++) {
-    const cell = foxes[i];
-    if (!rows[cell.row]) rows[cell.row] = [];
-    if (!cols[cell.col]) cols[cell.col] = [];
-    if (!dells[cell.dellId]) dells[cell.dellId] = [];
-    rows[cell.row].push(cell);
-    cols[cell.col].push(cell);
-    dells[cell.dellId].push(cell);
-  }
-  for (const k in rows) flag(rows[k]);
-  for (const k in cols) flag(cols[k]);
-  for (const k in dells) flag(dells[k]);
-  if (g.hawk) {
-    const line = [];
-    for (let i = 0; i < foxes.length; i++) {
-      if (g.onHawkLine(foxes[i].row, foxes[i].col)) line.push(foxes[i]);
-    }
-    flag(line);
-  }
-  for (let i = 0; i < foxes.length; i++) {
-    for (let j = i + 1; j < foxes.length; j++) {
-      const a = foxes[i];
-      const b = foxes[j];
-      if (Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) > 1) continue;
-      if (!scored(a)) a.warn = true;
-      if (!scored(b)) b.warn = true;
-    }
-  }
-  let nWarn = 0;
-  for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) nWarn++;
-  return nWarn;
-}
-
 function showBoard(keepWin) {
-  if (!keepWin) hideWin();
-  hideMenu();
+  if (!keepWin) ui.hideWin();
+  ui.hideMenu();
   setLevel(n);
   paintScore();
   layout();
@@ -278,7 +141,7 @@ function showBoard(keepWin) {
 }
 
 function showOffers(cards) {
-  hideMenu();
+  ui.hideMenu();
   ui.paintPlans(cards, forest);
   persistForest();
   ui.showPlan();
@@ -288,13 +151,9 @@ function openTravel() {
   showOffers(planner.travel(forest));
 }
 
-function hidePlan() {
-  return ui.hidePlan();
-}
-
 function startField(plan, isTest) {
-  hideWin();
-  hideMenu();
+  ui.hideWin();
+  ui.hideMenu();
   ui.hideStory();
   ui.hideStart();
   playingTest = !!isTest;
@@ -306,7 +165,7 @@ function startField(plan, isTest) {
   clockElapsed = 0;
   clockStarted = Date.now();
   persistBoard();
-  hidePlan();
+  ui.hidePlan();
   showBoard();
 }
 
@@ -341,18 +200,15 @@ function playCard(card) {
   }
   forest.markStory(id);
   persistForest();
-  hidePlan();
+  ui.hidePlan();
   presentStory(pages, go);
 }
 
 function resetBoard() {
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
-  hideWin();
-  hideMenu();
-  grid.wolfShown = false;
-  for (let r = 0; r < grid.n; r++) {
-    for (let c = 0; c < grid.n; c++) grid.at(r, c).resetMarks();
-  }
+  ui.hideWin();
+  ui.hideMenu();
+  grid.resetMarks();
   persistBoard();
   paintScore();
   layout();
@@ -361,49 +217,8 @@ function resetBoard() {
 
 function clearMarks() {
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
-  hideMenu();
-  const foxes = [];
-  for (let r = 0; r < grid.n; r++) {
-    for (let c = 0; c < grid.n; c++) {
-      const cell = grid.at(r, c);
-      if (!cell.is("grass") || cell.guessId !== "o") continue;
-      if (cell.wrong || cell.warn) {
-        if (cell.locked) {
-          cell.wrong = false;
-          cell.warn = false;
-          foxes.push(cell);
-        } else {
-          cell.setGuess(null);
-        }
-        continue;
-      }
-      foxes.push(cell);
-    }
-  }
-  for (let r = 0; r < grid.n; r++) {
-    for (let c = 0; c < grid.n; c++) {
-      const cell = grid.at(r, c);
-      if (!cell.is("grass") || cell.guessId !== "x") continue;
-      if (cell.locked) continue;
-      let forced = false;
-      for (let i = 0; i < foxes.length; i++) {
-        const fox = foxes[i];
-        if (cell.row === fox.row || cell.col === fox.col || cell.dellId === fox.dellId) {
-          forced = true;
-          break;
-        }
-        if (Math.max(Math.abs(cell.row - fox.row), Math.abs(cell.col - fox.col)) <= 1) {
-          forced = true;
-          break;
-        }
-        if (grid.hawk && grid.onHawkLine(fox.row, fox.col) && grid.onHawkLine(cell.row, cell.col)) {
-          forced = true;
-          break;
-        }
-      }
-      if (!forced) cell.setGuess(null);
-    }
-  }
+  ui.hideMenu();
+  grid.clearLooseMarks();
   chargeHint(6);
   persistBoard();
   paintScore();
@@ -425,25 +240,19 @@ function finishBoardAction(persist) {
 function onCheckHint() {
   if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
   const before = {};
-  for (let r = 0; r < grid.n; r++) {
-    for (let c = 0; c < grid.n; c++) {
-      const cell = grid.at(r, c);
-      before[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
-    }
-  }
-  const warns = markGuessConflicts(grid);
+  grid.each(function (cell, r, c) {
+    before[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
+  });
+  const warns = grid.markConflicts();
   const checkMode = grid.guessOCount() >= grid.n;
   const result = grid.checkGuesses();
   if (warns || result.wrongs > 0) {
     let fresh = 0;
-    for (let r = 0; r < grid.n; r++) {
-      for (let c = 0; c < grid.n; c++) {
-        const cell = grid.at(r, c);
-        const prev = before[r + "," + c] || {};
-        if (cell.warn && !prev.warn) fresh++;
-        if (cell.wrong && !prev.wrong) fresh++;
-      }
-    }
+    grid.each(function (cell, r, c) {
+      const prev = before[r + "," + c] || {};
+      if (cell.warn && !prev.warn) fresh++;
+      if (cell.wrong && !prev.wrong) fresh++;
+    });
     if (fresh) {
       hintCut *= CHECK_CUT * Math.pow(CHECK_HIT, Math.max(1, fresh));
       hintCount += 1;
@@ -505,7 +314,7 @@ function restoreBoard() {
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;
   playingTest = false;
-  const won = !!(data.won || isClearedGrid(loaded));
+  const won = !!(data.won || loaded.isCleared());
   if (won) {
     clockOff();
     paintWin();
@@ -519,7 +328,7 @@ function restoreBoard() {
 
 function giveUpField() {
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
-  hideMenu();
+  ui.hideMenu();
   clockOff();
   const here = currentFieldPlan();
   forest.location = Forest.copyPlan(here);
@@ -537,7 +346,7 @@ function giveUpField() {
 }
 
 function onWinOk() {
-  hideWin();
+  ui.hideWin();
   Save.clearBoard();
   forest.offers = null;
   persistForest();
@@ -558,9 +367,9 @@ function showTitle() {
     clockOff();
   }
   playing = false;
-  hideWin();
-  hideMenu();
-  hidePlan();
+  ui.hideWin();
+  ui.hideMenu();
+  ui.hidePlan();
   ui.hideStory();
   playChrome.leave();
   ui.showStart();
@@ -595,7 +404,7 @@ function showHelp() {
 
 function onPlanBack() {
   persistForest();
-  hidePlan();
+  ui.hidePlan();
   showTitle();
 }
 
@@ -633,14 +442,12 @@ function draw() {
   drawHawkBand();
   const inset = Math.max(1, Math.floor(cellSize * 0.06));
   const s = cellSize - inset * 2;
-  for (let r = 0; r < grid.n; r++) {
-    for (let c = 0; c < grid.n; c++) {
-      const x = originX + c * cellSize + inset;
-      const y = originY + r * cellSize + inset;
-      const reveal = grid.wolfShown && grid.isWolfAt(r, c);
-      grid.at(r, c).draw(ctx, sprites, x, y, s, reveal);
-    }
-  }
+  grid.each(function (cell, r, c) {
+    const x = originX + c * cellSize + inset;
+    const y = originY + r * cellSize + inset;
+    const reveal = grid.wolfShown && grid.isWolfAt(r, c);
+    cell.draw(ctx, sprites, x, y, s, reveal);
+  });
 }
 
 function cellAtEvent(e) {
@@ -761,7 +568,7 @@ ui.bind({
   planBack: onPlanBack,
   menu: function () {
     if (!playing || ui.planOpen() || ui.storyOpen()) return;
-    if (ui.menuOpen()) hideMenu();
+    if (ui.menuOpen()) ui.hideMenu();
     else showMenu();
   },
   reset: resetBoard,
@@ -770,7 +577,7 @@ ui.bind({
   winNew: onWinOk,
   check: onCheckHint,
   menuBackdrop: function (e) {
-    if (e.target === ui.elMenu) hideMenu();
+    if (e.target === ui.elMenu) ui.hideMenu();
   },
 });
 

@@ -69,6 +69,67 @@ Planner.makePlan = function (size, features) {
   return { size: Save.clampSize(size), features: list };
 };
 
+Planner.fromQuery = function (search) {
+  let raw = "";
+  try {
+    raw = new URLSearchParams(search || "").get("plan") || "";
+  } catch (err) {
+    return null;
+  }
+  raw = raw.trim();
+  if (!raw) return null;
+  if (raw.charAt(0) === "{") {
+    try {
+      const src = JSON.parse(raw);
+      if (!src || typeof src !== "object") return null;
+      const features = [];
+      const list = Array.isArray(src.features) ? src.features : [];
+      let hasRiver = false;
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i];
+        if (!f || !f.type) continue;
+        if (f.type === "pond") {
+          const sz = f.size | 0 || f.amount | 0 || 1;
+          features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
+        } else if (f.type === "river") {
+          if (hasRiver) continue;
+          hasRiver = true;
+          const sz = f.size | 0;
+          features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+        } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
+          features.push({ type: f.type });
+        }
+      }
+      return Forest.copyPlan({ size: src.size || src.n, features: features });
+    } catch (err) {
+      return null;
+    }
+  }
+  const parts = raw.split(",");
+  const size = parseInt(parts[0], 10);
+  if (!size) return null;
+  const features = [];
+  let hasRiver = false;
+  for (let i = 1; i < parts.length; i++) {
+    const bit = parts[i].trim();
+    if (!bit) continue;
+    const kv = bit.split(":");
+    const type = kv[0].trim();
+    const sz = kv.length > 1 ? parseInt(kv[1], 10) : 0;
+    if (type === "pond") {
+      const pond = sz >= 1 && sz <= 4 ? sz : 1;
+      features.push({ type: "pond", size: pond });
+    } else if (type === "river") {
+      if (hasRiver) continue;
+      hasRiver = true;
+      features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+    } else if (type === "wolf" || type === "bunny" || type === "hawk") {
+      features.push({ type: type });
+    }
+  }
+  return Forest.copyPlan({ size: size, features: features });
+};
+
 Planner.rollDiffer = function (forest, n, avoid) {
   const plan = Planner.makePlan(n, Planner.rollFeatures(forest, n));
   if (avoid && Forest.featureKey(plan) === Forest.featureKey(avoid)) {
@@ -180,7 +241,6 @@ Planner.refreshLocked = function (cards, forest) {
   for (let i = 0; i < cards.length; i++) {
     if (!cards[i] || !cards[i].locked) continue;
     cards[i].costTarget = target;
-    cards[i].costLeft = 0;
   }
   return cards;
 };
