@@ -1,4 +1,4 @@
-/** 
+/**
   Local hint painter, gives missed Xs (hint level 2-5, 0-1 are O validty checks elsewhere)
     2 paints 1 missed rule forced logic.
     3 paints 1 missed intersectional logic.
@@ -40,105 +40,6 @@ Hint.prototype.applyPrints = function (cells) {
   return n;
 };
 
-Hint.prototype.foundFoxes = function () {
-  const out = [];
-  const g = this.grid;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      if (this.isFoundFox(cell)) out.push(cell);
-    }
-  }
-  return out;
-};
-
-Hint.prototype.rowTargets = function (fox) {
-  const out = [];
-  for (let c = 0; c < this.grid.n; c++) {
-    if (c === fox.col) continue;
-    const cell = this.grid.at(fox.row, c);
-    if (this.isEmptyGrass(cell)) out.push(cell);
-  }
-  return out;
-};
-
-Hint.prototype.colTargets = function (fox) {
-  const out = [];
-  for (let r = 0; r < this.grid.n; r++) {
-    if (r === fox.row) continue;
-    const cell = this.grid.at(r, fox.col);
-    if (this.isEmptyGrass(cell)) out.push(cell);
-  }
-  return out;
-};
-
-Hint.prototype.dellTargets = function (fox) {
-  const out = [];
-  const g = this.grid;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      if (r === fox.row && c === fox.col) continue;
-      const cell = g.at(r, c);
-      if (cell.dellId !== fox.dellId) continue;
-      if (this.isEmptyGrass(cell)) out.push(cell);
-    }
-  }
-  return out;
-};
-
-Hint.prototype.ringTargets = function (fox) {
-  const out = [];
-  const g = this.grid;
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (!dr && !dc) continue;
-      const r = fox.row + dr;
-      const c = fox.col + dc;
-      if (r < 0 || c < 0 || r >= g.n || c >= g.n) continue;
-      const cell = g.at(r, c);
-      if (this.isEmptyGrass(cell)) out.push(cell);
-    }
-  }
-  return out;
-};
-
-Hint.prototype.hawkTargets = function (fox) {
-  const g = this.grid;
-  if (!g.hawk || !g.onHawkLine(fox.row, fox.col)) return [];
-  const out = [];
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      if (r === fox.row && c === fox.col) continue;
-      if (!g.onHawkLine(r, c)) continue;
-      const cell = g.at(r, c);
-      if (this.isEmptyGrass(cell)) out.push(cell);
-    }
-  }
-  return out;
-};
-
-Hint.prototype.level2Targets = function (rule, fox) {
-  if (rule === "row") return this.rowTargets(fox);
-  if (rule === "col") return this.colTargets(fox);
-  if (rule === "dell") return this.dellTargets(fox);
-  if (rule === "hawk") return this.hawkTargets(fox);
-  return this.ringTargets(fox);
-};
-
-Hint.prototype.tryLevel2 = function () {
-  const foxes = this.foundFoxes();
-  if (!foxes.length) return 0;
-  const rules = this.shuffle(["row", "col", "ring", "dell", "hawk"]);
-  this.shuffle(foxes);
-  for (let i = 0; i < rules.length; i++) {
-    for (let f = 0; f < foxes.length; f++) {
-      const targets = this.level2Targets(rules[i], foxes[f]);
-      if (targets.length) return this.applyPrints(targets);
-    }
-  }
-  return 0;
-};
-
 Hint.prototype.dellMap = function () {
   const map = {};
   const g = this.grid;
@@ -153,190 +54,196 @@ Hint.prototype.dellMap = function () {
   return map;
 };
 
-Hint.prototype.lineSet = function (cells, axis) {
-  const seen = {};
-  const lines = [];
-  for (let i = 0; i < cells.length; i++) {
-    const v = axis === "row" ? cells[i].row : cells[i].col;
-    if (seen[v]) continue;
-    seen[v] = true;
-    lines.push(v);
-  }
-  return lines;
-};
-
-Hint.prototype.stripTargets = function (cells) {
-  if (!cells.length) return [];
-  const id = cells[0].dellId;
-  const rows = this.lineSet(cells, "row");
-  const cols = this.lineSet(cells, "col");
-  const out = [];
+Hint.prototype.tryLevel2 = function () {
   const g = this.grid;
-  if (rows.length === 1) {
-    const r = rows[0];
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      if (cell.dellId === id) continue;
-      if (this.isEmptyGrass(cell)) out.push(cell);
-    }
-    return out;
-  }
-  if (cols.length === 1) {
-    const c = cols[0];
-    for (let r = 0; r < g.n; r++) {
-      const cell = g.at(r, c);
-      if (cell.dellId === id) continue;
-      if (this.isEmptyGrass(cell)) out.push(cell);
-    }
-  }
-  return out;
-};
-
-Hint.prototype.containedIn = function (cells, axis, a, b) {
-  for (let i = 0; i < cells.length; i++) {
-    const v = axis === "row" ? cells[i].row : cells[i].col;
-    if (v !== a && v !== b) return false;
-  }
-  return cells.length > 0;
-};
-
-Hint.prototype.twoLineTargets = function (axis, a, b, keep) {
-  const g = this.grid;
-  const out = [];
-  for (let i = 0; i < g.n; i++) {
-    for (let k = 0; k < 2; k++) {
-      const line = k === 0 ? a : b;
-      const cell = axis === "row" ? g.at(line, i) : g.at(i, line);
-      if (!this.isEmptyGrass(cell)) continue;
-      if (keep[cell.dellId]) continue;
-      out.push(cell);
-    }
-  }
-  return out;
-};
-
-Hint.prototype.isStripDell = function (cells) {
-  if (!cells.length) return false;
-  return this.lineSet(cells, "row").length === 1 || this.lineSet(cells, "col").length === 1;
-};
-
-Hint.prototype.twoLineBatches = function (dells) {
-  const ids = [];
-  for (const id in dells) ids.push(+id);
-  const batches = [];
-  const n = this.grid.n;
-  const axes = ["row", "col"];
-  for (let ax = 0; ax < axes.length; ax++) {
-    const axis = axes[ax];
-    for (let a = 0; a < n - 1; a++) {
-      const b = a + 1;
-      const contained = [];
-      for (let i = 0; i < ids.length; i++) {
-        if (this.containedIn(dells[ids[i]], axis, a, b)) contained.push(ids[i]);
-      }
-      if (contained.length !== 2) continue;
-      if (this.isStripDell(dells[contained[0]]) && this.isStripDell(dells[contained[1]])) continue;
-      const keep = {};
-      keep[contained[0]] = true;
-      keep[contained[1]] = true;
-      const targets = this.twoLineTargets(axis, a, b, keep);
-      if (targets.length) batches.push(targets);
-    }
-  }
-  return batches;
-};
-
-Hint.prototype.haloTargets = function (seats) {
-  if (seats.length < 2 || seats.length > 3) return [];
-  const g = this.grid;
-  const mine = {};
-  for (let i = 0; i < seats.length; i++) mine[seats[i].row + "," + seats[i].col] = true;
-  const out = [];
+  const foxes = [];
   for (let r = 0; r < g.n; r++) {
     for (let c = 0; c < g.n; c++) {
-      if (mine[r + "," + c]) continue;
       const cell = g.at(r, c);
-      if (!this.isEmptyGrass(cell)) continue;
-      let all = true;
-      for (let i = 0; i < seats.length; i++) {
-        if (Math.max(Math.abs(r - seats[i].row), Math.abs(c - seats[i].col)) > 1) {
-          all = false;
-          break;
-        }
-      }
-      if (all) out.push(cell);
+      if (this.isFoundFox(cell)) foxes.push(cell);
     }
   }
-  return out;
-};
+  if (!foxes.length) return 0;
 
-Hint.prototype.haloFromDell = function (cells) {
-  const seats = [];
-  for (let i = 0; i < cells.length; i++) {
-    const cell = cells[i];
-    if (this.isFoundFox(cell)) return [];
-    if (cell.locked && cell.guessId === "x") continue;
-    if (cell.guessId === "o") continue;
-    seats.push(cell);
+  const rules = this.shuffle(["row", "col", "ring", "dell", "hawk"]);
+  this.shuffle(foxes);
+
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    for (let f = 0; f < foxes.length; f++) {
+      const fox = foxes[f];
+      const targets = [];
+      if (rule === "row") {
+        for (let c = 0; c < g.n; c++) {
+          if (c === fox.col) continue;
+          const cell = g.at(fox.row, c);
+          if (this.isEmptyGrass(cell)) targets.push(cell);
+        }
+      } else if (rule === "col") {
+        for (let r = 0; r < g.n; r++) {
+          if (r === fox.row) continue;
+          const cell = g.at(r, fox.col);
+          if (this.isEmptyGrass(cell)) targets.push(cell);
+        }
+      } else if (rule === "dell") {
+        for (let r = 0; r < g.n; r++) {
+          for (let c = 0; c < g.n; c++) {
+            if (r === fox.row && c === fox.col) continue;
+            const cell = g.at(r, c);
+            if (cell.dellId !== fox.dellId) continue;
+            if (this.isEmptyGrass(cell)) targets.push(cell);
+          }
+        }
+      } else if (rule === "hawk") {
+        if (g.hawk && g.onHawkLine(fox.row, fox.col)) {
+          for (let r = 0; r < g.n; r++) {
+            for (let c = 0; c < g.n; c++) {
+              if (r === fox.row && c === fox.col) continue;
+              if (!g.onHawkLine(r, c)) continue;
+              const cell = g.at(r, c);
+              if (this.isEmptyGrass(cell)) targets.push(cell);
+            }
+          }
+        }
+      } else {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (!dr && !dc) continue;
+            const r = fox.row + dr;
+            const c = fox.col + dc;
+            if (r < 0 || c < 0 || r >= g.n || c >= g.n) continue;
+            const cell = g.at(r, c);
+            if (this.isEmptyGrass(cell)) targets.push(cell);
+          }
+        }
+      }
+      if (targets.length) return this.applyPrints(targets);
+    }
   }
-  if (seats.length < 2 || seats.length > 3) return [];
-  return this.haloTargets(seats);
+  return 0;
 };
 
 Hint.prototype.tryLevel3 = function () {
+  const g = this.grid;
   const dells = this.dellMap();
   const batches = [];
-  for (const id in dells) {
-    const strip = this.stripTargets(dells[id]);
-    if (strip.length) batches.push(strip);
+
+  function lineSet(cells, axis) {
+    const seen = {};
+    const lines = [];
+    for (let i = 0; i < cells.length; i++) {
+      const v = axis === "row" ? cells[i].row : cells[i].col;
+      if (seen[v]) continue;
+      seen[v] = true;
+      lines.push(v);
+    }
+    return lines;
   }
-  const two = this.twoLineBatches(dells);
-  for (let i = 0; i < two.length; i++) batches.push(two[i]);
-  for (const id in dells) {
-    const halo = this.haloFromDell(dells[id]);
-    if (halo.length) batches.push(halo);
+
+  function isStrip(cells) {
+    if (!cells.length) return false;
+    return lineSet(cells, "row").length === 1 || lineSet(cells, "col").length === 1;
   }
+
+  for (const id in dells) {
+    const cells = dells[id];
+    if (!cells.length) continue;
+    const rows = lineSet(cells, "row");
+    const cols = lineSet(cells, "col");
+    const out = [];
+    if (rows.length === 1) {
+      const r = rows[0];
+      for (let c = 0; c < g.n; c++) {
+        const cell = g.at(r, c);
+        if (cell.dellId === cells[0].dellId) continue;
+        if (this.isEmptyGrass(cell)) out.push(cell);
+      }
+    } else if (cols.length === 1) {
+      const c = cols[0];
+      for (let r = 0; r < g.n; r++) {
+        const cell = g.at(r, c);
+        if (cell.dellId === cells[0].dellId) continue;
+        if (this.isEmptyGrass(cell)) out.push(cell);
+      }
+    }
+    if (out.length) batches.push(out);
+  }
+
+  const ids = [];
+  for (const id in dells) ids.push(+id);
+  const axes = ["row", "col"];
+  for (let ax = 0; ax < axes.length; ax++) {
+    const axis = axes[ax];
+    for (let a = 0; a < g.n - 1; a++) {
+      const b = a + 1;
+      const contained = [];
+      for (let i = 0; i < ids.length; i++) {
+        const cells = dells[ids[i]];
+        let ok = cells.length > 0;
+        for (let k = 0; k < cells.length && ok; k++) {
+          const v = axis === "row" ? cells[k].row : cells[k].col;
+          if (v !== a && v !== b) ok = false;
+        }
+        if (ok) contained.push(ids[i]);
+      }
+      if (contained.length !== 2) continue;
+      if (isStrip(dells[contained[0]]) && isStrip(dells[contained[1]])) continue;
+      const keep = {};
+      keep[contained[0]] = true;
+      keep[contained[1]] = true;
+      const targets = [];
+      for (let i = 0; i < g.n; i++) {
+        for (let k = 0; k < 2; k++) {
+          const line = k === 0 ? a : b;
+          const cell = axis === "row" ? g.at(line, i) : g.at(i, line);
+          if (!this.isEmptyGrass(cell)) continue;
+          if (keep[cell.dellId]) continue;
+          targets.push(cell);
+        }
+      }
+      if (targets.length) batches.push(targets);
+    }
+  }
+
+  for (const id in dells) {
+    const cells = dells[id];
+    const seats = [];
+    let dead = false;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      if (this.isFoundFox(cell)) {
+        dead = true;
+        break;
+      }
+      if (cell.locked && cell.guessId === "x") continue;
+      if (cell.guessId === "o") continue;
+      seats.push(cell);
+    }
+    if (dead || seats.length < 2 || seats.length > 3) continue;
+    const mine = {};
+    for (let i = 0; i < seats.length; i++) mine[seats[i].row + "," + seats[i].col] = true;
+    const out = [];
+    for (let r = 0; r < g.n; r++) {
+      for (let c = 0; c < g.n; c++) {
+        if (mine[r + "," + c]) continue;
+        const cell = g.at(r, c);
+        if (!this.isEmptyGrass(cell)) continue;
+        let all = true;
+        for (let i = 0; i < seats.length; i++) {
+          if (Math.max(Math.abs(r - seats[i].row), Math.abs(c - seats[i].col)) > 1) {
+            all = false;
+            break;
+          }
+        }
+        if (all) out.push(cell);
+      }
+    }
+    if (out.length) batches.push(out);
+  }
+
   if (!batches.length) return 0;
   this.shuffle(batches);
   return this.applyPrints(batches[0]);
-};
-
-Hint.prototype.cellKey = function (cell) {
-  return cell.row + "," + cell.col;
-};
-
-Hint.prototype.orthoTouch = function (a, b) {
-  return Math.abs(a.row - b.row) + Math.abs(a.col - b.col) === 1;
-};
-
-Hint.prototype.growGroup = function (hintable, want) {
-  if (hintable.length < 2 || want < 2) return [];
-  const pool = hintable.slice();
-  this.shuffle(pool);
-  for (let s = 0; s < pool.length; s++) {
-    const group = [pool[s]];
-    const seen = {};
-    seen[this.cellKey(pool[s])] = true;
-    const edge = [pool[s]];
-    while (group.length < want && edge.length) {
-      const cur = edge.shift();
-      const nbs = [];
-      for (let i = 0; i < pool.length; i++) {
-        if (this.orthoTouch(cur, pool[i])) nbs.push(pool[i]);
-      }
-      this.shuffle(nbs);
-      for (let i = 0; i < nbs.length; i++) {
-        const k = this.cellKey(nbs[i]);
-        if (seen[k]) continue;
-        seen[k] = true;
-        group.push(nbs[i]);
-        edge.push(nbs[i]);
-        if (group.length >= want) break;
-      }
-    }
-    if (group.length >= 2) return group.slice(0, Math.min(want, group.length));
-  }
-  return [];
 };
 
 Hint.prototype.tryLevel4 = function () {
@@ -355,13 +262,41 @@ Hint.prototype.tryLevel4 = function () {
     const keep = empty.length - 2;
     if (keep < 1) continue;
     const want = Math.min(3, hintable.length, keep);
-    if (want < 2) continue;
-    const group = this.growGroup(hintable, want);
+    if (want < 2 || hintable.length < 2) continue;
+
+    const pool = hintable.slice();
+    this.shuffle(pool);
+    let group = [];
+    for (let s = 0; s < pool.length && group.length < 2; s++) {
+      group = [pool[s]];
+      const seen = {};
+      seen[pool[s].row + "," + pool[s].col] = true;
+      const edge = [pool[s]];
+      while (group.length < want && edge.length) {
+        const cur = edge.shift();
+        const nbs = [];
+        for (let i = 0; i < pool.length; i++) {
+          if (Math.abs(cur.row - pool[i].row) + Math.abs(cur.col - pool[i].col) === 1) {
+            nbs.push(pool[i]);
+          }
+        }
+        this.shuffle(nbs);
+        for (let i = 0; i < nbs.length; i++) {
+          const k = nbs[i].row + "," + nbs[i].col;
+          if (seen[k]) continue;
+          seen[k] = true;
+          group.push(nbs[i]);
+          edge.push(nbs[i]);
+          if (group.length >= want) break;
+        }
+      }
+      if (group.length < 2) group = [];
+    }
     if (group.length < 2) continue;
     ranks.push({
       size: cells.length,
       unknown: empty.length,
-      group: group,
+      group: group.slice(0, Math.min(want, group.length)),
     });
   }
   ranks.sort(function (a, b) {

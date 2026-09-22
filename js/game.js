@@ -43,15 +43,31 @@ function parsePlanQuery() {
   if (!raw) return null;
   if (raw.charAt(0) === "{") {
     try {
-      return normalizeTestPlan(JSON.parse(raw));
+      const src = JSON.parse(raw);
+      if (!src || typeof src !== "object") return null;
+      const features = [];
+      const list = Array.isArray(src.features) ? src.features : [];
+      let hasRiver = false;
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i];
+        if (!f || !f.type) continue;
+        if (f.type === "pond") {
+          const sz = f.size | 0 || f.amount | 0 || 1;
+          features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
+        } else if (f.type === "river") {
+          if (hasRiver) continue;
+          hasRiver = true;
+          const sz = f.size | 0;
+          features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+        } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
+          features.push({ type: f.type });
+        }
+      }
+      return Forest.copyPlan({ size: src.size || src.n, features: features });
     } catch (err) {
       return null;
     }
   }
-  return parsePlanShort(raw);
-}
-
-function parsePlanShort(raw) {
   const parts = raw.split(",");
   const size = parseInt(parts[0], 10);
   if (!size) return null;
@@ -77,29 +93,6 @@ function parsePlanShort(raw) {
   return Forest.copyPlan({ size: size, features: features });
 }
 
-function normalizeTestPlan(src) {
-  if (!src || typeof src !== "object") return null;
-  const features = [];
-  const list = Array.isArray(src.features) ? src.features : [];
-  let hasRiver = false;
-  for (let i = 0; i < list.length; i++) {
-    const f = list[i];
-    if (!f || !f.type) continue;
-    if (f.type === "pond") {
-      const sz = f.size | 0 || f.amount | 0 || 1;
-      features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
-    } else if (f.type === "river") {
-      if (hasRiver) continue;
-      hasRiver = true;
-      const sz = f.size | 0;
-      features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-    } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
-      features.push({ type: f.type });
-    }
-  }
-  return Forest.copyPlan({ size: src.size || src.n, features: features });
-}
-
 function clearTestPlan() {
   loadedPlan = null;
   playingTest = false;
@@ -115,27 +108,6 @@ function persistForest() {
   Save.writeForest(forest.dump());
 }
 
-function crisp() {
-  canvas.style.imageRendering = "pixelated";
-}
-
-function setSpriteFilter() {
-  const inset = Math.max(1, Math.floor(cellSize * 0.06));
-  const tile = cellSize - inset * 2;
-  const dest = Math.max(1, tile - Math.max(0, Math.floor(tile * 0.06)) * 2);
-  ctx.imageSmoothingEnabled = dest < TILE;
-}
-
-function clockReset() {
-  clockElapsed = 0;
-  clockStarted = Date.now();
-}
-
-function clockLoad(ms) {
-  clockElapsed = ms > 0 ? ms | 0 : 0;
-  clockStarted = Date.now();
-}
-
 function clockOff() {
   if (!clockStarted) return;
   clockElapsed += Date.now() - clockStarted;
@@ -147,23 +119,6 @@ function clockNow() {
   return clockElapsed + (Date.now() - clockStarted);
 }
 
-function formatClock(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const s = total % 60;
-  const m = Math.floor(total / 60) % 60;
-  const h = Math.floor(total / 3600);
-  const pad = function (n) {
-    return (n < 10 ? "0" : "") + n;
-  };
-  if (h) return h + ":" + pad(m) + ":" + pad(s);
-  return m + ":" + pad(s);
-}
-
-function resetHintScore() {
-  hintCount = 0;
-  hintCut = 1;
-}
-
 function chargeHint(level, extra) {
   const cut = HINT_CUT[level];
   if (!cut) return;
@@ -172,54 +127,17 @@ function chargeHint(level, extra) {
   hintCount += 1;
 }
 
-function chargeCheck(infractions) {
-  const hits = Math.max(1, infractions | 0);
-  hintCut *= CHECK_CUT * Math.pow(CHECK_HIT, hits);
-  hintCount += 1;
-}
-
-function lockedFoxes(g) {
-  if (!g) return 0;
-  let n = 0;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      if (cell.spriteId === "o" && cell.locked) n++;
-    }
-  }
-  return n;
-}
-
-function isScoredFox(cell) {
-  return !!(cell && (cell.locked || cell.wrong));
-}
-
-function snapshotMarks(g) {
-  const out = {};
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      out[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
-    }
-  }
-  return out;
-}
-
-function countNewBadMarks(g, before) {
-  let n = 0;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      const cell = g.at(r, c);
-      const prev = before[r + "," + c] || {};
-      if (cell.warn && !prev.warn) n++;
-      if (cell.wrong && !prev.wrong) n++;
-    }
-  }
-  return n;
-}
-
 function paintWin() {
-  ui.paintWin(Math.round(hintCut * 100) + "%", formatClock(clockNow()), String(hintCount));
+  const ms = clockNow();
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const s = total % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const pad = function (n) {
+    return (n < 10 ? "0" : "") + n;
+  };
+  const clock = h ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+  ui.paintWin(Math.round(hintCut * 100) + "%", clock, String(hintCount));
 }
 
 function layout() {
@@ -227,7 +145,7 @@ function layout() {
   const h = window.innerHeight;
   canvas.width = w;
   canvas.height = h;
-  crisp();
+  canvas.style.imageRendering = "pixelated";
   const pad = ui.hudPad();
   const padTop = pad.top;
   const padBot = pad.bot;
@@ -242,7 +160,10 @@ function layout() {
   originX = Math.floor((w - boardW) / 2);
   if (ui.winOpen()) originY = padTop + gap;
   else originY = padTop + gap + Math.floor((usableH - boardH) / 2);
-  setSpriteFilter();
+  const inset = Math.max(1, Math.floor(cellSize * 0.06));
+  const tile = cellSize - inset * 2;
+  const dest = Math.max(1, tile - Math.max(0, Math.floor(tile * 0.06)) * 2);
+  ctx.imageSmoothingEnabled = dest < TILE;
 }
 
 function hideWin() {
@@ -259,7 +180,15 @@ function showMenu() {
 }
 
 function isClearedGrid(g) {
-  return !!(g && lockedFoxes(g) === g.n);
+  if (!g) return false;
+  let locked = 0;
+  for (let r = 0; r < g.n; r++) {
+    for (let c = 0; c < g.n; c++) {
+      const cell = g.at(r, c);
+      if (cell.spriteId === "o" && cell.locked) locked++;
+    }
+  }
+  return locked === g.n;
 }
 
 function persistBoard() {
@@ -284,15 +213,17 @@ function paintScore() {
   });
 }
 
-function flagConflict(list) {
-  if (!list || list.length < 2) return;
-  for (let i = 0; i < list.length; i++) {
-    if (isScoredFox(list[i])) continue;
-    list[i].warn = true;
-  }
-}
-
 function markGuessConflicts(g) {
+  function scored(cell) {
+    return !!(cell && (cell.locked || cell.wrong));
+  }
+  function flag(list) {
+    if (!list || list.length < 2) return;
+    for (let i = 0; i < list.length; i++) {
+      if (scored(list[i])) continue;
+      list[i].warn = true;
+    }
+  }
   const foxes = [];
   for (let r = 0; r < g.n; r++) {
     for (let c = 0; c < g.n; c++) {
@@ -313,40 +244,28 @@ function markGuessConflicts(g) {
     cols[cell.col].push(cell);
     dells[cell.dellId].push(cell);
   }
-  for (const k in rows) flagConflict(rows[k]);
-  for (const k in cols) flagConflict(cols[k]);
-  for (const k in dells) flagConflict(dells[k]);
+  for (const k in rows) flag(rows[k]);
+  for (const k in cols) flag(cols[k]);
+  for (const k in dells) flag(dells[k]);
   if (g.hawk) {
     const line = [];
     for (let i = 0; i < foxes.length; i++) {
       if (g.onHawkLine(foxes[i].row, foxes[i].col)) line.push(foxes[i]);
     }
-    flagConflict(line);
+    flag(line);
   }
   for (let i = 0; i < foxes.length; i++) {
     for (let j = i + 1; j < foxes.length; j++) {
       const a = foxes[i];
       const b = foxes[j];
       if (Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) > 1) continue;
-      if (!isScoredFox(a)) a.warn = true;
-      if (!isScoredFox(b)) b.warn = true;
+      if (!scored(a)) a.warn = true;
+      if (!scored(b)) b.warn = true;
     }
   }
   let nWarn = 0;
   for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) nWarn++;
   return nWarn;
-}
-
-function level2Forced(cell, foxes) {
-  for (let i = 0; i < foxes.length; i++) {
-    const fox = foxes[i];
-    if (cell.row === fox.row) return true;
-    if (cell.col === fox.col) return true;
-    if (cell.dellId === fox.dellId) return true;
-    if (Math.max(Math.abs(cell.row - fox.row), Math.abs(cell.col - fox.col)) <= 1) return true;
-    if (grid && grid.hawk && grid.onHawkLine(fox.row, fox.col) && grid.onHawkLine(cell.row, cell.col)) return true;
-  }
-  return false;
 }
 
 function showBoard(keepWin) {
@@ -384,7 +303,8 @@ function startField(plan, isTest) {
   grid = GridBuilder.build(built);
   grid.fieldPlan = Forest.copyPlan(plan);
   Cell.dressGrid(grid);
-  resetHintScore();
+  hintCount = 0;
+  hintCut = 1;
   clockElapsed = 0;
   clockStarted = Date.now();
   persistBoard();
@@ -467,7 +387,23 @@ function clearMarks() {
       const cell = grid.at(r, c);
       if (!cell.is("grass") || cell.guessId !== "x") continue;
       if (cell.locked) continue;
-      if (!level2Forced(cell, foxes)) cell.setGuess(null);
+      let forced = false;
+      for (let i = 0; i < foxes.length; i++) {
+        const fox = foxes[i];
+        if (cell.row === fox.row || cell.col === fox.col || cell.dellId === fox.dellId) {
+          forced = true;
+          break;
+        }
+        if (Math.max(Math.abs(cell.row - fox.row), Math.abs(cell.col - fox.col)) <= 1) {
+          forced = true;
+          break;
+        }
+        if (grid.hawk && grid.onHawkLine(fox.row, fox.col) && grid.onHawkLine(cell.row, cell.col)) {
+          forced = true;
+          break;
+        }
+      }
+      if (!forced) cell.setGuess(null);
     }
   }
   chargeHint(6);
@@ -482,17 +418,6 @@ function currentFieldPlan() {
   return forest.location;
 }
 
-function applyWin(result) {
-  if (!result || !result.win) return;
-  if (!playingTest) {
-    forest.win(currentFieldPlan());
-    persistForest();
-  }
-  clockOff();
-  paintWin();
-  ui.showWin();
-}
-
 function finishBoardAction(persist) {
   if (persist) persistBoard();
   paintScore();
@@ -502,18 +427,41 @@ function finishBoardAction(persist) {
 
 function onCheckHint() {
   if (!playing || !grid || ui.menuOpen() || ui.winOpen() || ui.planOpen() || ui.storyOpen()) return;
-  const before = snapshotMarks(grid);
+  const before = {};
+  for (let r = 0; r < grid.n; r++) {
+    for (let c = 0; c < grid.n; c++) {
+      const cell = grid.at(r, c);
+      before[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
+    }
+  }
   const warns = markGuessConflicts(grid);
   const checkMode = grid.guessOCount() >= grid.n;
   const result = grid.checkGuesses();
   if (warns || result.wrongs > 0) {
-    const fresh = countNewBadMarks(grid, before);
-    if (fresh) chargeCheck(fresh);
+    let fresh = 0;
+    for (let r = 0; r < grid.n; r++) {
+      for (let c = 0; c < grid.n; c++) {
+        const cell = grid.at(r, c);
+        const prev = before[r + "," + c] || {};
+        if (cell.warn && !prev.warn) fresh++;
+        if (cell.wrong && !prev.wrong) fresh++;
+      }
+    }
+    if (fresh) {
+      hintCut *= CHECK_CUT * Math.pow(CHECK_HIT, Math.max(1, fresh));
+      hintCount += 1;
+    }
     finishBoardAction(true);
     return;
   }
   if (result.win) {
-    applyWin(result);
+    if (!playingTest) {
+      forest.win(currentFieldPlan());
+      persistForest();
+    }
+    clockOff();
+    paintWin();
+    ui.showWin();
     finishBoardAction(true);
     return;
   }
@@ -526,20 +474,20 @@ function onCheckHint() {
   finishBoardAction(true);
 }
 
-function planFitsForest(plan) {
-  if (!plan || plan.size > forest.maxN) return false;
-  const list = plan.features || [];
-  for (let i = 0; i < list.length; i++) {
-    if (!list[i] || !list[i].type) return false;
-    if (!forest.allowsFeature(list[i].type, plan.size)) return false;
-  }
-  return true;
-}
-
 function restoreBoard() {
   const data = Save.readBoard();
   const plan = data && data.fieldPlan ? Forest.copyPlan(data.fieldPlan) : null;
-  if (!data || data.testPlan || !plan || plan.size !== (data.n | 0) || !planFitsForest(plan)) {
+  let fits = !!(plan && plan.size <= forest.maxN);
+  if (fits) {
+    const list = plan.features || [];
+    for (let i = 0; i < list.length; i++) {
+      if (!list[i] || !list[i].type || !forest.allowsFeature(list[i].type, plan.size)) {
+        fits = false;
+        break;
+      }
+    }
+  }
+  if (!data || data.testPlan || !plan || plan.size !== (data.n | 0) || !fits) {
     Save.clearBoard();
     return false;
   }
@@ -555,7 +503,8 @@ function restoreBoard() {
   forest.lastPlan = Forest.copyPlan(plan);
   persistForest();
   n = Save.clampSize(grid.n);
-  clockLoad(data.elapsedMs || 0);
+  clockElapsed = data.elapsedMs > 0 ? data.elapsedMs | 0 : 0;
+  clockStarted = Date.now();
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;
   playingTest = false;
@@ -632,14 +581,14 @@ function beginPlay() {
       layout();
       draw();
       return;
-    }    
-    if( ! forest.sawStory("start") ){
-      forest.markStory("start");  persistForest();
-      presentStory(Story.pages("start"), openTravel);      
-    }else{
+    }
+    if (!forest.sawStory("start")) {
+      forest.markStory("start");
+      persistForest();
+      presentStory(Story.pages("start"), openTravel);
+    } else {
       openTravel();
     }
-    
   });
 }
 
@@ -653,7 +602,9 @@ function onPlanBack() {
   showTitle();
 }
 
-function hawkBandPoints() {
+function drawHawkBand() {
+  if (!grid || !grid.hawk) return;
+  const spec = Cell.types.hawk;
   const inset = Math.max(1, Math.floor(cellSize * 0.06));
   const s = cellSize - inset * 2;
   const pts = [];
@@ -664,13 +615,6 @@ function hawkBandPoints() {
       y: originY + r * cellSize + inset + s / 2,
     });
   }
-  return pts;
-}
-
-function drawHawkBand() {
-  if (!grid || !grid.hawk) return;
-  const spec = Cell.types.hawk;
-  const pts = hawkBandPoints();
   ctx.save();
   ctx.strokeStyle = spec.edge;
   ctx.globalAlpha = 0.9;
@@ -717,25 +661,19 @@ function sameCell(a, b) {
   return a && b && a.row === b.row && a.col === b.col;
 }
 
-function strokeCell(hit, mode) {
-  const cell = grid.at(hit.row, hit.col);
-  if (!cell.canTap()) return false;
-  if (cell.guessId === "o") return false;
-  if (mode === "x") {
-    if (cell.guessId) return false;
-    cell.setGuess("x");
-    return true;
-  }
-  if (mode === "clear") {
-    if (cell.guessId !== "x") return false;
-    cell.setGuess(null);
-    return true;
-  }
-  return false;
-}
-
 function applyStroke(hit, mode) {
-  if (!strokeCell(hit, mode)) return;
+  const cell = grid.at(hit.row, hit.col);
+  if (!cell.canTap()) return;
+  if (cell.guessId === "o") return;
+  if (mode === "x") {
+    if (cell.guessId) return;
+    cell.setGuess("x");
+  } else if (mode === "clear") {
+    if (cell.guessId !== "x") return;
+    cell.setGuess(null);
+  } else {
+    return;
+  }
   dragDirty = true;
   paintScore();
   draw();

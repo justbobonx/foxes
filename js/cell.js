@@ -121,118 +121,109 @@ Cell.prototype.resetMarks = function () {
   this.locked = false;
 };
 
-Cell.prototype.capRadii = function (ctx, w, h, rad) {
-  const max = Math.min(w, h) / 2;
-  if (typeof rad === "number") return Math.min(Math.max(0, rad), max);
-  const out = [];
-  for (let i = 0; i < 4; i++) out.push(Math.min(Math.max(0, rad[i] || 0), max));
-  return out;
-};
-
-Cell.prototype.fillRound = function (ctx, x, y, w, h, rad) {
-  const r = this.capRadii(ctx, w, h, rad);
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, r);
-    ctx.fill();
-    return;
-  }
-  ctx.fillRect(x, y, w, h);
-};
-
-Cell.prototype.strokeRound = function (ctx, x, y, w, h, rad) {
-  const r = this.capRadii(ctx, w, h, rad);
-  if (ctx.roundRect) {
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, r);
-    ctx.stroke();
-    return;
-  }
-  ctx.strokeRect(x, y, w, h);
-};
-
-Cell.prototype.drawStand = function (ctx, sprites, id, px, py, box) {
-  const stand = sprites.get(id);
-  if (!stand) return;
-  if (this.flipStand) {
-    ctx.save();
-    ctx.translate(px + box, py);
-    ctx.scale(-1, 1);
-    stand.draw(ctx, 0, 0, box);
-    ctx.restore();
-    return;
-  }
-  stand.draw(ctx, px, py, box);
-};
-
-Cell.prototype.drawMark = function (ctx, sprites, x, y, s, revealWolf) {
+Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   const look = this.look || CELL_TYPES[this.type] || CELL_TYPES.grass;
+  const rad = Math.max(4, Math.floor(s * 0.17));
+  const max = s / 2;
+  const corners = [
+    Math.min(this.round[0] ? rad : 0, max),
+    Math.min(this.round[1] ? rad : 0, max),
+    Math.min(this.round[2] ? rad : 0, max),
+    Math.min(this.round[3] ? rad : 0, max),
+  ];
+
+  function paint(fill) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, s, s, corners);
+      if (fill) ctx.fill();
+      else ctx.stroke();
+      return;
+    }
+    if (fill) ctx.fillRect(x, y, s, s);
+    else ctx.strokeRect(x, y, s, s);
+  }
+
+  ctx.fillStyle = this.fill || look.fill || "#6b8f4e";
+  paint(true);
+  if (look.edge) {
+    const checkW = Math.max(2, Math.floor(s * 0.07));
+    ctx.strokeStyle = look.edge;
+    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.60)));
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+    }
+  }
+
   const pad = Math.max(0, Math.floor(s * 0.06));
   const box = Math.max(1, s - pad * 2);
   const px = x + pad;
   const py = y + pad;
   if (look.stand) {
-    this.drawStand(ctx, sprites, look.stand, px, py, box);
+    const stand = sprites.get(look.stand);
+    if (stand) {
+      if (this.flipStand) {
+        ctx.save();
+        ctx.translate(px + box, py);
+        ctx.scale(-1, 1);
+        stand.draw(ctx, 0, 0, box);
+        ctx.restore();
+      } else {
+        stand.draw(ctx, px, py, box);
+      }
+    }
   }
   if (this.is("cave") && (this.guessId === "o" || revealWolf)) {
     const sprite = sprites.get(look.markO || "w");
     if (sprite) sprite.draw(ctx, px, py, box);
-    return;
-  }
-  if (this.guessId === "o") {
+  } else if (this.guessId === "o") {
     const sprite = sprites.get(look.markO || "o");
     if (sprite) sprite.draw(ctx, px, py, box);
-    return;
-  }
-  if (this.guessId === "x") {
+  } else if (this.guessId === "x") {
     if (this.locked) {
       const print = sprites.get("p");
-      if (print) {
-        print.draw(ctx, px, py, box);
-        return;
-      }
+      if (print) print.draw(ctx, px, py, box);
+      else sprites.get(this.is("cave") ? "xl" : "x").draw(ctx, px, py, box);
+    } else {
+      sprites.get(this.is("cave") ? "xl" : "x").draw(ctx, px, py, box);
     }
-    const xg = sprites.get(this.is("cave") ? "xl" : "x");
-    xg.draw(ctx, px, py, box);
   }
-};
 
-Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
-  const look = this.look || CELL_TYPES[this.type] || CELL_TYPES.grass;
-  const rad = Math.max(4, Math.floor(s * 0.17));
-  const corners = [
-    this.round[0] ? rad : 0,
-    this.round[1] ? rad : 0,
-    this.round[2] ? rad : 0,
-    this.round[3] ? rad : 0,
-  ];  
-  ctx.fillStyle = this.fill || look.fill || "#6b8f4e";
-  this.fillRound(ctx, x, y, s, s, corners);  
-  if (look.edge) {
-    const checkW = Math.max(2, Math.floor(s * 0.07));
-    ctx.strokeStyle = look.edge;    
-    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.60)));
-    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
-  }
-  this.drawMark(ctx, sprites, x, y, s, revealWolf);
   if (this.warn) {
     ctx.strokeStyle = "#f5c518";
     ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
-    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+    }
   } else if (this.wrong) {
     ctx.strokeStyle = "#e23b3b";
     ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
-    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+    }
   } else if (this.locked && this.guessId === "o") {
     ctx.strokeStyle = "#7dffa3";
     ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
-    this.strokeRound(ctx, x + 1, y + 1, s - 2, s - 2, corners);
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+    }
   }
-};
-
-Cell.dellFill = function (dellId) {
-  if (dellId < 0 || dellId > CELL_DELL_COLORS.length - 1) return "#000000";
-  return CELL_DELL_COLORS[dellId];
 };
 
 Cell.samePatch = function (grid, cell, row, col) {
@@ -249,8 +240,14 @@ Cell.dressGrid = function (grid) {
       const cell = grid.at(r, c);
       const kind = cell.type || "grass";
       cell.look = CELL_TYPES[kind] || CELL_TYPES.grass;
-      cell.fill = kind === "grass" ? Cell.dellFill(cell.dellId) : cell.look.fill;
-      cell.trace = (!cell.isHole() && grid.onHawkDiag && grid.onHawkDiag(r, c)) ? "hawk" : null;
+      if (kind === "grass") {
+        const id = cell.dellId;
+        cell.fill = id < 0 || id > CELL_DELL_COLORS.length - 1 ? "#000000" : CELL_DELL_COLORS[id];
+      } else {
+        cell.fill = cell.look.fill;
+      }
+      const onHawk = !!(grid.hawk && (grid.hawk === "L" ? r === c : r + c === grid.n - 1));
+      cell.trace = !cell.isHole() && onHawk ? "hawk" : null;
       cell.flipStand = !!(cell.is("hawk") && grid.hawk === "R");
       const up = Cell.samePatch(grid, cell, r - 1, c);
       const down = Cell.samePatch(grid, cell, r + 1, c);

@@ -93,16 +93,15 @@ Ui.prototype.hideStory = function () {
   return true;
 };
 
-Ui.prototype.barHeight = function (el, fallback) {
-  if (!el) return fallback;
-  const h = Math.ceil(el.getBoundingClientRect().height);
-  return h > 0 ? h : fallback;
-};
-
 Ui.prototype.hudPad = function () {
+  function barHeight(el, fallback) {
+    if (!el) return fallback;
+    const h = Math.ceil(el.getBoundingClientRect().height);
+    return h > 0 ? h : fallback;
+  }
   return {
-    top: Math.max(52, this.barHeight(this.elHud, 52)),
-    bot: Math.max(56, this.barHeight(this.elHudBottom, 56)),
+    top: Math.max(52, barHeight(this.elHud, 52)),
+    bot: Math.max(56, barHeight(this.elHudBottom, 56)),
   };
 };
 
@@ -110,11 +109,6 @@ Ui.prototype.paintWin = function (scoreText, timeText, hintsText) {
   if (this.elWinScore) this.elWinScore.textContent = scoreText;
   if (this.elWinTime) this.elWinTime.textContent = timeText;
   if (this.elWinHints) this.elWinHints.textContent = hintsText;
-};
-
-Ui.prototype.paintCheckLabel = function (marked, size) {
-  if (!this.btnCheck) return;
-  this.btnCheck.textContent = marked >= size ? "CHECK" : "HINT";
 };
 
 Ui.prototype.paintScore = function (view) {
@@ -128,29 +122,17 @@ Ui.prototype.paintScore = function (view) {
     }
   }
   if (this.elOs) this.elOs.textContent = view.marked + "/" + view.size;
-  this.paintCheckLabel(view.marked, view.size);
-};
-
-Ui.prototype.featureIcon = function (type, state) {
-  if (state !== "seen") return Ui.UNKNOWN_ICON;
-  const spec = Forest.CATALOG[type];
-  return spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
-};
-
-Ui.prototype.extraSplit = function (count) {
-  if (count <= 2) return [count, 0];
-  if (count === 3) return [2, 1];
-  if (count === 4) return [2, 2];
-  if (count === 5) return [3, 2];
-  return [Math.ceil(count / 2), Math.floor(count / 2)];
+  if (this.btnCheck) this.btnCheck.textContent = view.marked >= view.size ? "CHECK" : "HINT";
 };
 
 Ui.prototype.paintExtraRow = function (el, features, forest) {
   el.innerHTML = "";
   for (let i = 0; i < features.length; i++) {
     const type = features[i].type;
+    const state = forest.stateOf(type);
+    const spec = Forest.CATALOG[type];
     const img = document.createElement("img");
-    img.src = this.featureIcon(type, forest.stateOf(type));
+    img.src = state === "seen" && spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
     img.width = 32;
     img.height = 32;
     img.alt = "";
@@ -190,7 +172,13 @@ Ui.prototype.makeCard = function (card, forest, index) {
   const rowB = document.createElement("div");
   rowB.className = "plan-extra-row";
   const list = card.plan.features || [];
-  const split = this.extraSplit(list.length);
+  const count = list.length;
+  let split;
+  if (count <= 2) split = [count, 0];
+  else if (count === 3) split = [2, 1];
+  else if (count === 4) split = [2, 2];
+  else if (count === 5) split = [3, 2];
+  else split = [Math.ceil(count / 2), Math.floor(count / 2)];
   this.paintExtraRow(rowA, list.slice(0, split[0]), forest);
   this.paintExtraRow(rowB, list.slice(split[0]), forest);
   extras.appendChild(rowA);
@@ -209,7 +197,7 @@ Ui.prototype.makeCard = function (card, forest, index) {
       star.textContent = "\u2605";
       const cost = document.createElement("span");
       cost.className = "plan-cost-n";
-      cost.textContent = String(target) +" ["+String(forest.stars)+"]";
+      cost.textContent = String(target) + " [" + String(forest.stars) + "]";
       foot.appendChild(star);
       foot.appendChild(cost);
     }

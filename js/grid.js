@@ -39,37 +39,17 @@ Grid.prototype.isWolfAt = function (row, col) {
   return this.wolfRow === row && this.wolfCol === col;
 };
 
-Grid.prototype.findWolf = function () {
-  if (this.wolfRow < 0) return null;
-  return this.cells[this.wolfRow][this.wolfCol];
-};
-
 Grid.prototype.nearWolf = function (row, col) {
   if (this.wolfRow < 0) return false;
   return Math.max(Math.abs(row - this.wolfRow), Math.abs(col - this.wolfCol)) <= 1;
 };
 
-Grid.prototype.hawkCol = function () {
-  if (this.hawk === "L") return 0;
-  if (this.hawk === "R") return this.n - 1;
-  return -1;
-};
-
-Grid.prototype.findHawk = function () {
-  const c = this.hawkCol();
-  if (c < 0) return null;
-  return this.cells[0][c];
-};
-
-Grid.prototype.onHawkDiag = function (row, col) {
-  if (!this.hawk) return false;
-  if (this.hawk === "L") return row === col;
-  return row + col === this.n - 1;
-};
-
 Grid.prototype.onHawkLine = function (row, col) {
-  if (!this.onHawkDiag(row, col)) return false;
-  return !(row === 0 && col === this.hawkCol());
+  if (!this.hawk) return false;
+  const onDiag = this.hawk === "L" ? row === col : row + col === this.n - 1;
+  if (!onDiag) return false;
+  const hawkCol = this.hawk === "L" ? 0 : this.n - 1;
+  return !(row === 0 && col === hawkCol);
 };
 
 Grid.prototype.findBunny = function () {
@@ -119,32 +99,6 @@ Grid.prototype.guessOCount = function () {
   return n;
 };
 
-Grid.prototype.markWolfCheck = function (won) {
-  const wolf = this.findWolf();
-  this.wolfShown = !!(won && wolf);
-  let right = false;
-  let wrongs = 0;
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
-      const cell = this.cells[r][c];
-      if (!cell.is("cave")) continue;
-      if (cell.guessId === "o") {
-        if (this.isWolfAt(r, c)) {
-          right = true;
-          cell.wrong = false;
-        } else {
-          cell.wrong = true;
-          wrongs++;
-        }
-      } else {
-        cell.wrong = false;
-      }
-      if (!this.isWolfAt(r, c)) cell.locked = false;
-    }
-  }
-  if (wolf) wolf.locked = !!(won && right && wrongs === 0);
-};
-
 Grid.prototype.checkGuesses = function () {
   let win = true;
   let found = 0;
@@ -176,7 +130,31 @@ Grid.prototype.checkGuesses = function () {
     }
   }
   const won = win && found === this.n;
-  this.markWolfCheck(won);
+
+  const wolf = this.wolfRow < 0 ? null : this.cells[this.wolfRow][this.wolfCol];
+  this.wolfShown = !!(won && wolf);
+  let wolfRight = false;
+  let wolfWrongs = 0;
+  for (let r = 0; r < this.n; r++) {
+    for (let c = 0; c < this.n; c++) {
+      const cell = this.cells[r][c];
+      if (!cell.is("cave")) continue;
+      if (cell.guessId === "o") {
+        if (this.isWolfAt(r, c)) {
+          wolfRight = true;
+          cell.wrong = false;
+        } else {
+          cell.wrong = true;
+          wolfWrongs++;
+        }
+      } else {
+        cell.wrong = false;
+      }
+      if (!this.isWolfAt(r, c)) cell.locked = false;
+    }
+  }
+  if (wolf) wolf.locked = !!(won && wolfRight && wolfWrongs === 0);
+
   return { win: won, rights: rights, wrongs: wrongs };
 };
 

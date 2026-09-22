@@ -16,7 +16,7 @@ const UNLOCK_CHART = [
   { unlock: "river", plus: 3, story: "first_river" },
   { unlock: "wolf", plus: 3, story: "first_wolf" },
   { unlock: "size-9", plus: 3, story: "" },
-  { unlock: "bunny", plus: 3, story: "first_bunny" },  
+  { unlock: "bunny", plus: 3, story: "first_bunny" },
   { unlock: "size-10", plus: 3, story: "" },
   { unlock: "hawk", plus: 3, story: "first_hawk" },
 ];
@@ -33,7 +33,19 @@ function Forest(data) {
   if (this.curUnlockInd < 0) this.curUnlockInd = 0;
   if (this.curUnlockInd > UNLOCK_CHART.length) this.curUnlockInd = UNLOCK_CHART.length;
   this.lastClaimStars = data.lastClaimStars | 0;
-  this.featureState = Forest.normalizeState(data.featureState);
+
+  const state = Forest.blankState();
+  const src = data.featureState;
+  if (src && typeof src === "object") {
+    for (const type in state) {
+      const v = src[type];
+      if (v === "unlocked" || v === "seen" || v === "locked") state[type] = v;
+    }
+    if (state.water === "locked" && (src.pond === "seen" || src.pond === "unlocked")) {
+      state.water = src.pond;
+    }
+  }
+  this.featureState = state;
   this.location = Forest.copyPlan(data.location || fresh.location);
   this.lastPlan = Forest.copyPlan(data.lastPlan || this.location);
   this.offers = Array.isArray(data.offers) ? data.offers : null;
@@ -62,36 +74,21 @@ Forest.copyShown = function (src) {
   return out;
 };
 
-Forest.normalizeState = function (src) {
-  const out = Forest.blankState();
-  if (!src || typeof src !== "object") return out;
-  for (const type in out) {
-    const v = src[type];
-    if (v === "unlocked" || v === "seen" || v === "locked") out[type] = v;
-  }
-  if (out.water === "locked" && (src.pond === "seen" || src.pond === "unlocked")) {
-    out.water = src.pond;
-  }
-  return out;
-};
-
-Forest.copyFeature = function (f) {
-  const out = { type: f.type };
-  for (const k in f) {
-    if (k === "type") continue;
-    out[k] = f[k];
-  }
-  if (out.amount && !out.size) out.size = out.amount;
-  return out;
-};
-
 Forest.copyPlan = function (plan) {
   if (!plan) return Forest.blankPlan();
   const size = Save.clampSize(plan.size || plan.n || Save.SIZE_MIN);
   const src = Array.isArray(plan.features) ? plan.features : [];
   const features = [];
   for (let i = 0; i < src.length; i++) {
-    if (src[i] && src[i].type) features.push(Forest.copyFeature(src[i]));
+    const f = src[i];
+    if (!f || !f.type) continue;
+    const item = { type: f.type };
+    for (const k in f) {
+      if (k === "type") continue;
+      item[k] = f[k];
+    }
+    if (item.amount && !item.size) item.size = item.amount;
+    features.push(item);
   }
   return { size: size, features: features };
 };
@@ -129,10 +126,6 @@ Forest.hasFeature = function (plan, type) {
     if (plan.features[i].type === type) return true;
   }
   return false;
-};
-
-Forest.hasWater = function (plan) {
-  return Forest.hasFeature(plan, "pond") || Forest.hasFeature(plan, "river");
 };
 
 Forest.blank = function () {
@@ -175,20 +168,6 @@ Forest.prototype.stateOf = function (type) {
   return this.featureState[type] || "locked";
 };
 
-Forest.prototype.waterKnown = function () {
-  const water = this.stateOf("water");
-  return water === "unlocked" || water === "seen";
-};
-
-Forest.prototype.planHasUnknown = function (plan) {
-  const list = plan && plan.features ? plan.features : [];
-  for (let i = 0; i < list.length; i++) {
-    if (!list[i] || !list[i].type) continue;
-    if (this.stateOf(list[i].type) !== "seen") return true;
-  }
-  return false;
-};
-
 Forest.prototype.sawStory = function (id) {
   return !!(id && this.shownStories[id]);
 };
@@ -202,7 +181,18 @@ Forest.prototype.planStory = function (plan) {
   if (!item || !item.story) return "";
   if (!plan) return "";
   const parsed = Forest.parseUnlock(item.unlock);
-  if (parsed && parsed.kind === "feature" && !this.planHasUnknown(plan)) return "";
+  if (parsed && parsed.kind === "feature") {
+    const list = plan.features || [];
+    let unknown = false;
+    for (let i = 0; i < list.length; i++) {
+      if (!list[i] || !list[i].type) continue;
+      if (this.stateOf(list[i].type) !== "seen") {
+        unknown = true;
+        break;
+      }
+    }
+    if (!unknown) return "";
+  }
   if (!this.matchesNext(plan)) return "";
   if (this.sawStory(item.story)) return "";
   return item.story;
@@ -219,13 +209,6 @@ Forest.prototype.needStars = function () {
   return this.lastClaimStars + item.plus;
 };
 
-Forest.prototype.costLeft = function () {
-  const item = this.nextItem();
-  if (!item) return 0;
-  const left = this.needStars() - this.stars;
-  return left > 0 ? left : 0;
-};
-
 Forest.prototype.canAfford = function () {
   return !!this.nextItem() && this.stars >= this.needStars();
 };
@@ -234,7 +217,10 @@ Forest.prototype.canPut = function (type, n) {
   const spec = FEATURE_CATALOG[type];
   if (!spec) return false;
   if (n < spec.minN) return false;
-  if (type === "pond") return this.waterKnown();
+  if (type === "pond") {
+    const water = this.stateOf("water");
+    return water === "unlocked" || water === "seen";
+  }
   return this.stateOf(type) !== "locked";
 };
 
@@ -245,19 +231,12 @@ Forest.prototype.allowsFeature = function (type, n) {
   const item = this.nextItem();
   const parsed = item ? Forest.parseUnlock(item.unlock) : null;
   if (!parsed || parsed.kind !== "feature") return false;
-  if (parsed.type === type) {
-    return n >= specMin(type);
-  }
-  if (parsed.type === "water" && type === "pond") {
-    return n >= specMin(type);
-  }
+  const spec = FEATURE_CATALOG[type];
+  const need = spec ? spec.minN : Save.SIZE_MIN;
+  if (parsed.type === type) return n >= need;
+  if (parsed.type === "water" && type === "pond") return n >= need;
   return false;
 };
-
-function specMin(type) {
-  const spec = FEATURE_CATALOG[type];
-  return spec ? spec.minN : Save.SIZE_MIN;
-}
 
 Forest.prototype.markSeen = function (plan) {
   if (!plan || !plan.features) return;
@@ -284,25 +263,25 @@ Forest.prototype.matchesNext = function (plan) {
   const parsed = Forest.parseUnlock(item.unlock);
   if (!parsed) return false;
   if (parsed.kind === "size") return plan.size >= parsed.n;
-  if (parsed.type === "water") return Forest.hasWater(plan);
-  return Forest.hasFeature(plan, parsed.type);
-};
-
-Forest.prototype.claim = function (item) {
-  const parsed = Forest.parseUnlock(item.unlock);
-  this.lastClaimStars = this.stars;
-  this.curUnlockInd += 1;
-  if (!parsed) return;
-  if (parsed.kind === "size") {
-    if (parsed.n > this.maxN) this.maxN = Save.clampSize(parsed.n);
-    return;
+  if (parsed.type === "water") {
+    return Forest.hasFeature(plan, "pond") || Forest.hasFeature(plan, "river");
   }
-  if (this.featureState[parsed.type] === "locked") this.featureState[parsed.type] = "unlocked";
+  return Forest.hasFeature(plan, parsed.type);
 };
 
 Forest.prototype.win = function (plan) {
   this.stars += 1;
-  if (this.matchesNext(plan) && this.canAfford()) this.claim(this.nextItem());
+  if (this.matchesNext(plan) && this.canAfford()) {
+    const item = this.nextItem();
+    const parsed = Forest.parseUnlock(item.unlock);
+    this.lastClaimStars = this.stars;
+    this.curUnlockInd += 1;
+    if (parsed && parsed.kind === "size") {
+      if (parsed.n > this.maxN) this.maxN = Save.clampSize(parsed.n);
+    } else if (parsed && this.featureState[parsed.type] === "locked") {
+      this.featureState[parsed.type] = "unlocked";
+    }
+  }
   this.markSeen(plan);
 };
 
