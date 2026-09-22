@@ -40,7 +40,7 @@ let building = false;
 function clearTestPlan() {
   loadedPlan = null;
   playingTest = false;
-  if (ui.btnStart) ui.btnStart.textContent = "Adventure";
+  if (ui.btnStart) ui.btnStart.textContent = "Into the Fields";
 }
 
 function setLevel(size) {
@@ -162,6 +162,7 @@ function startField(plan, isTest) {
   ui.hideStory();
   ui.hideStart();
   ui.hideFind();
+  ui.hidePlan();
   playingTest = !!isTest;
   n = setLevel(plan.size);
   building = true;
@@ -191,6 +192,7 @@ function startField(plan, isTest) {
     clockStarted = Date.now();
     persistBoard();
     ui.hidePlan();
+    persistBoard();
     showBoard();
   });
 }
