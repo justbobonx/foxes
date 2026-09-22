@@ -60,7 +60,7 @@ Grid.prototype.clearPonds = function () {
   for (let r = 0; r < this.n; r++) {
     for (let c = 0; c < this.n; c++) {
       const cell = this.cells[r][c];
-      if (cell.is("pond")) {
+      if (cell.is("water")) {
         cell.setType("grass");
         cell.dellId = -1;
       }
@@ -98,7 +98,7 @@ Grid.prototype.tryPlacePondShape = function (shape) {
   const pick = spots[Math.floor(Math.random() * spots.length)];
   for (let r = pick.r; r < pick.r + h; r++) {
     for (let c = pick.c; c < pick.c + w; c++) {
-      this.cells[r][c].setType("pond");
+      this.cells[r][c].setType("water");
       this.markHole(this.cells[r][c]);
     }
   }
@@ -146,7 +146,7 @@ Grid.prototype.inBoard = function (r, c) {
 
 Grid.prototype.isWaterAt = function (r, c) {
   if (!this.inBoard(r, c)) return false;
-  return this.cells[r][c].is("pond");
+  return this.cells[r][c].is("water");
 };
 
 Grid.prototype.onRiverFar = function (r, c, flow) {
@@ -159,9 +159,9 @@ Grid.prototype.onRiverFar = function (r, c, flow) {
 Grid.prototype.paintRiverCell = function (r, c) {
   if (!this.inBoard(r, c)) return false;
   const cell = this.cells[r][c];
-  if (cell.is("pond")) return true;
+  if (cell.is("water")) return true;
   if (cell.isHole()) return false;
-  cell.setType("pond");
+  cell.setType("water");
   this.markHole(cell);
   return true;
 };
@@ -231,7 +231,7 @@ Grid.prototype.pondCells = function () {
   const out = [];
   for (let r = 0; r < this.n; r++) {
     for (let c = 0; c < this.n; c++) {
-      if (this.cells[r][c].is("pond")) out.push({ r: r, c: c });
+      if (this.cells[r][c].is("water")) out.push({ r: r, c: c });
     }
   }
   return out;
@@ -285,7 +285,7 @@ Grid.prototype.fillWaterIslands = function () {
       }
       if (grass) continue;
       const cell = this.cells[r][c];
-      cell.setType("pond");
+      cell.setType("water");
       this.markHole(cell);
     }
   }
@@ -296,7 +296,7 @@ Grid.prototype.waterLinesOk = function () {
   for (let r = 0; r < n; r++) {
     let grass = false;
     for (let c = 0; c < n; c++) {
-      if (!this.cells[r][c].is("pond")) {
+      if (!this.cells[r][c].is("water")) {
         grass = true;
         break;
       }
@@ -306,7 +306,7 @@ Grid.prototype.waterLinesOk = function () {
   for (let c = 0; c < n; c++) {
     let grass = false;
     for (let r = 0; r < n; r++) {
-      if (!this.cells[r][c].is("pond")) {
+      if (!this.cells[r][c].is("water")) {
         grass = true;
         break;
       }

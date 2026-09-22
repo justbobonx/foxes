@@ -244,10 +244,6 @@ Forest.prototype.canPut = function (type, n) {
   if (!spec) return false;
   if (n < spec.minN) return false;
   if (type === "pond") return this.waterKnown();
-  if (type === "river") {
-    if (this.stateOf("river") !== "locked") return true;
-    return this.waterKnown();
-  }
   return this.stateOf(type) !== "locked";
 };
 
@@ -261,7 +257,7 @@ Forest.prototype.allowsFeature = function (type, n) {
   if (parsed.type === type) {
     return n >= specMin(type);
   }
-  if (parsed.type === "water" && (type === "pond" || type === "river")) {
+  if (parsed.type === "water" && type === "pond") {
     return n >= specMin(type);
   }
   return false;

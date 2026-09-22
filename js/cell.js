@@ -29,7 +29,7 @@ const CELL_TYPES = {
     tap: true,
     markO: "o",
   },
-  pond: {
+  water: {
     fill: "#0E2F5D",
     edge: "#226CD3",
     tap: false,

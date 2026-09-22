@@ -228,10 +228,11 @@ Grid.load = function (data) {
       cell.wrong = !!src.wrong;
       cell.warn = !!src.warn;
       cell.locked = !!src.locked;
-      const kind =
+      var kind =
         src.type ||
         src.specialId ||
-        (src.pond ? "pond" : src.cave || src.wolf ? "cave" : src.bunny ? "bunny" : src.hawk ? "hawk" : "grass");
+          (src.pond ? "water" : src.cave || src.wolf ? "cave" : src.bunny ? "bunny" : src.hawk ? "hawk" : "grass");
+      if (kind === "pond") kind = "water";
       cell.setType(kind);
       if (src.wolf) {
         grid.wolfRow = r;
