@@ -4,41 +4,37 @@ function Solver(grid) {
   this.grid = grid;
   this.n = grid.n;
   this.dells = [];
-  this.blocked = [];
-  this.bunnyRing = {};
+  this.seats = [];
+  this.bunnyAt = [];
+  this.hawkAt = [];
   this.needBunny = 0;
-  this.hawkLine = {};
   this.needHawk = 0;
+
+  const n = this.n;
   const bunny = grid.findBunny && grid.findBunny();
-  if (bunny) {
-    this.needBunny = 2;
-    for (let dr = -1; dr <= 1; dr++) {
-      for (let dc = -1; dc <= 1; dc++) {
-        if (!dr && !dc) continue;
-        const r = bunny.row + dr;
-        const c = bunny.col + dc;
-        if (r < 0 || c < 0 || r >= this.n || c >= this.n) continue;
-        this.bunnyRing[r + "," + c] = true;
-      }
-    }
-  }
-  if (grid.hawk) {
-    this.needHawk = 1;
-    for (let r = 1; r < this.n; r++) {
-      const c = grid.hawk === "L" ? r : this.n - 1 - r;
-      this.hawkLine[r + "," + c] = true;
-    }
-  }
-  for (let r = 0; r < this.n; r++) {
-    const row = [];
-    const block = [];
-    for (let c = 0; c < this.n; c++) {
+  if (bunny) this.needBunny = 2;
+  if (grid.hawk) this.needHawk = 1;
+
+  for (let r = 0; r < n; r++) {
+    const dellRow = [];
+    const seatRow = [];
+    const bunnyRow = [];
+    const hawkRow = [];
+    for (let c = 0; c < n; c++) {
       const cell = grid.at(r, c);
-      row.push(cell.dellId);
-      block.push(cell.isHole() || grid.nearWolf(r, c));
+      const dell = cell.dellId;
+      const blocked = cell.isHole() || grid.nearWolf(r, c);
+      dellRow.push(dell);
+      const onBunny = !!(bunny && Math.max(Math.abs(r - bunny.row), Math.abs(c - bunny.col)) === 1);
+      const onHawk = !!(grid.hawk && grid.onHawkLine && grid.onHawkLine(r, c));
+      bunnyRow.push(onBunny ? 1 : 0);
+      hawkRow.push(onHawk ? 1 : 0);
+      if (!blocked && dell >= 0) seatRow.push(c);
     }
-    this.dells.push(row);
-    this.blocked.push(block);
+    this.dells.push(dellRow);
+    this.seats.push(seatRow);
+    this.bunnyAt.push(bunnyRow);
+    this.hawkAt.push(hawkRow);
   }
 }
 
@@ -46,12 +42,24 @@ Solver.prototype.count = function (limit) {
   const cap = limit || 2;
   const n = this.n;
   const dells = this.dells;
-  const blocked = this.blocked;
-  const bunnyRing = this.bunnyRing;
+  const seats = this.seats;
+  const bunnyAt = this.bunnyAt;
+  const hawkAt = this.hawkAt;
   const needBunny = this.needBunny;
-  const hawkLine = this.hawkLine;
   const needHawk = this.needHawk;
   let found = 0;
+
+  function alive(row, prevCol, usedCols, usedDells) {
+    const list = seats[row];
+    for (let i = 0; i < list.length; i++) {
+      const col = list[i];
+      if (usedCols & (1 << col)) continue;
+      if (prevCol >= 0 && Math.abs(col - prevCol) < 2) continue;
+      if (usedDells & (1 << dells[row][col])) continue;
+      return true;
+    }
+    return false;
+  }
 
   function walk(row, prevCol, usedCols, usedDells, ringHits, hawkHits) {
     if (found >= cap) return;
@@ -61,19 +69,31 @@ Solver.prototype.count = function (limit) {
       if (ringHits === needBunny && hawkHits === needHawk) found++;
       return;
     }
-    for (let col = 0; col < n; col++) {
-      if (blocked[row][col]) continue;
+    const list = seats[row];
+    for (let i = 0; i < list.length; i++) {
+      const col = list[i];
       if (usedCols & (1 << col)) continue;
       if (prevCol >= 0 && Math.abs(col - prevCol) < 2) continue;
       const dell = dells[row][col];
-      if (dell < 0 || usedDells & (1 << dell)) continue;
-      const hit = bunnyRing[row + "," + col] ? 1 : 0;
-      const hawk = hawkLine[row + "," + col] ? 1 : 0;
-      walk(row + 1, col, usedCols | (1 << col), usedDells | (1 << dell), ringHits + hit, hawkHits + hawk);
+      if (usedDells & (1 << dell)) continue;
+      const nextCols = usedCols | (1 << col);
+      const nextDells = usedDells | (1 << dell);
+      if (row + 1 < n && !alive(row + 1, col, nextCols, nextDells)) continue;
+      walk(
+        row + 1,
+        col,
+        nextCols,
+        nextDells,
+        ringHits + bunnyAt[row][col],
+        hawkHits + hawkAt[row][col]
+      );
       if (found >= cap) return;
     }
   }
 
+  for (let r = 0; r < n; r++) {
+    if (!seats[r].length) return 0;
+  }
   walk(0, -1, 0, 0, 0, 0);
   return found;
 };

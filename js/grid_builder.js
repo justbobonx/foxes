@@ -4,6 +4,7 @@ const MIN_DELL_SIZE = 2;
 const DELL_TARGET = 3;
 const DELL_PAINT_TRIES = 40;
 const PLACE_TRIES = 200;
+const PACK_TRIES = 8;
 const UNIQUE_TRIES = 250;
 const WATER_TRIES = 50;
 const CAVE_SIZE = [2, 3];
@@ -585,19 +586,32 @@ Grid.prototype.landMassesOk = function () {
 };
 
 Grid.prototype.placeOs = function () {
+  const masses = this.grassMasses();
+  const n = this.n;
+  if (!masses.length || masses.length > n) {
+    this.clearSprites();
+    return false;
+  }
+  for (let i = 0; i < masses.length; i++) {
+    if (masses[i].size < MIN_DELL_SIZE) {
+      this.clearSprites();
+      return false;
+    }
+  }
+  const massId = this.massMap(masses);
   for (let t = 0; t < PLACE_TRIES; t++) {
-    if (this.tryPlaceOs()) return true;
+    if (this.tryPlaceOs(masses, massId)) return true;
   }
   this.clearSprites();
   return false;
 };
 
-Grid.prototype.tryPlaceOs = function () {
+Grid.prototype.tryPlaceOs = function (masses, massId) {
   this.clearSprites();
   const n = this.n;
-  const masses = this.grassMasses();
+  if (!masses) masses = this.grassMasses();
   if (!masses.length || masses.length > n) return false;
-  const massId = this.massMap(masses);
+  if (!massId) massId = this.massMap(masses);
   const room = [];
   const hits = [];
   let cap = 0;
@@ -609,11 +623,12 @@ Grid.prototype.tryPlaceOs = function () {
   }
   if (cap < n) return false;
 
-  const rows = [];
-  const cols = [];
+  const freeRow = [];
+  const freeCol = [];
+  let rowsLeft = n;
   for (let i = 0; i < n; i++) {
-    rows.push(i);
-    cols.push(i);
+    freeRow[i] = true;
+    freeCol[i] = true;
   }
 
   const self = this;
@@ -621,15 +636,14 @@ Grid.prototype.tryPlaceOs = function () {
   function takeSeat(r, c) {
     const mid = massId[r][c];
     if (mid < 0 || !room[mid]) return false;
+    if (!freeRow[r] || !freeCol[c]) return false;
     if (!self.foxSeatOk(r, c)) return false;
     if (self.hasNearbyO(r, c)) return false;
     if (hawkPlanted && self.onHawkLine(r, c)) return false;
-    const ri = rows.indexOf(r);
-    const ci = cols.indexOf(c);
-    if (ri < 0 || ci < 0) return false;
     self.cells[r][c].setSprite("o");
-    rows.splice(ri, 1);
-    cols.splice(ci, 1);
+    freeRow[r] = false;
+    freeCol[c] = false;
+    rowsLeft--;
     room[mid]--;
     hits[mid]++;
     return true;
@@ -667,8 +681,9 @@ Grid.prototype.tryPlaceOs = function () {
         const mid = massId[a.r][a.c];
         room[mid]++;
         hits[mid]--;
-        rows.push(a.r);
-        cols.push(a.c);
+        freeRow[a.r] = true;
+        freeCol[a.c] = true;
+        rowsLeft++;
         continue;
       }
       planted = true;
@@ -691,7 +706,7 @@ Grid.prototype.tryPlaceOs = function () {
     for (let k = 0; k < cells.length; k++) {
       const r = cells[k].r;
       const c = cells[k].c;
-      if (rows.indexOf(r) < 0 || cols.indexOf(c) < 0) continue;
+      if (!freeRow[r] || !freeCol[c]) continue;
       if (!this.foxSeatOk(r, c)) continue;
       if (this.hasNearbyO(r, c)) continue;
       opts.push({ r: r, c: c });
@@ -701,24 +716,22 @@ Grid.prototype.tryPlaceOs = function () {
     if (!takeSeat(pick.r, pick.c)) return false;
   }
 
-  while (rows.length) {
+  while (rowsLeft) {
     const opts = [];
-    for (let i = 0; i < rows.length; i++) {
-      for (let j = 0; j < cols.length; j++) {
-        const r = rows[i];
-        const c = cols[j];
+    for (let r = 0; r < n; r++) {
+      if (!freeRow[r]) continue;
+      for (let c = 0; c < n; c++) {
+        if (!freeCol[c]) continue;
         const mid = massId[r][c];
         if (mid < 0 || !room[mid]) continue;
         if (!this.foxSeatOk(r, c)) continue;
         if (this.hasNearbyO(r, c)) continue;
-        opts.push({ i: i, j: j });
+        opts.push({ r: r, c: c });
       }
     }
     if (!opts.length) return false;
     const pick = opts[Math.floor(Math.random() * opts.length)];
-    const row = rows[pick.i];
-    const col = cols[pick.j];
-    if (!takeSeat(row, col)) return false;
+    if (!takeSeat(pick.r, pick.c)) return false;
   }
   return true;
 };
@@ -901,15 +914,12 @@ Grid.prototype.rebuild = function (plan) {
   for (let t = 0; t < UNIQUE_TRIES; t++) {
     this.tries++;
     if (!this.prepLand()) continue;
-    for (let p = 0; p < 8; p++) {
+    for (let p = 0; p < PACK_TRIES; p++) {
       if (!this.placeOs()) break;
       if (!this.paintDells()) continue;
-      if (this.hasUnclaimedGrass()) continue;
-      if (new Solver(this).count(2) === 1) {
-        this.unique = true;
-        this.clearGuesses();
-        return true;
-      }
+      this.unique = true;
+      this.clearGuesses();
+      return true;
     }
   }
   return false;
