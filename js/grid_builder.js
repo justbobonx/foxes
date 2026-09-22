@@ -496,9 +496,9 @@ Grid.prototype.placeBunny = function () {
   const spots = [];
   for (let r = 0; r < this.n; r++) {
     for (let c = 0; c < this.n; c++) {
-      if ((r === 0 || r === last) && (c === 0 || c === last)) continue;
+      if (r === 0 || r === last || c === 0 || c === last) continue;
       if (this.cells[r][c].isHole()) continue;
-      if (this.bunnySeats(r, c).length < 5) continue;
+      if (this.bunnySeats(r, c).length < 6) continue;
       if (!this.bunnyPairs(r, c).length) continue;
       spots.push({ r: r, c: c });
     }
