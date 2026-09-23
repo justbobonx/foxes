@@ -115,8 +115,9 @@ function showMenu() {
   ui.showMenu();
 }
 
-function persistBoard() {
-  if (!playing || !grid || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
+function persistBoard(force) {
+  if (!grid) return;
+  if (!force && (!playing || ui.planOpen() || ui.storyOpen() || ui.findOpen())) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
   data.won = ui.winOpen() || grid.isCleared();
@@ -139,6 +140,9 @@ function paintScore() {
 function showBoard(keepWin) {
   if (!keepWin) ui.hideWin();
   ui.hideMenu();
+  ui.hidePlan();
+  ui.hideStory();
+  ui.hideFind();
   setLevel(n);
   paintScore();
   layout();
@@ -190,9 +194,9 @@ function startField(plan, isTest) {
     hintCut = 1;
     clockElapsed = 0;
     clockStarted = Date.now();
-    persistBoard();
-    ui.hidePlan();
-    persistBoard();
+    forest.offers = null;
+    persistForest();
+    persistBoard(true);
     showBoard();
   });
 }
@@ -310,31 +314,19 @@ function onCheckHint() {
 
 function restoreBoard() {
   const data = Save.readBoard();
-  const rawPlan = data && (data.fieldPlan || data.plan);
-  const plan = rawPlan ? Forest.copyPlan(rawPlan) : null;
-  let fits = !!(plan && plan.size <= forest.maxN);
-  if (fits) {
-    const list = plan.features || [];
-    for (let i = 0; i < list.length; i++) {
-      if (!list[i] || !list[i].type || !forest.allowsFeature(list[i].type, plan.size)) {
-        fits = false;
-        break;
-      }
-    }
-  }
-  if (!data || data.testPlan || !plan || plan.size !== (data.n | 0) || !fits) {
-    Save.clearBoard();
-    return false;
-  }
+  if (!data || data.testPlan) return false;
   const loaded = Grid.load(data);
   if (!loaded) {
     Save.clearBoard();
     return false;
   }
+  const rawPlan = data.fieldPlan || data.plan || loaded.plan;
+  const plan = Forest.copyPlan(rawPlan);
   Cell.dressGrid(loaded);
   grid = loaded;
-  forest.location = Forest.copyPlan(plan);
+  forest.location = plan;
   forest.lastPlan = Forest.copyPlan(plan);
+  forest.offers = null;
   persistForest();
   n = Save.clampSize(grid.n);
   clockElapsed = data.elapsedMs > 0 ? data.elapsedMs | 0 : 0;
@@ -388,14 +380,16 @@ function onWinOk() {
   openTravel();
 }
 
+function stashPlay() {
+  persistBoard(true);
+  persistForest();
+  clockOff();
+}
+
 function showTitle() {
   buildGen++;
   building = false;
-  if (playing) {
-    persistBoard();
-    persistForest();
-    clockOff();
-  }
+  if (playing || grid) stashPlay();
   playing = false;
   ui.hideWin();
   ui.hideMenu();
@@ -417,6 +411,10 @@ function beginPlay() {
     if (restoreBoard()) {
       layout();
       draw();
+      return;
+    }
+    if (grid && !playingTest) {
+      showBoard();
       return;
     }
     if (!forest.sawStory("start")) {
@@ -626,7 +624,9 @@ document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "hidden") showTitle();
 });
 
-window.addEventListener("pagehide", showTitle);
+window.addEventListener("pagehide", function () {
+  stashPlay();
+});
 
 setLevel(n);
 persistForest();
