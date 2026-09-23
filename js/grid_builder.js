@@ -2,14 +2,10 @@
 
 const MIN_DELL_SIZE = 2;
 const DELL_TARGET = 3;
-const DELL_PAINT_TRIES = 8;
+const DELL_PAINT_TRIES = 40;
 const PLACE_TRIES = 200;
-const PACK_TRIES = 4;
-const UNIQUE_TRIES = 200;
-const PROVE_NODES = 10000;
-const PROVE_MS = 20;
-const VERIFY_NODES = 50000;
-const VERIFY_MS = 80;
+const PACK_TRIES = 8;
+const UNIQUE_TRIES = 250;
 const WATER_TRIES = 50;
 const CAVE_SIZE = [2, 3];
 const POND_MIN_LEVEL = 7;
@@ -52,14 +48,7 @@ function GridBuilder(plan) {
   this.grid.plan = spec;
 }
 
-GridBuilder.SLICE_MS = 200;
-
-GridBuilder.PHASE_TEXT = {
-  land: "Heading to the Field",
-  pack: "Foxes are Hiding",
-  paint: "Areas colored",
-  prove: "Almost There",
-};
+GridBuilder.SLICE_MS = 90;
 
 GridBuilder.build = function (plan) {
   const builder = new GridBuilder(plan);
@@ -74,7 +63,7 @@ GridBuilder.buildAsync = function (plan, onSlice) {
     function pump() {
       const result = builder.searchSlice(GridBuilder.SLICE_MS);
       if (result === "yield") {
-        if (onSlice) onSlice(builder);
+        if (onSlice) onSlice();
         setTimeout(pump, 0);
         return;
       }
@@ -707,10 +696,7 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
       if (this.hasNearbyO(r, c)) continue;
       opts.push({ r: r, c: c });
     }
-    if (!opts.length) {
-      this.lastProve = "paint";
-      return false;
-    }
+    if (!opts.length) return false;
     const pick = opts[Math.floor(Math.random() * opts.length)];
     if (!takeSeat(pick.r, pick.c)) return false;
   }
@@ -728,10 +714,7 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
         opts.push({ r: r, c: c });
       }
     }
-    if (!opts.length) {
-      this.lastProve = "paint";
-      return false;
-    }
+    if (!opts.length) return false;
     const pick = opts[Math.floor(Math.random() * opts.length)];
     if (!takeSeat(pick.r, pick.c)) return false;
   }
@@ -762,7 +745,7 @@ GridBuilder.prototype.paintDells = function () {
   return false;
 };
 
-GridBuilder.prototype.startSearch = function (keepWaves) {
+GridBuilder.prototype.startSearch = function () {
   const g = this.grid;
   g.plan = this.plan;
   g.unique = false;
@@ -771,31 +754,6 @@ GridBuilder.prototype.startSearch = function (keepWaves) {
   this.searchP = 0;
   this.searchD = 0;
   this.searchLand = false;
-  this.phase = "land";
-  this.outcome = "search";
-  if (!keepWaves) {
-    this.searchWaves = 0;
-    this.lastProve = "-";
-  }
-};
-
-GridBuilder.prototype.phaseLabel = function () {
-  return GridBuilder.PHASE_TEXT[this.phase] || GridBuilder.PHASE_TEXT.land;
-};
-
-GridBuilder.prototype.debugLine = function () {
-  const g = this.grid;
-  return (
-    "n=" + (g ? g.n : "?") +
-    " wave=" + (this.searchWaves | 0) +
-    " t=" + (this.searchT | 0) + "/" + UNIQUE_TRIES +
-    " p=" + (this.searchP | 0) +
-    " d=" + (this.searchD | 0) +
-    " " + (this.phase || "?") +
-    " prove=" + (this.lastProve || "-") +
-    " out=" + (this.outcome || "-") +
-    " uniq=" + !!(g && g.unique)
-  );
 };
 
 GridBuilder.prototype.tryPaintDells = function () {
@@ -812,10 +770,7 @@ GridBuilder.prototype.tryPaintDells = function () {
       if (cell.spriteId === "o" && !cell.isHole()) seeds.push({ r: r, c: c });
     }
   }
-  if (seeds.length !== n) {
-    this.lastProve = "noses";
-    return false;
-  }
+  if (seeds.length !== n) return false;
 
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
@@ -913,10 +868,7 @@ GridBuilder.prototype.tryPaintDells = function () {
 
   while (hasUnclaimed()) {
     const opts = nextOpts();
-    if (!opts.length) {
-      this.lastProve = "paint";
-      return false;
-    }
+    if (!opts.length) return false;
     shuffleInPlace(opts);
     let placed = false;
     for (let i = 0; i < opts.length; i++) {
@@ -928,30 +880,13 @@ GridBuilder.prototype.tryPaintDells = function () {
       placed = true;
       break;
     }
-    if (!placed) {
-      this.lastProve = "paint";
-      return false;
-    }
+    if (!placed) return false;
   }
 
   for (let i = 0; i < sizes.length; i++) {
-    if (sizes[i] && sizes[i] < floor) {
-      this.lastProve = "tiny";
-      return false;
-    }
+    if (sizes[i] && sizes[i] < floor) return false;
   }
-  this.phase = "prove";
-  const solver = new Solver(g);
-  const verdict = solver.prove(PROVE_NODES, PROVE_MS);
-  this.lastProve = verdict;
-  if (verdict !== "unique") return false;
-  const extra = solver.countExtra(solver.plantedCols(), VERIFY_NODES, VERIFY_MS);
-  if (extra > 0) {
-    this.lastProve = "lie:" + extra;
-    return false;
-  }
-  if (extra < 0) this.lastProve = "unique?";
-  return true;
+  return new Solver(g).count(2) === 1;
 };
 
 GridBuilder.prototype.run = function () {
@@ -967,7 +902,6 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
   const end = Date.now() + (budgetMs > 0 ? budgetMs : 90);
   while (this.searchT < UNIQUE_TRIES) {
     if (!this.searchLand) {
-      this.phase = "land";
       this.resetLand();
       this.searchP = 0;
       this.searchD = 0;
@@ -979,16 +913,10 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
       this.searchLand = true;
     }
     while (this.searchP < PACK_TRIES) {
-      if (this.searchD === 0) {
-        this.phase = "pack";
-        if (!this.placeOs()) break;
-      }
+      if (this.searchD === 0 && !this.placeOs()) break;
       while (this.searchD < DELL_PAINT_TRIES) {
-        this.phase = "paint";
         if (this.tryPaintDells()) {
-          this.outcome = "done";
           g.unique = true;
-          g.buildNote = this.debugLine();
           g.clearGuesses();
           return "done";
         }
@@ -1003,12 +931,5 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
     this.searchT++;
     if (Date.now() >= end) return "yield";
   }
-  this.searchWaves = (this.searchWaves | 0) + 1;
-  this.outcome = "fail-retry";
-  this.searchT = 0;
-  this.searchP = 0;
-  this.searchD = 0;
-  this.searchLand = false;
-  this.phase = "land";
-  return "yield";
+  return "fail";
 };
