@@ -10,7 +10,7 @@ const planner = new Planner();
 const TAP_MS = 350;
 const FIND_WAIT_MS = 500;
 const FIND_FOX_MS = 1000;
-const FIND_FOX_MAX = 20;
+const FIND_FOX_WRAP = 10;
 const CHECK_CUT = 0.96;
 const CHECK_HIT = 0.98;
 const HINT_CUT = [0, 0, 0.94, 0.95, 0.97, 0.98, 0.99]; // 2-5 prints, 6 clean up
@@ -172,23 +172,24 @@ function startField(plan, isTest) {
   building = true;
   const gen = ++buildGen;
   const started = Date.now();
-  let foxes = 0;
-  function tickFind() {
+  function tickFind(builder) {
     if (gen !== buildGen) return;
     const elapsed = Date.now() - started;
     if (elapsed < FIND_WAIT_MS) return;
     if (!ui.findOpen()) ui.showFind();
-    const want = Math.min(FIND_FOX_MAX, 1 + Math.floor((elapsed - FIND_WAIT_MS) / FIND_FOX_MS));
-    if (want > foxes) {
-      foxes = want;
-      ui.setFindFoxes(foxes);
-    }
+    if (builder && builder.phaseLabel) ui.setFindPhase(builder.phaseLabel());
+    //if (builder && builder.debugLine) ui.setFindDebug(builder.debugLine());
+    const ticks = 1 + Math.floor((elapsed - FIND_WAIT_MS) / FIND_FOX_MS);
+    ui.setFindFoxes(((ticks - 1) % FIND_FOX_WRAP) + 1);
   }
   GridBuilder.buildAsync(plan, tickFind).then(function (built) {
     if (gen !== buildGen) return;
     building = false;
     ui.hideFind();
     grid = built;
+    window.FOX_BUILD = built && built.buildNote;
+    console.log("FOX_BUILD", built && built.buildNote, "unique", built && built.unique);
+    ui.setBuildDebug((built && built.buildNote ? built.buildNote : "") + (built && built.unique ? "" : " NOT UNIQUE"));
     Cell.dressGrid(grid);
     hintCount = 0;
     hintCut = 1;

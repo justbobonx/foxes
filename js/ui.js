@@ -28,7 +28,10 @@ function Ui() {
   this.elStory = document.getElementById("story-screen");
   this.elStorySlot = document.getElementById("story-slot");
   this.elFind = document.getElementById("find-screen");
+  this.elFindTitle = document.getElementById("find-title");
   this.elFindFoxes = document.getElementById("find-foxes");
+  this.elFindDebug = document.getElementById("find-debug");
+  this.elBuildDebug = document.getElementById("build-debug");
   this.onPlanPick = null;
   this.onStoryContinue = null;
 }
@@ -106,11 +109,27 @@ Ui.prototype.showFind = function () {
 Ui.prototype.hideFind = function () {
   if (this.elFind) this.elFind.hidden = true;
   if (this.elFindFoxes) this.elFindFoxes.innerHTML = "";
+  this.setFindPhase("Heading to the Field");
+  this.setFindDebug("");
+};
+
+Ui.prototype.setFindPhase = function (text) {
+  if (this.elFindTitle) this.elFindTitle.textContent = text || "Heading to the Field";
+};
+
+Ui.prototype.setFindDebug = function (text) {
+  if (this.elFindDebug) this.elFindDebug.textContent = text || "";
+};
+
+Ui.prototype.setBuildDebug = function (text) {
+  if (!this.elBuildDebug) return;
+  this.elBuildDebug.textContent = text || "";
+  this.elBuildDebug.hidden = !text;
 };
 
 Ui.prototype.setFindFoxes = function (count) {
   if (!this.elFindFoxes) return;
-  const want = count | 0;
+  const want = Math.max(0, count | 0);
   let have = this.elFindFoxes.childNodes.length;
   while (have < want) {
     const img = document.createElement("img");
@@ -120,6 +139,10 @@ Ui.prototype.setFindFoxes = function (count) {
     img.alt = "";
     this.elFindFoxes.appendChild(img);
     have++;
+  }
+  while (have > want) {
+    this.elFindFoxes.removeChild(this.elFindFoxes.lastChild);
+    have--;
   }
 };
 
