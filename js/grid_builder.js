@@ -48,7 +48,7 @@ function GridBuilder(plan) {
   this.grid.plan = spec;
 }
 
-GridBuilder.SLICE_MS = 90;
+GridBuilder.SLICE_MS = 200;
 
 GridBuilder.build = function (plan) {
   const builder = new GridBuilder(plan);

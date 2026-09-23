@@ -179,6 +179,7 @@ canvas {
   justify-content: center;
   gap: 8px;
   min-height: 48px;
+  max-width: 100%;
 }
 
 .find-foxes img {
