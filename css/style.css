@@ -545,7 +545,7 @@ button.plan-card.locked,
 
 button.story-card,
 .story-card {
-  width: min(240px, 86vw);
+  width: min(260px, 86vw);
   flex: 0 0 auto;
   height: auto;
   min-height: 0;
@@ -575,11 +575,11 @@ button.story-card,
   width: 100%;
   padding: 0 6px;
   font-family: pixel_font_sm, sans-serif;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1.1;
   letter-spacing: 0.02em;
   text-align: center;
-  color: #443322;
+  color: #112233;
   white-space: pre-wrap;
 }
 
