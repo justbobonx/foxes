@@ -1,9 +1,11 @@
-/** N x N cells. One O per row and column. Types mark holes. Live board only. */
+/** rows x cols cells. One O per row. Types mark holes. Live board only. */
 
 const HOLE_DELL = -2;
 
-function Grid(n) {
+function Grid(n, cols) {
   this.n = n;
+  this.rows = n;
+  this.cols = cols == null ? n : cols;
   this.plan = { size: n, features: [] };
   this.unique = false;
   this.wolfShown = false;
@@ -11,9 +13,9 @@ function Grid(n) {
   this.wolfCol = -1;
   this.hawk = null;
   this.cells = [];
-  for (let r = 0; r < n; r++) {
+  for (let r = 0; r < this.rows; r++) {
     const row = [];
-    for (let c = 0; c < n; c++) row.push(new Cell(r, c));
+    for (let c = 0; c < this.cols; c++) row.push(new Cell(r, c));
     this.cells.push(row);
   }
 }
@@ -53,6 +55,7 @@ Grid.normalizePlan = function (plan, n) {
     if (plan.wolf) features.push({ type: "wolf" });
     if (plan.bunny) features.push({ type: "bunny" });
     if (plan.hawk) features.push({ type: "hawk" });
+    if (plan.trees) features.push({ type: "trees", size: plan.trees | 0 || 1 });
   }
   return { size: size | 0, features: features };
 };
@@ -62,12 +65,12 @@ Grid.prototype.at = function (row, col) {
 };
 
 Grid.prototype.inBoard = function (r, c) {
-  return r >= 0 && c >= 0 && r < this.n && c < this.n;
+  return r >= 0 && c >= 0 && r < this.rows && c < this.cols;
 };
 
 Grid.prototype.each = function (fn) {
-  for (let r = 0; r < this.n; r++) {
-    for (let c = 0; c < this.n; c++) {
+  for (let r = 0; r < this.rows; r++) {
+    for (let c = 0; c < this.cols; c++) {
       if (fn(this.cells[r][c], r, c) === false) return;
     }
   }
@@ -103,11 +106,39 @@ Grid.prototype.nearWolf = function (row, col) {
 };
 
 Grid.prototype.onHawkLine = function (row, col) {
-  if (!this.hawk) return false;
+  if (!this.hawk || this.rows !== this.cols) return false;
   const onDiag = this.hawk === "L" ? row === col : row + col === this.n - 1;
   if (!onDiag) return false;
-  const hawkCol = this.hawk === "L" ? 0 : this.n - 1;
+  const hawkCol = this.hawk === "L" ? 0 : this.cols - 1;
   return !(row === 0 && col === hawkCol);
+};
+
+Grid.prototype.treeSpan = function (col) {
+  let lo = -1;
+  let hi = -1;
+  for (let r = 0; r < this.rows; r++) {
+    if (!this.cells[r][col] || !this.cells[r][col].is("tree")) continue;
+    if (lo < 0) lo = r;
+    hi = r;
+  }
+  if (lo < 0) return null;
+  return { lo: lo, hi: hi };
+};
+
+Grid.prototype.runOf = function (row, col) {
+  if (!this.inBoard(row, col)) return -1;
+  if (this.cells[row][col].isHole()) return -1;
+  const span = this.treeSpan(col);
+  if (!span) return 0;
+  if (row < span.lo) return 0;
+  if (row > span.hi) return 1;
+  return -1;
+};
+
+Grid.prototype.runKey = function (row, col) {
+  const run = this.runOf(row, col);
+  if (run < 0) return "";
+  return col + ":" + run;
 };
 
 Grid.prototype.findBunny = function () {
@@ -179,19 +210,20 @@ Grid.prototype.markConflicts = function () {
     if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
   });
   const rows = {};
-  const cols = {};
+  const runs = {};
   const dells = {};
   for (let i = 0; i < foxes.length; i++) {
     const cell = foxes[i];
+    const run = this.runKey(cell.row, cell.col);
     if (!rows[cell.row]) rows[cell.row] = [];
-    if (!cols[cell.col]) cols[cell.col] = [];
+    if (run && !runs[run]) runs[run] = [];
     if (!dells[cell.dellId]) dells[cell.dellId] = [];
     rows[cell.row].push(cell);
-    cols[cell.col].push(cell);
+    if (run) runs[run].push(cell);
     dells[cell.dellId].push(cell);
   }
   for (const k in rows) flag(rows[k]);
-  for (const k in cols) flag(cols[k]);
+  for (const k in runs) flag(runs[k]);
   for (const k in dells) flag(dells[k]);
   if (this.hawk) {
     const line = [];
@@ -237,7 +269,11 @@ Grid.prototype.clearLooseMarks = function () {
     let forced = false;
     for (let i = 0; i < foxes.length; i++) {
       const fox = foxes[i];
-      if (cell.row === fox.row || cell.col === fox.col || cell.dellId === fox.dellId) {
+      if (cell.row === fox.row || cell.dellId === fox.dellId) {
+        forced = true;
+        break;
+      }
+      if (g.runKey(cell.row, cell.col) && g.runKey(cell.row, cell.col) === g.runKey(fox.row, fox.col)) {
         forced = true;
         break;
       }
@@ -323,6 +359,7 @@ Grid.prototype.dump = function () {
   });
   return {
     n: this.n,
+    cols: this.cols,
     unique: this.unique,
     wolfShown: !!this.wolfShown,
     wolfRow: this.wolfRow,
@@ -334,8 +371,11 @@ Grid.prototype.dump = function () {
 };
 
 Grid.load = function (data) {
-  if (!data || !data.n || !data.cells || data.cells.length !== data.n * data.n) return null;
-  const grid = new Grid(data.n);
+  if (!data || !data.n || !data.cells) return null;
+  const rows = data.n | 0;
+  const cols = data.cols | 0 || rows;
+  if (data.cells.length !== rows * cols) return null;
+  const grid = new Grid(rows, cols);
   grid.unique = !!data.unique;
   grid.wolfShown = !!data.wolfShown;
   grid.plan = Grid.normalizePlan(data.fieldPlan || data.plan, data.n);
@@ -343,8 +383,8 @@ Grid.load = function (data) {
   grid.wolfCol = typeof data.wolfCol === "number" ? data.wolfCol : -1;
   grid.hawk = data.hawk === "L" || data.hawk === "R" ? data.hawk : null;
   let i = 0;
-  for (let r = 0; r < data.n; r++) {
-    for (let c = 0; c < data.n; c++) {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
       const src = data.cells[i++];
       const cell = grid.cells[r][c];
       cell.dellId = src.dellId;

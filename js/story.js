@@ -29,6 +29,11 @@ that means more foxes`
 from the corner of the forest
 exactly one fox on that line`
   },
+  first_trees: { image: "images/trees.png", sizex: 64, sizey: 64, text:
+`trees on the edge split a column
+two foxes can share that file
+if the trees stand between them`
+  },
 };
 
 function Story() {}

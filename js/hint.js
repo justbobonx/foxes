@@ -43,8 +43,8 @@ Hint.prototype.applyPrints = function (cells) {
 Hint.prototype.dellMap = function () {
   const map = {};
   const g = this.grid;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       const cell = g.at(r, c);
       if (!cell.is("grass") || cell.dellId < 0) continue;
       if (!map[cell.dellId]) map[cell.dellId] = [];
@@ -57,8 +57,8 @@ Hint.prototype.dellMap = function () {
 Hint.prototype.tryLevel2 = function () {
   const g = this.grid;
   const foxes = [];
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       const cell = g.at(r, c);
       if (this.isFoundFox(cell)) foxes.push(cell);
     }
@@ -74,20 +74,22 @@ Hint.prototype.tryLevel2 = function () {
       const fox = foxes[f];
       const targets = [];
       if (rule === "row") {
-        for (let c = 0; c < g.n; c++) {
+        for (let c = 0; c < g.cols; c++) {
           if (c === fox.col) continue;
           const cell = g.at(fox.row, c);
           if (this.isEmptyGrass(cell)) targets.push(cell);
         }
       } else if (rule === "col") {
-        for (let r = 0; r < g.n; r++) {
+        const foxRun = g.runKey(fox.row, fox.col);
+        for (let r = 0; r < g.rows; r++) {
           if (r === fox.row) continue;
+          if (g.runKey(r, fox.col) !== foxRun) continue;
           const cell = g.at(r, fox.col);
           if (this.isEmptyGrass(cell)) targets.push(cell);
         }
       } else if (rule === "dell") {
-        for (let r = 0; r < g.n; r++) {
-          for (let c = 0; c < g.n; c++) {
+        for (let r = 0; r < g.rows; r++) {
+          for (let c = 0; c < g.cols; c++) {
             if (r === fox.row && c === fox.col) continue;
             const cell = g.at(r, c);
             if (cell.dellId !== fox.dellId) continue;
@@ -96,8 +98,8 @@ Hint.prototype.tryLevel2 = function () {
         }
       } else if (rule === "hawk") {
         if (g.hawk && g.onHawkLine(fox.row, fox.col)) {
-          for (let r = 0; r < g.n; r++) {
-            for (let c = 0; c < g.n; c++) {
+          for (let r = 0; r < g.rows; r++) {
+            for (let c = 0; c < g.cols; c++) {
               if (r === fox.row && c === fox.col) continue;
               if (!g.onHawkLine(r, c)) continue;
               const cell = g.at(r, c);
@@ -111,7 +113,7 @@ Hint.prototype.tryLevel2 = function () {
             if (!dr && !dc) continue;
             const r = fox.row + dr;
             const c = fox.col + dc;
-            if (r < 0 || c < 0 || r >= g.n || c >= g.n) continue;
+            if (r < 0 || c < 0 || r >= g.rows || c >= g.cols) continue;
             const cell = g.at(r, c);
             if (this.isEmptyGrass(cell)) targets.push(cell);
           }
@@ -153,17 +155,25 @@ Hint.prototype.tryLevel3 = function () {
     const out = [];
     if (rows.length === 1) {
       const r = rows[0];
-      for (let c = 0; c < g.n; c++) {
+      for (let c = 0; c < g.cols; c++) {
         const cell = g.at(r, c);
         if (cell.dellId === cells[0].dellId) continue;
         if (this.isEmptyGrass(cell)) out.push(cell);
       }
     } else if (cols.length === 1) {
       const c = cols[0];
-      for (let r = 0; r < g.n; r++) {
-        const cell = g.at(r, c);
-        if (cell.dellId === cells[0].dellId) continue;
-        if (this.isEmptyGrass(cell)) out.push(cell);
+      const run0 = g.runKey(cells[0].row, cells[0].col);
+      let oneRun = !!run0;
+      for (let i = 1; i < cells.length && oneRun; i++) {
+        if (g.runKey(cells[i].row, cells[i].col) !== run0) oneRun = false;
+      }
+      if (oneRun) {
+        for (let r = 0; r < g.rows; r++) {
+          const cell = g.at(r, c);
+          if (g.runKey(r, c) !== run0) continue;
+          if (cell.dellId === cells[0].dellId) continue;
+          if (this.isEmptyGrass(cell)) out.push(cell);
+        }
       }
     }
     if (out.length) batches.push(out);
@@ -174,7 +184,9 @@ Hint.prototype.tryLevel3 = function () {
   const axes = ["row", "col"];
   for (let ax = 0; ax < axes.length; ax++) {
     const axis = axes[ax];
-    for (let a = 0; a < g.n - 1; a++) {
+    const span = axis === "row" ? g.rows : g.cols;
+    const cross = axis === "row" ? g.cols : g.rows;
+    for (let a = 0; a < span - 1; a++) {
       const b = a + 1;
       const contained = [];
       for (let i = 0; i < ids.length; i++) {
@@ -192,7 +204,7 @@ Hint.prototype.tryLevel3 = function () {
       keep[contained[0]] = true;
       keep[contained[1]] = true;
       const targets = [];
-      for (let i = 0; i < g.n; i++) {
+      for (let i = 0; i < cross; i++) {
         for (let k = 0; k < 2; k++) {
           const line = k === 0 ? a : b;
           const cell = axis === "row" ? g.at(line, i) : g.at(i, line);
@@ -223,8 +235,8 @@ Hint.prototype.tryLevel3 = function () {
     const mine = {};
     for (let i = 0; i < seats.length; i++) mine[seats[i].row + "," + seats[i].col] = true;
     const out = [];
-    for (let r = 0; r < g.n; r++) {
-      for (let c = 0; c < g.n; c++) {
+    for (let r = 0; r < g.rows; r++) {
+      for (let c = 0; c < g.cols; c++) {
         if (mine[r + "," + c]) continue;
         const cell = g.at(r, c);
         if (!this.isEmptyGrass(cell)) continue;

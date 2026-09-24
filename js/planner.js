@@ -20,9 +20,9 @@ Planner.featureItem = function (type, size) {
   return item;
 };
 
-Planner.waterParts = function (forest, n) {
+Planner.waterParts = function (forest, n, trees) {
   const min = typeof POND_MIN_LEVEL === "number" ? POND_MIN_LEVEL : 7;
-  let amount = n - min + 1;
+  let amount = n - min + 1 - (trees | 0);
   if (amount < 1) return [];
   const allowRiver = forest.canPut("river", n);
   const parts = [];
@@ -45,22 +45,38 @@ Planner.waterParts = function (forest, n) {
 
 Planner.rollFeatures = function (forest, n) {
   const out = [];
+  let trees = 0;
+  if (forest.canPut("trees", n) && Math.random() < Forest.CATALOG.trees.p) {
+    const max = Forest.maxTrees(n);
+    if (max > 0) {
+      trees = 1 + Math.floor(Math.random() * max);
+      out.push(Planner.featureItem("trees", trees));
+    }
+  }
   for (const type in Forest.CATALOG) {
-    if (type === "water" || type === "pond" || type === "river") continue;
+    if (type === "water" || type === "pond" || type === "river" || type === "trees") continue;
+    if (type === "hawk" && trees) continue;
     if (!forest.canPut(type, n)) continue;
     if (Math.random() < Forest.CATALOG[type].p) out.push(Planner.featureItem(type));
   }
   const water = Forest.CATALOG.water;
   if (forest.canPut("water", n) && water && Math.random() < water.p) {
-    const parts = Planner.waterParts(forest, n);
+    const parts = Planner.waterParts(forest, n, trees);
     for (let i = 0; i < parts.length; i++) out.push(parts[i]);
   }
   return out;
 };
 
 Planner.makePlan = function (size, features) {
-  const rank = { pond: 0, river: 1, wolf: 2, bunny: 3, hawk: 4 };
-  const list = (features || []).slice().sort(function (a, b) {
+  const rank = { trees: 0, pond: 1, river: 2, wolf: 3, bunny: 4, hawk: 5 };
+  const raw = features || [];
+  let hasTrees = false;
+  for (let i = 0; i < raw.length; i++) {
+    if (raw[i] && raw[i].type === "trees") hasTrees = true;
+  }
+  const list = raw.filter(function (f) {
+    return f && f.type && !(hasTrees && f.type === "hawk");
+  }).sort(function (a, b) {
     const aa = rank[a.type] != null ? rank[a.type] : 9;
     const bb = rank[b.type] != null ? rank[b.type] : 9;
     if (aa !== bb) return aa - bb;
@@ -96,6 +112,9 @@ Planner.fromQuery = function (search) {
           hasRiver = true;
           const sz = f.size | 0;
           features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+        } else if (f.type === "trees") {
+          const sz = f.size | 0 || f.amount | 0 || 1;
+          features.push({ type: "trees", size: sz < 1 ? 1 : sz });
         } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
           features.push({ type: f.type });
         }
@@ -123,6 +142,8 @@ Planner.fromQuery = function (search) {
       if (hasRiver) continue;
       hasRiver = true;
       features.push({ type: "river", size: sz === 1 ? 1 : 2 });
+    } else if (type === "trees") {
+      features.push({ type: "trees", size: sz >= 1 ? sz : 1 });
     } else if (type === "wolf" || type === "bunny" || type === "hawk") {
       features.push({ type: type });
     }
@@ -159,7 +180,7 @@ Planner.deeperCard = function (forest) {
       for (let i = 0; i < out.length; i++) {
         if (out[i].type === "pond" || out[i].type === "river") return out;
       }
-      const parts = n ? Planner.waterParts(forest, n) : [];
+      const parts = n ? Planner.waterParts(forest, n, Forest.treeCount({ features: out })) : [];
       if (parts.length) {
         for (let i = 0; i < parts.length; i++) out.push(parts[i]);
         return out;
@@ -169,6 +190,18 @@ Planner.deeperCard = function (forest) {
     }
     for (let i = 0; i < out.length; i++) {
       if (out[i].type === type) return out;
+    }
+    if (type === "trees") {
+      out.push(Planner.featureItem("trees", 1));
+      for (let i = out.length - 1; i >= 0; i--) {
+        if (out[i].type === "hawk") out.splice(i, 1);
+      }
+      return out;
+    }
+    if (type === "hawk") {
+      for (let i = 0; i < out.length; i++) {
+        if (out[i].type === "trees") return out;
+      }
     }
     if (type === "pond") {
       out.push(Planner.featureItem("pond", 1));

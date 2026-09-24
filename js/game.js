@@ -96,11 +96,12 @@ function layout() {
   const gap = 8;
   const usableW = w;
   const usableH = h - padTop - padBot - gap * 2;
-  const size = grid ? grid.n : n;
-  cellSize = Math.floor(Math.min(usableW / size, usableH / size));
+  const rows = grid ? grid.rows : n;
+  const cols = grid ? grid.cols : n;
+  cellSize = Math.floor(Math.min(usableW / cols, usableH / rows));
   if (cellSize < 16) cellSize = 16;
-  const boardW = size * cellSize;
-  const boardH = size * cellSize;
+  const boardW = cols * cellSize;
+  const boardH = rows * cellSize;
   originX = Math.floor((w - boardW) / 2);
   if (ui.winOpen()) originY = padTop + gap;
   else originY = padTop + gap + Math.floor((usableH - boardH) / 2);
@@ -443,8 +444,9 @@ function drawHawkBand() {
   const inset = Math.max(1, Math.floor(cellSize * 0.06));
   const s = cellSize - inset * 2;
   const pts = [];
-  for (let r = 0; r < grid.n; r++) {
-    const c = grid.hawk === "L" ? r : grid.n - 1 - r;
+  if (grid.rows !== grid.cols) return;
+  for (let r = 0; r < grid.rows; r++) {
+    const c = grid.hawk === "L" ? r : grid.cols - 1 - r;
     pts.push({
       x: originX + c * cellSize + inset + s / 2,
       y: originY + r * cellSize + inset + s / 2,
@@ -486,7 +488,7 @@ function cellAtEvent(e) {
   const y = ((e.clientY - rect.top) * canvas.height) / rect.height;
   const col = Math.floor((x - originX) / cellSize);
   const row = Math.floor((y - originY) / cellSize);
-  if (row < 0 || col < 0 || row >= grid.n || col >= grid.n) return null;
+  if (row < 0 || col < 0 || row >= grid.rows || col >= grid.cols) return null;
   return { row: row, col: col };
 }
 

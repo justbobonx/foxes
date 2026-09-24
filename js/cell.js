@@ -54,6 +54,12 @@ const CELL_TYPES = {
     tap: false,
     stand: "h",
   },
+  tree: {
+    fill: "#2d4a28",
+    edge: "#6b8f4e",
+    tap: false,
+    stand: "t",
+  },
 };
 
 function Cell(row, col) {
@@ -226,7 +232,7 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
 };
 
 Cell.samePatch = function (grid, cell, row, col) {
-  if (row < 0 || col < 0 || row >= grid.n || col >= grid.n) return false;
+  if (row < 0 || col < 0 || row >= grid.rows || col >= grid.cols) return false;
   const other = grid.at(row, col);
   if (cell.type !== "grass") return other.type === cell.type;
   return other.type === "grass" && other.dellId === cell.dellId;
@@ -234,8 +240,8 @@ Cell.samePatch = function (grid, cell, row, col) {
 
 Cell.dressGrid = function (grid) {
   if (!grid) return;
-  for (let r = 0; r < grid.n; r++) {
-    for (let c = 0; c < grid.n; c++) {
+  for (let r = 0; r < grid.rows; r++) {
+    for (let c = 0; c < grid.cols; c++) {
       const cell = grid.at(r, c);
       const kind = cell.type || "grass";
       cell.look = CELL_TYPES[kind] || CELL_TYPES.grass;

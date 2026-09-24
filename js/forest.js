@@ -7,6 +7,7 @@ const FEATURE_CATALOG = {
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
   hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
+  trees: { minN: 8, p: 0.3, icon: "images/trees.png", defaults: { size: 1 } },
 };
 
 const UNLOCK_CHART = [
@@ -19,6 +20,7 @@ const UNLOCK_CHART = [
   { unlock: "bunny", plus: 3, story: "first_bunny" },
   { unlock: "size-10", plus: 3, story: "" },
   { unlock: "hawk", plus: 3, story: "first_hawk" },
+  { unlock: "trees", plus: 3, story: "first_trees" },
 ];
 
 function Forest(data) {
@@ -126,6 +128,25 @@ Forest.hasFeature = function (plan, type) {
     if (plan.features[i].type === type) return true;
   }
   return false;
+};
+
+Forest.maxTrees = function (n) {
+  const spec = FEATURE_CATALOG.trees;
+  const minN = spec && spec.minN ? spec.minN : 8;
+  n = n | 0;
+  if (n < minN) return 0;
+  return Math.ceil((n - minN + 1) / 2);
+};
+
+Forest.treeCount = function (plan) {
+  if (!plan || !plan.features) return 0;
+  for (let i = 0; i < plan.features.length; i++) {
+    const f = plan.features[i];
+    if (!f || f.type !== "trees") continue;
+    const z = f.size | 0 || f.amount | 0 || 1;
+    return z < 1 ? 1 : z;
+  }
+  return 0;
 };
 
 Forest.blank = function () {

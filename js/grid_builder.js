@@ -44,7 +44,8 @@ function shuffleInPlace(arr) {
 function GridBuilder(plan) {
   const spec = Grid.normalizePlan(plan, plan && (plan.size || plan.n));
   this.plan = spec;
-  this.grid = new Grid(spec.size);
+  const z = Forest.treeCount(spec);
+  this.grid = new Grid(spec.size, spec.size - z);
   this.grid.plan = spec;
 }
 
@@ -110,8 +111,8 @@ GridBuilder.prototype.resetLand = function () {
   g.hawk = null;
   g.wolfShown = false;
   g.unique = false;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       const cell = g.cells[r][c];
       cell.setType("grass");
       cell.dellId = -1;
@@ -134,9 +135,9 @@ GridBuilder.prototype.walkRiver = function (r, c, flow) {
   }
   function onFar(rr, cc) {
     if (flow.far === "n") return rr === 0;
-    if (flow.far === "s") return rr === g.n - 1;
+    if (flow.far === "s") return rr === g.rows - 1;
     if (flow.far === "w") return cc === 0;
-    return cc === g.n - 1;
+    return cc === g.cols - 1;
   }
   function sideOk(rr, cc) {
     if (!g.inBoard(rr, cc)) return false;
@@ -149,7 +150,7 @@ GridBuilder.prototype.walkRiver = function (r, c, flow) {
   if (!paint(r, c)) return false;
   if (onFar(r, c)) return true;
   let lastMeander = false;
-  const cap = g.n * g.n;
+  const cap = g.rows * g.cols;
   for (let i = 0; i < cap; i++) {
     const fwd = { r: r + flow.dr, c: c + flow.dc };
     let next = null;
@@ -179,8 +180,8 @@ GridBuilder.prototype.walkRiver = function (r, c, flow) {
 
 GridBuilder.prototype.fillWaterIslands = function () {
   const g = this.grid;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       if (g.cells[r][c].isHole()) continue;
       let grass = false;
       for (let d = 0; d < DELL_DIRS.length; d++) {
@@ -204,10 +205,11 @@ GridBuilder.prototype.placeWater = function () {
   const g = this.grid;
   const river = this.featureSize("river", 0);
   const n = g.n;
+  const cols = g.cols;
 
   for (let t = 0; t < WATER_TRIES; t++) {
     for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
+      for (let c = 0; c < cols; c++) {
         const cell = g.cells[r][c];
         if (cell.is("water")) {
           cell.setType("grass");
@@ -217,16 +219,14 @@ GridBuilder.prototype.placeWater = function () {
     }
 
     if (river === 2) {
-      const lo = 2;
-      const hi = n - 3;
       const starts = [];
-      if (hi >= lo) {
-        for (let i = lo; i <= hi; i++) {
-          starts.push({ r: 0, c: i, flow: RIVER_FLOW.s });
-          starts.push({ r: n - 1, c: i, flow: RIVER_FLOW.n });
-          starts.push({ r: i, c: 0, flow: RIVER_FLOW.e });
-          starts.push({ r: i, c: n - 1, flow: RIVER_FLOW.w });
-        }
+      for (let c = 2; c <= cols - 3; c++) {
+        starts.push({ r: 0, c: c, flow: RIVER_FLOW.s });
+        starts.push({ r: n - 1, c: c, flow: RIVER_FLOW.n });
+      }
+      for (let r = 2; r <= n - 3; r++) {
+        starts.push({ r: r, c: 0, flow: RIVER_FLOW.e });
+        starts.push({ r: r, c: cols - 1, flow: RIVER_FLOW.w });
       }
       if (!starts.length) continue;
       const pick = starts[Math.floor(Math.random() * starts.length)];
@@ -253,8 +253,8 @@ GridBuilder.prototype.placeWater = function () {
       const w = shape[1];
       const spots = [];
       for (let r = 0; r <= n - h; r++) {
-        for (let c = 0; c <= n - w; c++) {
-          let fits = r >= 0 && c >= 0 && r + h <= n && c + w <= n;
+        for (let c = 0; c <= cols - w; c++) {
+          let fits = r >= 0 && c >= 0 && r + h <= n && c + w <= cols;
           if (fits) {
             for (let rr = r; rr < r + h && fits; rr++) {
               for (let cc = c; cc < c + w; cc++) {
@@ -285,7 +285,7 @@ GridBuilder.prototype.placeWater = function () {
     if (river === 1) {
       const ponds = [];
       for (let r = 0; r < n; r++) {
-        for (let c = 0; c < n; c++) {
+        for (let c = 0; c < cols; c++) {
           if (g.cells[r][c].is("water")) ponds.push({ r: r, c: c });
         }
       }
@@ -295,7 +295,7 @@ GridBuilder.prototype.placeWater = function () {
         { dist: pick.r, flow: RIVER_FLOW.n },
         { dist: n - 1 - pick.r, flow: RIVER_FLOW.s },
         { dist: pick.c, flow: RIVER_FLOW.w },
-        { dist: n - 1 - pick.c, flow: RIVER_FLOW.e },
+        { dist: cols - 1 - pick.c, flow: RIVER_FLOW.e },
       ];
       let best = -1;
       const top = [];
@@ -318,7 +318,7 @@ GridBuilder.prototype.placeWater = function () {
     let linesOk = true;
     for (let r = 0; r < n && linesOk; r++) {
       let grass = false;
-      for (let c = 0; c < n; c++) {
+      for (let c = 0; c < cols; c++) {
         if (!g.cells[r][c].is("water")) {
           grass = true;
           break;
@@ -326,7 +326,7 @@ GridBuilder.prototype.placeWater = function () {
       }
       if (!grass) linesOk = false;
     }
-    for (let c = 0; c < n && linesOk; c++) {
+    for (let c = 0; c < cols && linesOk; c++) {
       let grass = false;
       for (let r = 0; r < n; r++) {
         if (!g.cells[r][c].is("water")) {
@@ -346,8 +346,8 @@ GridBuilder.prototype.clearCaves = function () {
   const g = this.grid;
   g.wolfRow = -1;
   g.wolfCol = -1;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       const cell = g.cells[r][c];
       if (cell.is("cave")) {
         cell.setType("grass");
@@ -362,8 +362,8 @@ GridBuilder.prototype.placeCave = function () {
   this.clearCaves();
   if (!this.hasFeature("wolf")) return true;
   const seeds = [];
-  for (let r = 2; r < g.n - 2; r++) {
-    for (let c = 2; c < g.n - 2; c++) {
+  for (let r = 2; r < g.rows - 2; r++) {
+    for (let c = 2; c < g.cols - 2; c++) {
       if (!g.cells[r][c].isHole()) seeds.push({ r: r, c: c });
     }
   }
@@ -381,7 +381,7 @@ GridBuilder.prototype.placeCave = function () {
       for (let d = 0; d < DELL_DIRS.length; d++) {
         const nr = body[i].r + DELL_DIRS[d][0];
         const nc = body[i].c + DELL_DIRS[d][1];
-        if (nr < 0 || nc < 0 || nr >= g.n || nc >= g.n) continue;
+        if (nr < 0 || nc < 0 || nr >= g.rows || nc >= g.cols) continue;
         const key = nr + "," + nc;
         if (seen[key]) continue;
         if (g.cells[nr][nc].isHole()) continue;
@@ -436,8 +436,8 @@ GridBuilder.prototype.bunnyPairs = function (row, col) {
 GridBuilder.prototype.placeHawk = function () {
   const g = this.grid;
   g.hawk = null;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       const cell = g.cells[r][c];
       if (cell.is("hawk")) {
         cell.setType("grass");
@@ -445,15 +445,15 @@ GridBuilder.prototype.placeHawk = function () {
       }
     }
   }
-  if (!this.hasFeature("hawk")) return true;
+  if (!this.hasFeature("hawk") || this.hasFeature("trees") || g.rows !== g.cols) return true;
   const sides = shuffleInPlace(["L", "R"].slice());
   for (let i = 0; i < sides.length; i++) {
     const side = sides[i];
-    const col = side === "L" ? 0 : g.n - 1;
+    const col = side === "L" ? 0 : g.cols - 1;
     if (g.cells[0][col].isHole()) continue;
     let open = 0;
-    for (let r = 1; r < g.n; r++) {
-      const c = side === "L" ? r : g.n - 1 - r;
+    for (let r = 1; r < g.rows; r++) {
+      const c = side === "L" ? r : g.cols - 1 - r;
       if (!g.inBoard(r, c)) continue;
       if (g.cells[r][c].isHole()) continue;
       open++;
@@ -470,8 +470,8 @@ GridBuilder.prototype.placeHawk = function () {
 
 GridBuilder.prototype.placeBunny = function () {
   const g = this.grid;
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
       const cell = g.cells[r][c];
       if (cell.is("bunny")) {
         cell.setType("grass");
@@ -480,11 +480,12 @@ GridBuilder.prototype.placeBunny = function () {
     }
   }
   if (!this.hasFeature("bunny")) return true;
-  const last = g.n - 1;
+  const lastR = g.rows - 1;
+  const lastC = g.cols - 1;
   const spots = [];
-  for (let r = 0; r < g.n; r++) {
-    for (let c = 0; c < g.n; c++) {
-      if (r === 0 || r === last || c === 0 || c === last) continue;
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
+      if (r === 0 || r === lastR || c === 0 || c === lastC) continue;
       if (g.cells[r][c].isHole()) continue;
       if (this.bunnySeats(r, c).length < 6) continue;
       if (!this.bunnyPairs(r, c).length) continue;
@@ -506,7 +507,7 @@ GridBuilder.prototype.hasNearbyO = function (row, col) {
       if (!dr && !dc) continue;
       const r = row + dr;
       const c = col + dc;
-      if (r < 0 || c < 0 || r >= g.n || c >= g.n) continue;
+      if (r < 0 || c < 0 || r >= g.rows || c >= g.cols) continue;
       if (g.cells[r][c].spriteId === "o") return true;
     }
   }
@@ -516,15 +517,16 @@ GridBuilder.prototype.hasNearbyO = function (row, col) {
 GridBuilder.prototype.grassMasses = function () {
   const g = this.grid;
   const n = g.n;
+  const cols = g.cols;
   const seen = [];
   for (let r = 0; r < n; r++) {
     const row = [];
-    for (let c = 0; c < n; c++) row.push(false);
+    for (let c = 0; c < cols; c++) row.push(false);
     seen.push(row);
   }
   const masses = [];
   for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
+    for (let c = 0; c < cols; c++) {
       if (seen[r][c] || g.cells[r][c].isHole()) continue;
       const cells = [];
       const q = [{ r: r, c: c }];
@@ -550,10 +552,11 @@ GridBuilder.prototype.grassMasses = function () {
 GridBuilder.prototype.massMap = function (masses) {
   const g = this.grid;
   const n = g.n;
+  const cols = g.cols;
   const map = [];
   for (let r = 0; r < n; r++) {
     const row = [];
-    for (let c = 0; c < n; c++) row.push(-1);
+    for (let c = 0; c < cols; c++) row.push(-1);
     map.push(row);
   }
   for (let i = 0; i < masses.length; i++) {
@@ -567,6 +570,7 @@ GridBuilder.prototype.placeOs = function () {
   const g = this.grid;
   const masses = this.grassMasses();
   const n = g.n;
+  const cols = g.cols;
   if (!masses.length || masses.length > n) {
     g.clearSprites();
     return false;
@@ -589,6 +593,7 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
   const g = this.grid;
   g.clearSprites();
   const n = g.n;
+  const cols = g.cols;
   if (!masses) masses = this.grassMasses();
   if (!masses.length || masses.length > n) return false;
   if (!massId) massId = this.massMap(masses);
@@ -604,25 +609,26 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
   if (cap < n) return false;
 
   const freeRow = [];
-  const freeCol = [];
+  const runUsed = [];
   let rowsLeft = n;
-  for (let i = 0; i < n; i++) {
-    freeRow[i] = true;
-    freeCol[i] = true;
-  }
+  for (let r = 0; r < n; r++) freeRow[r] = true;
+  for (let c = 0; c < cols; c++) runUsed[c] = 0;
 
   const self = this;
   let hawkPlanted = false;
   function takeSeat(r, c) {
     const mid = massId[r][c];
+    const run = g.runOf(r, c);
     if (mid < 0 || !room[mid]) return false;
-    if (!freeRow[r] || !freeCol[c]) return false;
+    if (run < 0) return false;
+    if (!freeRow[r]) return false;
+    if (runUsed[c] & (1 << run)) return false;
     if (!g.foxSeatOk(r, c)) return false;
     if (self.hasNearbyO(r, c)) return false;
     if (hawkPlanted && g.onHawkLine(r, c)) return false;
     g.cells[r][c].setSprite("o");
     freeRow[r] = false;
-    freeCol[c] = false;
+    runUsed[c] |= 1 << run;
     rowsLeft--;
     room[mid]--;
     hits[mid]++;
@@ -667,7 +673,7 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
         room[mid]++;
         hits[mid]--;
         freeRow[a.r] = true;
-        freeCol[a.c] = true;
+        runUsed[a.c] &= ~(1 << g.runOf(a.r, a.c));
         rowsLeft++;
         continue;
       }
@@ -691,7 +697,8 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
     for (let k = 0; k < cells.length; k++) {
       const r = cells[k].r;
       const c = cells[k].c;
-      if (!freeRow[r] || !freeCol[c]) continue;
+      const run = g.runOf(r, c);
+      if (!freeRow[r] || run < 0 || (runUsed[c] & (1 << run))) continue;
       if (!g.foxSeatOk(r, c)) continue;
       if (this.hasNearbyO(r, c)) continue;
       opts.push({ r: r, c: c });
@@ -701,12 +708,34 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
     if (!takeSeat(pick.r, pick.c)) return false;
   }
 
+  for (let c = 0; c < cols; c++) {
+    const span = g.treeSpan(c);
+    if (!span) continue;
+    for (let run = 0; run <= 1; run++) {
+      if (runUsed[c] & (1 << run)) continue;
+      const opts = [];
+      for (let r = 0; r < n; r++) {
+        if (!freeRow[r]) continue;
+        if (g.runOf(r, c) !== run) continue;
+        if (!g.foxSeatOk(r, c)) continue;
+        if (this.hasNearbyO(r, c)) continue;
+        const mid = massId[r][c];
+        if (mid < 0 || !room[mid]) continue;
+        opts.push({ r: r, c: c });
+      }
+      if (!opts.length) return false;
+      const pick = opts[Math.floor(Math.random() * opts.length)];
+      if (!takeSeat(pick.r, pick.c)) return false;
+    }
+  }
+
   while (rowsLeft) {
     const opts = [];
     for (let r = 0; r < n; r++) {
       if (!freeRow[r]) continue;
-      for (let c = 0; c < n; c++) {
-        if (!freeCol[c]) continue;
+      for (let c = 0; c < cols; c++) {
+        const run = g.runOf(r, c);
+        if (run < 0 || (runUsed[c] & (1 << run))) continue;
         const mid = massId[r][c];
         if (mid < 0 || !room[mid]) continue;
         if (!g.foxSeatOk(r, c)) continue;
@@ -721,13 +750,88 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
   return true;
 };
 
+GridBuilder.prototype.placeTrees = function () {
+  const g = this.grid;
+  const z = this.featureSize("trees", 0);
+  if (z < 1) return true;
+  if (g.cols !== g.n - z) return false;
+  const n = g.n;
+  const cols = g.cols;
+  if (n < 6 || cols < 1) return false;
+
+  function paintSide(side, width) {
+    if (!width) return true;
+    const minLo = 2;
+    const maxHi = n - 3;
+    if (maxHi < minLo) return false;
+    const maxLen = maxHi - minLo + 1;
+    const len = 1 + Math.floor(Math.random() * maxLen);
+    let lo = minLo + Math.floor(Math.random() * (maxLen - len + 1));
+    let hi = lo + len - 1;
+    for (let i = 0; i < width; i++) {
+      const col = side === "L" ? i : cols - 1 - i;
+      if (col < 0 || col >= cols) return false;
+      for (let r = lo; r <= hi; r++) {
+        const cell = g.cells[r][col];
+        if (cell.isHole()) return false;
+        cell.setType("tree");
+        g.markHole(cell);
+      }
+      if (i + 1 >= width) continue;
+      const curLen = hi - lo + 1;
+      const newLen = 1 + Math.floor(Math.random() * curLen);
+      const shift = Math.floor(Math.random() * (curLen - newLen + 1));
+      lo = lo + shift;
+      hi = lo + newLen - 1;
+    }
+    return true;
+  }
+
+  const parts = [];
+  for (let left = 0; left <= z; left++) parts.push([left, z - left]);
+  shuffleInPlace(parts);
+  for (let p = 0; p < parts.length; p++) {
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = g.cells[r][c];
+        if (cell.is("tree")) {
+          cell.setType("grass");
+          cell.dellId = -1;
+        }
+      }
+    }
+    if (paintSide("L", parts[p][0]) && paintSide("R", parts[p][1])) return true;
+  }
+  return false;
+};
+
+GridBuilder.prototype.treeRunsOk = function () {
+  const g = this.grid;
+  for (let c = 0; c < g.cols; c++) {
+    const span = g.treeSpan(c);
+    if (!span) continue;
+    let up = 0;
+    let down = 0;
+    for (let r = 0; r < g.rows; r++) {
+      if (!g.foxSeatOk(r, c)) continue;
+      const run = g.runOf(r, c);
+      if (run === 0) up++;
+      if (run === 1) down++;
+    }
+    if (up < 2 || down < 2) return false;
+  }
+  return true;
+};
+
 GridBuilder.prototype.prepLand = function () {
   const g = this.grid;
+  if (!this.placeTrees()) return false;
   if (!this.placeWater()) return false;
   if (!this.placeHawk()) return false;
   if (!this.placeCave()) return false;
   if (!this.placeBunny()) return false;
   this.fillWaterIslands();
+  if (!this.treeRunsOk()) return false;
   const masses = this.grassMasses();
   if (!masses.length || masses.length > g.n) return false;
   let cap = 0;
@@ -759,13 +863,14 @@ GridBuilder.prototype.startSearch = function () {
 GridBuilder.prototype.tryPaintDells = function () {
   const g = this.grid;
   const n = g.n;
+  const cols = g.cols;
   const floor = Math.min(MIN_DELL_SIZE, n);
   const target = Math.min(DELL_TARGET, n);
   const tinyQuota = Math.random() < 0.5 ? 2 : 1;
 
   const seeds = [];
   for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
+    for (let c = 0; c < cols; c++) {
       const cell = g.cells[r][c];
       if (cell.spriteId === "o" && !cell.isHole()) seeds.push({ r: r, c: c });
     }
@@ -773,7 +878,7 @@ GridBuilder.prototype.tryPaintDells = function () {
   if (seeds.length !== n) return false;
 
   for (let r = 0; r < n; r++) {
-    for (let c = 0; c < n; c++) {
+    for (let c = 0; c < cols; c++) {
       const cell = g.cells[r][c];
       cell.dellId = cell.isHole() ? Grid.HOLE_DELL : -1;
     }
@@ -810,7 +915,7 @@ GridBuilder.prototype.tryPaintDells = function () {
       for (let d = 0; d < DELL_DIRS.length; d++) {
         const nr = f.r + DELL_DIRS[d][0];
         const nc = f.c + DELL_DIRS[d][1];
-        if (nr < 0 || nc < 0 || nr >= n || nc >= n) continue;
+        if (nr < 0 || nc < 0 || nr >= n || nc >= cols) continue;
         if (g.cells[nr][nc].dellId !== -1) continue;
         out.push({ r: nr, c: nc, id: f.id });
       }
@@ -859,7 +964,7 @@ GridBuilder.prototype.tryPaintDells = function () {
 
   function hasUnclaimed() {
     for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
+      for (let c = 0; c < cols; c++) {
         if (g.cells[r][c].dellId === -1) return true;
       }
     }

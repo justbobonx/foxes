@@ -3,14 +3,17 @@
 function Solver(grid) {
   this.grid = grid;
   this.n = grid.n;
+  this.cols = grid.cols;
   this.dells = [];
   this.seats = [];
+  this.runs = [];
   this.bunnyAt = [];
   this.hawkAt = [];
   this.needBunny = 0;
   this.needHawk = 0;
 
   const n = this.n;
+  const cols = this.cols;
   const bunny = grid.findBunny && grid.findBunny();
   if (bunny) this.needBunny = 2;
   if (grid.hawk) this.needHawk = 1;
@@ -18,21 +21,25 @@ function Solver(grid) {
   for (let r = 0; r < n; r++) {
     const dellRow = [];
     const seatRow = [];
+    const runRow = [];
     const bunnyRow = [];
     const hawkRow = [];
-    for (let c = 0; c < n; c++) {
+    for (let c = 0; c < cols; c++) {
       const cell = grid.at(r, c);
       const dell = cell.dellId;
       const blocked = cell.isHole() || grid.nearWolf(r, c);
+      const run = blocked ? -1 : grid.runOf(r, c);
       dellRow.push(dell);
+      runRow.push(run);
       const onBunny = !!(bunny && Math.max(Math.abs(r - bunny.row), Math.abs(c - bunny.col)) === 1);
       const onHawk = !!(grid.hawk && grid.onHawkLine && grid.onHawkLine(r, c));
       bunnyRow.push(onBunny ? 1 : 0);
       hawkRow.push(onHawk ? 1 : 0);
-      if (!blocked && dell >= 0) seatRow.push(c);
+      if (!blocked && dell >= 0 && run >= 0) seatRow.push(c);
     }
     this.dells.push(dellRow);
     this.seats.push(seatRow);
+    this.runs.push(runRow);
     this.bunnyAt.push(bunnyRow);
     this.hawkAt.push(hawkRow);
   }
@@ -43,17 +50,23 @@ Solver.prototype.count = function (limit) {
   const n = this.n;
   const dells = this.dells;
   const seats = this.seats;
+  const runs = this.runs;
   const bunnyAt = this.bunnyAt;
   const hawkAt = this.hawkAt;
   const needBunny = this.needBunny;
   const needHawk = this.needHawk;
   let found = 0;
 
-  function alive(row, prevCol, usedCols, usedDells) {
+  function runBit(col, run) {
+    return 1 << (col * 2 + run);
+  }
+
+  function alive(row, prevCol, usedRuns, usedDells) {
     const list = seats[row];
     for (let i = 0; i < list.length; i++) {
       const col = list[i];
-      if (usedCols & (1 << col)) continue;
+      const run = runs[row][col];
+      if (usedRuns & runBit(col, run)) continue;
       if (prevCol >= 0 && Math.abs(col - prevCol) < 2) continue;
       if (usedDells & (1 << dells[row][col])) continue;
       return true;
@@ -61,7 +74,7 @@ Solver.prototype.count = function (limit) {
     return false;
   }
 
-  function walk(row, prevCol, usedCols, usedDells, ringHits, hawkHits) {
+  function walk(row, prevCol, usedRuns, usedDells, ringHits, hawkHits) {
     if (found >= cap) return;
     if (ringHits > needBunny) return;
     if (hawkHits > needHawk) return;
@@ -72,17 +85,18 @@ Solver.prototype.count = function (limit) {
     const list = seats[row];
     for (let i = 0; i < list.length; i++) {
       const col = list[i];
-      if (usedCols & (1 << col)) continue;
+      const run = runs[row][col];
+      if (usedRuns & runBit(col, run)) continue;
       if (prevCol >= 0 && Math.abs(col - prevCol) < 2) continue;
       const dell = dells[row][col];
       if (usedDells & (1 << dell)) continue;
-      const nextCols = usedCols | (1 << col);
+      const nextRuns = usedRuns | runBit(col, run);
       const nextDells = usedDells | (1 << dell);
-      if (row + 1 < n && !alive(row + 1, col, nextCols, nextDells)) continue;
+      if (row + 1 < n && !alive(row + 1, col, nextRuns, nextDells)) continue;
       walk(
         row + 1,
         col,
-        nextCols,
+        nextRuns,
         nextDells,
         ringHits + bunnyAt[row][col],
         hawkHits + hawkAt[row][col]
