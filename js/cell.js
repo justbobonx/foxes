@@ -30,8 +30,8 @@ const CELL_TYPES = {
     markO: "o",
   },
   water: {
-    fill: "#0E2F5D",
-    edge: "#226CD3",
+    fill: "#082145",
+    edge: "#073D88",
     tap: false,
   },
   cave: {
@@ -55,8 +55,8 @@ const CELL_TYPES = {
     stand: "h",
   },
   tree: {
-    fill: "#2d4a28",
-    edge: "#6b8f4e",
+    fill: "#2F512A",
+    edge: "#7D9249",
     tap: false,
     stand: "t",
   },
