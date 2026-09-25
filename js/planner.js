@@ -1,4 +1,27 @@
-/** Reads forest, returns 1–3 cards. Does not build a field. */
+/** Content tables and card offers. Reads forest. Does not build a field. */
+
+const FEATURE_CATALOG = {
+  water: { minN: 7, p: 0.7 },
+  pond: { minN: 7, p: 0, icon: "images/pond.png", defaults: { size: 1 } },
+  river: { minN: 8, p: 0, icon: "images/stream.png" },
+  wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
+  bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
+  hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
+  trees: { minN: 8, p: 0.3, icon: "images/trees.png", defaults: { size: 1 } },
+};
+
+const UNLOCK_CHART = [
+  { unlock: "size-7", plus: 3, story: "first_7" },
+  { unlock: "water", plus: 3, story: "first_pond" },
+  { unlock: "size-8", plus: 3, story: "" },
+  { unlock: "river", plus: 3, story: "first_river" },
+  { unlock: "wolf", plus: 3, story: "first_wolf" },
+  { unlock: "size-9", plus: 3, story: "" },
+  { unlock: "bunny", plus: 3, story: "first_bunny" },
+  { unlock: "size-10", plus: 3, story: "" },
+  { unlock: "hawk", plus: 3, story: "first_hawk" },
+  { unlock: "trees", plus: 3, story: "first_trees" },
+];
 
 const CARD_TITLES = {
   chill: ["lighter", "quieter"],
@@ -10,8 +33,28 @@ const CARD_TITLES = {
 
 function Planner() {}
 
+Planner.CATALOG = FEATURE_CATALOG;
+Planner.CHART = UNLOCK_CHART;
+
+Planner.parseUnlock = function (name) {
+  if (!name) return null;
+  if (name.indexOf("size-") === 0) {
+    return { kind: "size", n: parseInt(name.slice(5), 10) };
+  }
+  if (FEATURE_CATALOG[name]) return { kind: "feature", type: name };
+  return null;
+};
+
+Planner.maxTrees = function (n) {
+  const spec = FEATURE_CATALOG.trees;
+  const minN = spec && spec.minN ? spec.minN : 8;
+  n = n | 0;
+  if (n < minN) return 0;
+  return Math.ceil((n - minN + 1) / 2);
+};
+
 Planner.featureItem = function (type, size) {
-  const spec = Forest.CATALOG[type];
+  const spec = FEATURE_CATALOG[type];
   const item = { type: type };
   if (spec && spec.defaults) {
     for (const k in spec.defaults) item[k] = spec.defaults[k];
@@ -21,7 +64,8 @@ Planner.featureItem = function (type, size) {
 };
 
 Planner.waterParts = function (forest, n, trees) {
-  const min = typeof POND_MIN_LEVEL === "number" ? POND_MIN_LEVEL : 7;
+  const spec = FEATURE_CATALOG.water;
+  const min = spec && spec.minN ? spec.minN : 7;
   let amount = n - min + 1 - (trees | 0);
   if (amount < 1) return [];
   const allowRiver = forest.canPut("river", n);
@@ -46,20 +90,20 @@ Planner.waterParts = function (forest, n, trees) {
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   let trees = 0;
-  if (forest.canPut("trees", n) && Math.random() < Forest.CATALOG.trees.p) {
-    const max = Forest.maxTrees(n);
+  if (forest.canPut("trees", n) && Math.random() < FEATURE_CATALOG.trees.p) {
+    const max = Planner.maxTrees(n);
     if (max > 0) {
       trees = 1 + Math.floor(Math.random() * max);
       out.push(Planner.featureItem("trees", trees));
     }
   }
-  for (const type in Forest.CATALOG) {
+  for (const type in FEATURE_CATALOG) {
     if (type === "water" || type === "pond" || type === "river" || type === "trees") continue;
     if (type === "hawk" && trees) continue;
     if (!forest.canPut(type, n)) continue;
-    if (Math.random() < Forest.CATALOG[type].p) out.push(Planner.featureItem(type));
+    if (Math.random() < FEATURE_CATALOG[type].p) out.push(Planner.featureItem(type));
   }
-  const water = Forest.CATALOG.water;
+  const water = FEATURE_CATALOG.water;
   if (forest.canPut("water", n) && water && Math.random() < water.p) {
     const parts = Planner.waterParts(forest, n, trees);
     for (let i = 0; i < parts.length; i++) out.push(parts[i]);
@@ -67,95 +111,11 @@ Planner.rollFeatures = function (forest, n) {
   return out;
 };
 
-Planner.makePlan = function (size, features) {
-  const rank = { trees: 0, pond: 1, river: 2, wolf: 3, bunny: 4, hawk: 5 };
-  const raw = features || [];
-  let hasTrees = false;
-  for (let i = 0; i < raw.length; i++) {
-    if (raw[i] && raw[i].type === "trees") hasTrees = true;
-  }
-  const list = raw.filter(function (f) {
-    return f && f.type && !(hasTrees && f.type === "hawk");
-  }).sort(function (a, b) {
-    const aa = rank[a.type] != null ? rank[a.type] : 9;
-    const bb = rank[b.type] != null ? rank[b.type] : 9;
-    if (aa !== bb) return aa - bb;
-    return (a.size || 0) - (b.size || 0);
-  });
-  return { size: Save.clampSize(size), features: list };
-};
-
-Planner.fromQuery = function (search) {
-  let raw = "";
-  try {
-    raw = new URLSearchParams(search || "").get("plan") || "";
-  } catch (err) {
-    return null;
-  }
-  raw = raw.trim();
-  if (!raw) return null;
-  if (raw.charAt(0) === "{") {
-    try {
-      const src = JSON.parse(raw);
-      if (!src || typeof src !== "object") return null;
-      const features = [];
-      const list = Array.isArray(src.features) ? src.features : [];
-      let hasRiver = false;
-      for (let i = 0; i < list.length; i++) {
-        const f = list[i];
-        if (!f || !f.type) continue;
-        if (f.type === "pond") {
-          const sz = f.size | 0 || f.amount | 0 || 1;
-          features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
-        } else if (f.type === "river") {
-          if (hasRiver) continue;
-          hasRiver = true;
-          const sz = f.size | 0;
-          features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-        } else if (f.type === "trees") {
-          const sz = f.size | 0 || f.amount | 0 || 1;
-          features.push({ type: "trees", size: sz < 1 ? 1 : sz });
-        } else if (f.type === "wolf" || f.type === "bunny" || f.type === "hawk") {
-          features.push({ type: f.type });
-        }
-      }
-      return Forest.copyPlan({ size: src.size || src.n, features: features });
-    } catch (err) {
-      return null;
-    }
-  }
-  const parts = raw.split(",");
-  const size = parseInt(parts[0], 10);
-  if (!size) return null;
-  const features = [];
-  let hasRiver = false;
-  for (let i = 1; i < parts.length; i++) {
-    const bit = parts[i].trim();
-    if (!bit) continue;
-    const kv = bit.split(":");
-    const type = kv[0].trim();
-    const sz = kv.length > 1 ? parseInt(kv[1], 10) : 0;
-    if (type === "pond") {
-      const pond = sz >= 1 && sz <= 4 ? sz : 1;
-      features.push({ type: "pond", size: pond });
-    } else if (type === "river") {
-      if (hasRiver) continue;
-      hasRiver = true;
-      features.push({ type: "river", size: sz === 1 ? 1 : 2 });
-    } else if (type === "trees") {
-      features.push({ type: "trees", size: sz >= 1 ? sz : 1 });
-    } else if (type === "wolf" || type === "bunny" || type === "hawk") {
-      features.push({ type: type });
-    }
-  }
-  return Forest.copyPlan({ size: size, features: features });
-};
-
 Planner.rollDiffer = function (forest, n, avoid) {
-  const plan = Planner.makePlan(n, Planner.rollFeatures(forest, n));
-  if (avoid && Forest.featureKey(plan) === Forest.featureKey(avoid)) {
-    const again = Planner.makePlan(n, Planner.rollFeatures(forest, n));
-    if (Forest.featureKey(again) !== Forest.featureKey(avoid)) return again;
+  const plan = Plan.make(n, Planner.rollFeatures(forest, n));
+  if (avoid && Plan.key(plan) === Plan.key(avoid)) {
+    const again = Plan.make(n, Planner.rollFeatures(forest, n));
+    if (Plan.key(again) !== Plan.key(avoid)) return again;
   }
   return plan;
 };
@@ -164,13 +124,13 @@ Planner.chillCard = function (forest) {
   const loc = forest.location;
   if (loc.size <= Save.SIZE_MIN) return null;
   const size = loc.size - 1;
-  return Planner.makePlan(size, Planner.rollFeatures(forest, size));
+  return Plan.make(size, Planner.rollFeatures(forest, size));
 };
 
 Planner.deeperCard = function (forest) {
   const loc = forest.location;
   const item = forest.nextItem();
-  const parsed = item ? Forest.parseUnlock(item.unlock) : null;
+  const parsed = item ? Planner.parseUnlock(item.unlock) : null;
   const lockedNext = !!(item && !forest.canAfford());
   const costTarget = item ? forest.needStars() : 0;
 
@@ -180,7 +140,7 @@ Planner.deeperCard = function (forest) {
       for (let i = 0; i < out.length; i++) {
         if (out[i].type === "pond" || out[i].type === "river") return out;
       }
-      const parts = n ? Planner.waterParts(forest, n, Forest.treeCount({ features: out })) : [];
+      const parts = n ? Planner.waterParts(forest, n, Plan.treeCount({ features: out })) : [];
       if (parts.length) {
         for (let i = 0; i < parts.length; i++) out.push(parts[i]);
         return out;
@@ -220,36 +180,36 @@ Planner.deeperCard = function (forest) {
   }
 
   if (parsed && parsed.kind === "feature") {
-    const spec = Forest.CATALOG[parsed.type];
+    const spec = FEATURE_CATALOG[parsed.type];
     const need = spec ? spec.minN : Save.SIZE_MIN;
     let size = loc.size < forest.maxN ? loc.size + 1 : loc.size;
     if (size < need) size = need;
     size = Save.clampSize(size);
     const features = forceFeature(Planner.rollFeatures(forest, size), parsed.type, size);
     const lock = !!(lockedNext && size >= need);
-    return Planner.card("deeper", Planner.makePlan(size, features), lock, lock ? costTarget : 0);
+    return Planner.getCard("deeper", Plan.make(size, features), lock, lock ? costTarget : 0);
   }
 
   if (loc.size < forest.maxN) {
     const size = loc.size + 1;
-    return Planner.card("deeper", Planner.makePlan(size, Planner.rollFeatures(forest, size)), false, 0);
+    return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), false, 0);
   }
 
   if (parsed && parsed.kind === "size") {
     const size = Save.clampSize(parsed.n);
-    return Planner.card("deeper", Planner.makePlan(size, Planner.rollFeatures(forest, size)), lockedNext, lockedNext ? costTarget : 0);
+    return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), lockedNext, lockedNext ? costTarget : 0);
   }
 
   const size = loc.size < Save.SIZE_MAX ? loc.size + 1 : loc.size;
-  return Planner.card("deeper", Planner.makePlan(size, Planner.rollFeatures(forest, size)), false, 0);
+  return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), false, 0);
 };
 
-Planner.card = function (kind, plan, locked, costTarget) {
+Planner.getCard = function (kind, plan, locked, costTarget) {
   const list = CARD_TITLES[kind] || [kind];
   return {
     kind: kind,
     title: list[Math.floor(Math.random() * list.length)],
-    plan: Forest.copyPlan(plan),
+    plan: Plan.copy(plan),
     locked: !!locked,
     costTarget: costTarget | 0,
   };
@@ -261,7 +221,7 @@ Planner.dedupe = function (cards) {
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
     if (!card || !card.plan) continue;
-    const sig = Forest.featureKey(card.plan) + (card.locked ? "|L" : "|P");
+    const sig = Plan.key(card.plan) + (card.locked ? "|L" : "|P");
     if (seen[sig]) continue;
     seen[sig] = true;
     out.push(card);
@@ -284,8 +244,8 @@ Planner.prototype.travel = function (forest) {
   }
   const cards = [];
   const chill = Planner.chillCard(forest);
-  if (chill) cards.push(Planner.card("chill", chill, false, 0));
-  cards.push(Planner.card("stay", Planner.rollDiffer(forest, forest.location.size, forest.location), false, 0));
+  if (chill) cards.push(Planner.getCard("chill", chill, false, 0));
+  cards.push(Planner.getCard("stay", Planner.rollDiffer(forest, forest.location.size, forest.location), false, 0));
   cards.push(Planner.deeperCard(forest));
   const offers = Planner.refreshLocked(Planner.dedupe(cards), forest);
   forest.offers = offers;
@@ -295,9 +255,9 @@ Planner.prototype.travel = function (forest) {
 Planner.prototype.giveUp = function (forest) {
   const cards = [];
   const chill = Planner.chillCard(forest);
-  if (chill) cards.push(Planner.card("chill", chill, false, 0));
-  cards.push(Planner.card("retry", forest.lastPlan || forest.location, false, 0));
-  cards.push(Planner.card("variant", Planner.rollDiffer(forest, forest.location.size, forest.lastPlan), false, 0));
+  if (chill) cards.push(Planner.getCard("chill", chill, false, 0));
+  cards.push(Planner.getCard("retry", forest.lastPlan || forest.location, false, 0));
+  cards.push(Planner.getCard("variant", Planner.rollDiffer(forest, forest.location.size, forest.lastPlan), false, 0));
   const offers = Planner.dedupe(cards);
   forest.offers = offers;
   return offers;

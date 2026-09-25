@@ -31,7 +31,7 @@ let dragCell = null;
 let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
-let loadedPlan = Planner.fromQuery(window.location.search);
+let loadedPlan = Plan.fromQuery(window.location.search);
 if (loadedPlan && ui.btnStart) ui.btnStart.textContent = "Play URL Plan";
 let playingTest = false;
 let buildGen = 0;
@@ -322,11 +322,11 @@ function restoreBoard() {
     return false;
   }
   const rawPlan = data.fieldPlan || data.plan || loaded.plan;
-  const plan = Forest.copyPlan(rawPlan);
+  const plan = Plan.copy(rawPlan);
   Cell.dressGrid(loaded);
   grid = loaded;
   forest.location = plan;
-  forest.lastPlan = Forest.copyPlan(plan);
+  forest.lastPlan = Plan.copy(plan);
   forest.offers = null;
   persistForest();
   n = Save.clampSize(grid.n);
@@ -352,8 +352,8 @@ function giveUpField() {
   ui.hideMenu();
   clockOff();
   const here = currentFieldPlan();
-  forest.location = Forest.copyPlan(here);
-  forest.lastPlan = Forest.copyPlan(here);
+  forest.location = Plan.copy(here);
+  forest.lastPlan = Plan.copy(here);
   Save.clearBoard();
   forest.offers = null;
   persistForest();

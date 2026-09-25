@@ -1,4 +1,4 @@
-/** Fills a Grid from a Forest plan { size, features[] }. */
+/** Fills a Grid from a plan { size, features[] }. */
 
 const MIN_DELL_SIZE = 2;
 const DELL_TARGET = 3;
@@ -44,7 +44,7 @@ function shuffleInPlace(arr) {
 function GridBuilder(plan) {
   const spec = Grid.normalizePlan(plan, plan && (plan.size || plan.n));
   this.plan = spec;
-  const z = Forest.treeCount(spec);
+  const z = Plan.treeCount(spec);
   this.grid = new Grid(spec.size, spec.size - z);
   this.grid.plan = spec;
 }

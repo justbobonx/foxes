@@ -160,7 +160,7 @@ Ui.prototype.paintExtraRow = function (el, features, forest) {
   for (let i = 0; i < features.length; i++) {
     const type = features[i].type;
     const state = forest.stateOf(type);
-    const spec = Forest.CATALOG[type];
+    const spec = Planner.CATALOG[type];
     const img = document.createElement("img");
     img.src = state === "seen" && spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
     img.width = 32;
