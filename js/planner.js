@@ -160,7 +160,7 @@ Planner.rollDiffer = function (forest, n, avoid) {
   return plan;
 };
 
-Planner.chillPlan = function (forest) {
+Planner.chillCard = function (forest) {
   const loc = forest.location;
   if (loc.size <= Save.SIZE_MIN) return null;
   const size = loc.size - 1;
@@ -283,7 +283,7 @@ Planner.prototype.travel = function (forest) {
     return Planner.refreshLocked(forest.offers, forest);
   }
   const cards = [];
-  const chill = Planner.chillPlan(forest);
+  const chill = Planner.chillCard(forest);
   if (chill) cards.push(Planner.card("chill", chill, false, 0));
   cards.push(Planner.card("stay", Planner.rollDiffer(forest, forest.location.size, forest.location), false, 0));
   cards.push(Planner.deeperCard(forest));
@@ -294,7 +294,7 @@ Planner.prototype.travel = function (forest) {
 
 Planner.prototype.giveUp = function (forest) {
   const cards = [];
-  const chill = Planner.chillPlan(forest);
+  const chill = Planner.chillCard(forest);
   if (chill) cards.push(Planner.card("chill", chill, false, 0));
   cards.push(Planner.card("retry", forest.lastPlan || forest.location, false, 0));
   cards.push(Planner.card("variant", Planner.rollDiffer(forest, forest.location.size, forest.lastPlan), false, 0));
