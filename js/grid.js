@@ -29,7 +29,7 @@ Grid.normalizePlan = function (plan, n) {
     const list = plan.features;
     for (let i = 0; i < list.length; i++) {
       const f = list[i];
-      if (!f || !f.type) continue;
+      if (!f || !f.type || f.type === "water") continue;
       const item = { type: f.type };
       for (const k in f) {
         if (k === "type") continue;

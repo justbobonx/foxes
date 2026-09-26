@@ -13,7 +13,7 @@ Plan.copy = function (plan) {
   const features = [];
   for (let i = 0; i < src.length; i++) {
     const f = src[i];
-    if (!f || !f.type) continue;
+    if (!f || !f.type || f.type === "water") continue;
     const item = { type: f.type };
     for (const k in f) {
       if (k === "type") continue;
@@ -54,6 +54,7 @@ Plan.key = function (plan) {
   const parts = [];
   for (let i = 0; i < list.length; i++) {
     const f = list[i];
+    if (!f || f.type === "water") continue;
     let bit = f.type;
     const n = f.size || f.amount;
     if (n) bit += ":" + n;
@@ -70,7 +71,7 @@ Plan.make = function (size, features) {
     if (raw[i] && raw[i].type === "trees") hasTrees = true;
   }
   const list = raw.filter(function (f) {
-    return f && f.type && !(hasTrees && f.type === "hawk");
+    return f && f.type && f.type !== "water" && !(hasTrees && f.type === "hawk");
   }).sort(function (a, b) {
     const aa = rank[a.type] != null ? rank[a.type] : 9;
     const bb = rank[b.type] != null ? rank[b.type] : 9;
@@ -98,7 +99,7 @@ Plan.fromQuery = function (search) {
       let hasRiver = false;
       for (let i = 0; i < list.length; i++) {
         const f = list[i];
-        if (!f || !f.type) continue;
+        if (!f || !f.type || f.type === "water") continue;
         if (f.type === "pond") {
           const sz = f.size | 0 || f.amount | 0 || 1;
           features.push({ type: "pond", size: sz < 1 ? 1 : sz > 4 ? 4 : sz });
@@ -129,6 +130,7 @@ Plan.fromQuery = function (search) {
     if (!bit) continue;
     const kv = bit.split(":");
     const type = kv[0].trim();
+    if (type === "water") continue;
     const sz = kv.length > 1 ? parseInt(kv[1], 10) : 0;
     if (type === "pond") {
       const pond = sz >= 1 && sz <= 4 ? sz : 1;

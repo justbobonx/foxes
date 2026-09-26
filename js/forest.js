@@ -20,14 +20,16 @@ function Forest(data) {
       const v = src[type];
       if (v === "unlocked" || v === "seen" || v === "locked") state[type] = v;
     }
-    if (state.water === "locked" && (src.pond === "seen" || src.pond === "unlocked")) {
-      state.water = src.pond;
-    }
+  }
+  for (let i = 0; i < this.curUnlockInd && i < Planner.CHART.length; i++) {
+    const parsed = Planner.parseUnlock(Planner.CHART[i].unlock);
+    if (!parsed || parsed.kind !== "feature") continue;
+    if (state[parsed.type] === "locked") state[parsed.type] = "unlocked";
   }
   this.featureState = state;
   this.location = Plan.copy(data.location || fresh.location);
   this.lastPlan = Plan.copy(data.lastPlan || this.location);
-  this.offers = Array.isArray(data.offers) ? data.offers : null;
+  this.offers = Forest.copyOffers(data.offers);
   this.shownStories = Forest.copyShown(data.shownStories);
 }
 
@@ -44,6 +46,23 @@ Forest.copyShown = function (src) {
     if (src[k]) out[k] = true;
   }
   return out;
+};
+
+Forest.copyOffers = function (src) {
+  if (!Array.isArray(src) || !src.length) return null;
+  const out = [];
+  for (let i = 0; i < src.length; i++) {
+    const card = src[i];
+    if (!card || !card.plan) continue;
+    out.push({
+      kind: card.kind,
+      title: card.title,
+      plan: Plan.copy(card.plan),
+      locked: !!card.locked,
+      costTarget: card.costTarget | 0,
+    });
+  }
+  return out.length ? out : null;
 };
 
 Forest.blank = function () {
@@ -76,13 +95,6 @@ Forest.prototype.dump = function () {
 };
 
 Forest.prototype.stateOf = function (type) {
-  if (type === "pond") {
-    const pond = this.featureState.pond || "locked";
-    const water = this.featureState.water || "locked";
-    if (pond === "seen" || water === "seen") return "seen";
-    if (pond === "unlocked" || water === "unlocked") return "unlocked";
-    return "locked";
-  }
   return this.featureState[type] || "locked";
 };
 
@@ -133,13 +145,10 @@ Forest.prototype.canAfford = function () {
 
 Forest.prototype.markSeen = function (plan) {
   if (!plan || !plan.features) return;
-  let waterHit = false;
   for (let i = 0; i < plan.features.length; i++) {
     const type = plan.features[i].type;
-    if (type === "pond" || type === "river") waterHit = true;
     if (this.stateOf(type) === "unlocked") this.featureState[type] = "seen";
   }
-  if (waterHit && this.stateOf("water") === "unlocked") this.featureState.water = "seen";
 };
 
 Forest.prototype.enter = function (plan) {
@@ -156,9 +165,6 @@ Forest.prototype.matchesNext = function (plan) {
   const parsed = Planner.parseUnlock(item.unlock);
   if (!parsed) return false;
   if (parsed.kind === "size") return plan.size >= parsed.n;
-  if (parsed.type === "water") {
-    return Plan.has(plan, "pond") || Plan.has(plan, "river");
-  }
   return Plan.has(plan, parsed.type);
 };
 

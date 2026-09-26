@@ -1,9 +1,8 @@
 /** Content tables and card offers. Reads forest. Does not build a field. */
 
 const FEATURE_CATALOG = {
-  water: { minN: 7, p: 0.7 },
-  pond: { minN: 7, p: 0, icon: "images/pond.png", defaults: { size: 1 } },
-  river: { minN: 8, p: 0, icon: "images/stream.png" },
+  pond: { minN: 7, p: 0.7, icon: "images/pond.png", defaults: { size: 1 } },
+  river: { minN: 8, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
   hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
@@ -12,7 +11,7 @@ const FEATURE_CATALOG = {
 
 const UNLOCK_CHART = [
   { unlock: "size-7", plus: 3, story: "first_7" },
-  { unlock: "water", plus: 3, story: "first_pond" },
+  { unlock: "pond", plus: 3, story: "first_pond" },
   { unlock: "size-8", plus: 3, story: "" },
   { unlock: "river", plus: 3, story: "first_river" },
   { unlock: "wolf", plus: 3, story: "first_wolf" },
@@ -49,10 +48,6 @@ Planner.canPut = function (forest, type, n) {
   const spec = FEATURE_CATALOG[type];
   if (!spec) return false;
   if (n < spec.minN) return false;
-  if (type === "pond") {
-    const water = forest.stateOf("water");
-    return water === "unlocked" || water === "seen";
-  }
   return forest.stateOf(type) !== "locked";
 };
 
@@ -66,26 +61,30 @@ Planner.featureItem = function (type, size) {
   return item;
 };
 
-Planner.waterParts = function (forest, n, trees) {
-  const spec = FEATURE_CATALOG.water;
+Planner.pondParts = function (forest, n, trees) {
+  const spec = FEATURE_CATALOG.pond;
   const min = spec && spec.minN ? spec.minN : 7;
   let amount = n - min + 1 - (trees | 0);
   if (amount < 1) return [];
-  const allowRiver = Planner.canPut(forest, "river", n);
   const parts = [];
-  let hasPond = false;
-  let hasRiver = false;
-  while (amount > 0) {
-    const take = 1 + Math.floor(Math.random() * Math.min(amount, 4));
-    const riverOk = allowRiver && !hasRiver && take <= 2 && (take === 2 || hasPond);
-    if (riverOk && Math.random() < 0.5) {
-      parts.push(Planner.featureItem("river", take));
-      hasRiver = true;
-    } else {
+  function addPonds(left) {
+    while (left > 0) {
+      const take = 1 + Math.floor(Math.random() * Math.min(left, 4));
       parts.push(Planner.featureItem("pond", take));
-      hasPond = true;
+      left -= take;
     }
-    amount -= take;
+  }
+  const riverOk = Planner.canPut(forest, "river", n) && amount >= 2;
+  if (riverOk && Math.random() < 0.5) {
+    if (Math.random() < 0.5) {
+      parts.push(Planner.featureItem("river", 2));
+      addPonds(amount - 2);
+    } else {
+      addPonds(amount - 1);
+      parts.push(Planner.featureItem("river", 1));
+    }
+  } else {
+    addPonds(amount);
   }
   return parts;
 };
@@ -94,21 +93,20 @@ Planner.rollFeatures = function (forest, n) {
   const out = [];
   let trees = 0;
   if (Planner.canPut(forest, "trees", n) && Math.random() < FEATURE_CATALOG.trees.p) {
-    const max = Math.max( 0, n+1 - FEATURE_CATALOG.trees.minN );
+    const max = Math.max(0, n + 1 - FEATURE_CATALOG.trees.minN);
     if (max > 0) {
       trees = Math.ceil(max * (0.45 + 0.55 * Math.random()));
       out.push(Planner.featureItem("trees", trees));
     }
   }
   for (const type in FEATURE_CATALOG) {
-    if (type === "water" || type === "pond" || type === "river" || type === "trees") continue;
+    if (type === "pond" || type === "river" || type === "trees") continue;
     if (type === "hawk" && trees) continue;
     if (!Planner.canPut(forest, type, n)) continue;
     if (Math.random() < FEATURE_CATALOG[type].p) out.push(Planner.featureItem(type));
   }
-  const water = FEATURE_CATALOG.water;
-  if (Planner.canPut(forest, "water", n) && water && Math.random() < water.p) {
-    const parts = Planner.waterParts(forest, n, trees);
+  if (Planner.canPut(forest, "pond", n) && Math.random() < FEATURE_CATALOG.pond.p) {
+    const parts = Planner.pondParts(forest, n, trees);
     for (let i = 0; i < parts.length; i++) out.push(parts[i]);
   }
   return out;
@@ -137,18 +135,17 @@ Planner.deeperCard = function (forest) {
   const lockedNext = !!(item && !forest.canAfford());
   const costTarget = item ? forest.needStars() : 0;
 
-  function forceFeature(features, type, n) {
+  function forceFeature(features, type) {
     const out = features.slice();
-    if (type === "water") {
+    if (type === "river") {
       for (let i = 0; i < out.length; i++) {
-        if (out[i].type === "pond" || out[i].type === "river") return out;
+        if (out[i].type === "river") return out;
       }
-      const parts = n ? Planner.waterParts(forest, n, Plan.treeCount({ features: out })) : [];
-      if (parts.length) {
-        for (let i = 0; i < parts.length; i++) out.push(parts[i]);
-        return out;
+      let hasPond = false;
+      for (let i = 0; i < out.length; i++) {
+        if (out[i].type === "pond") hasPond = true;
       }
-      out.push(Planner.featureItem("pond", 1));
+      out.push(Planner.featureItem("river", hasPond ? 1 : 2));
       return out;
     }
     for (let i = 0; i < out.length; i++) {
@@ -166,18 +163,6 @@ Planner.deeperCard = function (forest) {
         if (out[i].type === "trees") return out;
       }
     }
-    if (type === "pond") {
-      out.push(Planner.featureItem("pond", 1));
-      return out;
-    }
-    if (type === "river") {
-      let hasPond = false;
-      for (let i = 0; i < out.length; i++) {
-        if (out[i].type === "pond") hasPond = true;
-      }
-      out.push(Planner.featureItem("river", hasPond ? 1 : 2));
-      return out;
-    }
     out.push(Planner.featureItem(type));
     return out;
   }
@@ -188,7 +173,7 @@ Planner.deeperCard = function (forest) {
     let size = loc.size < forest.maxN ? loc.size + 1 : loc.size;
     if (size < need) size = need;
     size = Save.clampSize(size);
-    const features = forceFeature(Planner.rollFeatures(forest, size), parsed.type, size);
+    const features = forceFeature(Planner.rollFeatures(forest, size), parsed.type);
     const lock = !!(lockedNext && size >= need);
     return Planner.getCard("deeper", Plan.make(size, features), lock, lock ? costTarget : 0);
   }
