@@ -131,17 +131,6 @@ Forest.prototype.canAfford = function () {
   return !!this.nextItem() && this.stars >= this.needStars();
 };
 
-Forest.prototype.canPut = function (type, n) {
-  const spec = Planner.CATALOG[type];
-  if (!spec) return false;
-  if (n < spec.minN) return false;
-  if (type === "pond") {
-    const water = this.stateOf("water");
-    return water === "unlocked" || water === "seen";
-  }
-  return this.stateOf(type) !== "locked";
-};
-
 Forest.prototype.markSeen = function (plan) {
   if (!plan || !plan.features) return;
   let waterHit = false;

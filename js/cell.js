@@ -55,7 +55,7 @@ const CELL_TYPES = {
     stand: "h",
   },
   tree: {
-    fill: "#2F512A",
+    fill: "#354E31",
     edge: "#7D9249",
     tap: false,
     stand: "t",

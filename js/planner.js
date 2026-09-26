@@ -7,7 +7,7 @@ const FEATURE_CATALOG = {
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
   hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
-  trees: { minN: 8, p: 0.3, icon: "images/trees.png", defaults: { size: 1 } },
+  trees: { minN: 8, p: 0.5, icon: "images/trees.png", defaults: { size: 1 } },
 };
 
 const UNLOCK_CHART = [
@@ -45,12 +45,15 @@ Planner.parseUnlock = function (name) {
   return null;
 };
 
-Planner.maxTrees = function (n) {
-  const spec = FEATURE_CATALOG.trees;
-  const minN = spec && spec.minN ? spec.minN : 8;
-  n = n | 0;
-  if (n < minN) return 0;
-  return Math.ceil((n - minN + 1) / 2);
+Planner.canPut = function (forest, type, n) {
+  const spec = FEATURE_CATALOG[type];
+  if (!spec) return false;
+  if (n < spec.minN) return false;
+  if (type === "pond") {
+    const water = forest.stateOf("water");
+    return water === "unlocked" || water === "seen";
+  }
+  return forest.stateOf(type) !== "locked";
 };
 
 Planner.featureItem = function (type, size) {
@@ -68,7 +71,7 @@ Planner.waterParts = function (forest, n, trees) {
   const min = spec && spec.minN ? spec.minN : 7;
   let amount = n - min + 1 - (trees | 0);
   if (amount < 1) return [];
-  const allowRiver = forest.canPut("river", n);
+  const allowRiver = Planner.canPut(forest, "river", n);
   const parts = [];
   let hasPond = false;
   let hasRiver = false;
@@ -90,21 +93,21 @@ Planner.waterParts = function (forest, n, trees) {
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   let trees = 0;
-  if (forest.canPut("trees", n) && Math.random() < FEATURE_CATALOG.trees.p) {
-    const max = Planner.maxTrees(n);
+  if (Planner.canPut(forest, "trees", n) && Math.random() < FEATURE_CATALOG.trees.p) {
+    const max = Math.max( 0, n+1 - FEATURE_CATALOG.trees.minN );
     if (max > 0) {
-      trees = 1 + Math.floor(Math.random() * max);
+      trees = Math.ceil(max * (0.45 + 0.55 * Math.random()));
       out.push(Planner.featureItem("trees", trees));
     }
   }
   for (const type in FEATURE_CATALOG) {
     if (type === "water" || type === "pond" || type === "river" || type === "trees") continue;
     if (type === "hawk" && trees) continue;
-    if (!forest.canPut(type, n)) continue;
+    if (!Planner.canPut(forest, type, n)) continue;
     if (Math.random() < FEATURE_CATALOG[type].p) out.push(Planner.featureItem(type));
   }
   const water = FEATURE_CATALOG.water;
-  if (forest.canPut("water", n) && water && Math.random() < water.p) {
+  if (Planner.canPut(forest, "water", n) && water && Math.random() < water.p) {
     const parts = Planner.waterParts(forest, n, trees);
     for (let i = 0; i < parts.length; i++) out.push(parts[i]);
   }
