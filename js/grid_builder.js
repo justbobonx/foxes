@@ -74,36 +74,6 @@ GridBuilder.buildAsync = function (plan, onSlice) {
   });
 };
 
-GridBuilder.prototype.hasFeature = function (type) {
-  const list = this.plan.features || [];
-  for (let i = 0; i < list.length; i++) {
-    if (list[i] && list[i].type === type) return true;
-  }
-  return false;
-};
-
-GridBuilder.prototype.featureSize = function (type, fallback) {
-  const list = this.plan.features || [];
-  for (let i = 0; i < list.length; i++) {
-    const f = list[i];
-    if (!f || f.type !== type) continue;
-    return f.size | 0 || f.amount | 0 || fallback || 0;
-  }
-  return fallback || 0;
-};
-
-GridBuilder.prototype.pondSizes = function () {
-  const jobs = [];
-  const list = this.plan.features || [];
-  for (let i = 0; i < list.length; i++) {
-    const f = list[i];
-    if (!f || f.type !== "pond") continue;
-    const sz = f.size | 0 || f.amount | 0 || 1;
-    if (sz >= 1 && sz <= POND_SHAPES.length) jobs.push(sz);
-  }
-  return jobs;
-};
-
 GridBuilder.prototype.resetLand = function () {
   const g = this.grid;
   g.wolfRow = -1;
@@ -203,7 +173,7 @@ GridBuilder.prototype.fillWaterIslands = function () {
 
 GridBuilder.prototype.placeWater = function () {
   const g = this.grid;
-  const river = this.featureSize("river", 0);
+  const river = Plan.riverMode(this.plan);
   const n = g.n;
   const cols = g.cols;
 
@@ -233,7 +203,7 @@ GridBuilder.prototype.placeWater = function () {
       if (!this.walkRiver(pick.r, pick.c, pick.flow)) continue;
     }
 
-    const jobs = this.pondSizes();
+    const jobs = Plan.pondSizes(this.plan);
 
     let pondsOk = true;
     for (let j = 0; j < jobs.length; j++) {
@@ -360,7 +330,7 @@ GridBuilder.prototype.clearCaves = function () {
 GridBuilder.prototype.placeCave = function () {
   const g = this.grid;
   this.clearCaves();
-  if (!this.hasFeature("wolf")) return true;
+  if (!Plan.has(this.plan, "wolf")) return true;
   const seeds = [];
   for (let r = 2; r < g.rows - 2; r++) {
     for (let c = 2; c < g.cols - 2; c++) {
@@ -445,7 +415,7 @@ GridBuilder.prototype.placeHawk = function () {
       }
     }
   }
-  if (!this.hasFeature("hawk") || this.hasFeature("trees") || g.rows !== g.cols) return true;
+  if (!Plan.has(this.plan, "hawk") || Plan.has(this.plan, "trees") || g.rows !== g.cols) return true;
   const sides = shuffleInPlace(["L", "R"].slice());
   for (let i = 0; i < sides.length; i++) {
     const side = sides[i];
@@ -479,7 +449,7 @@ GridBuilder.prototype.placeBunny = function () {
       }
     }
   }
-  if (!this.hasFeature("bunny")) return true;
+  if (!Plan.has(this.plan, "bunny")) return true;
   const lastR = g.rows - 1;
   const lastC = g.cols - 1;
   const spots = [];
@@ -752,7 +722,7 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
 
 GridBuilder.prototype.placeTrees = function () {
   const g = this.grid;
-  const z = this.featureSize("trees", 0);
+  const z = Plan.treeCount(this.plan);
   if (z < 1) return true;
   if (g.cols !== g.n - z) return false;
   const n = g.n;

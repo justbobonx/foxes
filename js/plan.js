@@ -44,6 +44,30 @@ Plan.treeCount = function (plan) {
   return 0;
 };
 
+Plan.riverMode = function (plan) {
+  if (!plan || !plan.features) return 0;
+  for (let i = 0; i < plan.features.length; i++) {
+    const f = plan.features[i];
+    if (!f || f.type !== "river") continue;
+    return f.size === 1 ? 1 : 2;
+  }
+  return 0;
+};
+
+Plan.pondSizes = function (plan) {
+  const jobs = [];
+  const list = plan && plan.features ? plan.features : [];
+  for (let i = 0; i < list.length; i++) {
+    const f = list[i];
+    if (!f || f.type !== "pond") continue;
+    let sz = f.size | 0 || f.amount | 0 || 1;
+    if (sz < 1) sz = 1;
+    if (sz > 4) sz = 4;
+    jobs.push(sz);
+  }
+  return jobs;
+};
+
 Plan.key = function (plan) {
   const list = plan && plan.features ? plan.features.slice() : [];
   list.sort(function (a, b) {
