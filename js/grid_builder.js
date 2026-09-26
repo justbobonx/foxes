@@ -735,7 +735,8 @@ GridBuilder.prototype.placeTrees = function () {
     const maxHi = n - 3;
     if (maxHi < minLo) return false;
     const maxLen = maxHi - minLo + 1;
-    const len = 1 + Math.floor(Math.random() * maxLen);
+    const len = n - 5;
+    if (len < 1 || len > maxLen) return false;
     let lo = minLo + Math.floor(Math.random() * (maxLen - len + 1));
     let hi = lo + len - 1;
     for (let i = 0; i < width; i++) {
@@ -749,7 +750,9 @@ GridBuilder.prototype.placeTrees = function () {
       }
       if (i + 1 >= width) continue;
       const curLen = hi - lo + 1;
-      const newLen = 1 + Math.floor(Math.random() * curLen);
+      const maxDrop = Math.min(2, curLen - 1);
+      const drop = Math.floor(Math.random() * (maxDrop + 1));
+      const newLen = curLen - drop;
       const shift = Math.floor(Math.random() * (curLen - newLen + 1));
       lo = lo + shift;
       hi = lo + newLen - 1;

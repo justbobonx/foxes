@@ -10,7 +10,7 @@ function Forest(data) {
   this.maxN = Save.clampSize(data.maxN || Save.SIZE_MIN);
   this.curUnlockInd = data.curUnlockInd | 0;
   if (this.curUnlockInd < 0) this.curUnlockInd = 0;
-  if (this.curUnlockInd > Planner.CHART.length) this.curUnlockInd = Planner.CHART.length;
+  if (this.curUnlockInd > UNLOCK_CHART.length) this.curUnlockInd = UNLOCK_CHART.length;
   this.lastClaimStars = data.lastClaimStars | 0;
 
   const state = Forest.blankState();
@@ -21,8 +21,8 @@ function Forest(data) {
       if (v === "unlocked" || v === "seen" || v === "locked") state[type] = v;
     }
   }
-  for (let i = 0; i < this.curUnlockInd && i < Planner.CHART.length; i++) {
-    const parsed = Planner.parseUnlock(Planner.CHART[i].unlock);
+  for (let i = 0; i < this.curUnlockInd && i < UNLOCK_CHART.length; i++) {
+    const parsed = Planner.parseUnlock(UNLOCK_CHART[i].unlock);
     if (!parsed || parsed.kind !== "feature") continue;
     if (state[parsed.type] === "locked") state[parsed.type] = "unlocked";
   }
@@ -35,7 +35,7 @@ function Forest(data) {
 
 Forest.blankState = function () {
   const out = {};
-  for (const type in Planner.CATALOG) out[type] = "locked";
+  for (const type in FEATURE_CATALOG) out[type] = "locked";
   return out;
 };
 
@@ -129,8 +129,8 @@ Forest.prototype.planStory = function (plan) {
 };
 
 Forest.prototype.nextItem = function () {
-  if (this.curUnlockInd >= Planner.CHART.length) return null;
-  return Planner.CHART[this.curUnlockInd];
+  if (this.curUnlockInd >= UNLOCK_CHART.length) return null;
+  return UNLOCK_CHART[this.curUnlockInd];
 };
 
 Forest.prototype.needStars = function () {

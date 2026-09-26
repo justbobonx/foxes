@@ -5,8 +5,8 @@ const FEATURE_CATALOG = {
   river: { minN: 8, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
-  hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
-  trees: { minN: 8, p: 0.6, icon: "images/trees.png", defaults: { size: 1 } },
+  hawk: { minN: 8, p: 0.3, icon: "images/hawk.png" },
+  trees: { minN: 7, p: 0.6, icon: "images/trees.png", defaults: { size: 1 } },
 };
 
 const UNLOCK_CHART = [
@@ -31,9 +31,6 @@ const CARD_TITLES = {
 };
 
 function Planner() {}
-
-Planner.CATALOG = FEATURE_CATALOG;
-Planner.CHART = UNLOCK_CHART;
 
 Planner.parseUnlock = function (name) {
   if (!name) return null;
@@ -63,7 +60,7 @@ Planner.featureItem = function (type, size) {
 
 Planner.pondParts = function (forest, n, trees) {
   const spec = FEATURE_CATALOG.pond;
-  const min = spec && spec.minN ? spec.minN : 7;
+  const min = spec.minN;
   let amount = n - min + 1 - (trees | 0);
   if (amount < 1) return [];
   const parts = [];

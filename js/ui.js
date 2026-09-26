@@ -160,7 +160,7 @@ Ui.prototype.paintExtraRow = function (el, features, forest) {
   for (let i = 0; i < features.length; i++) {
     const type = features[i].type;
     const state = forest.stateOf(type);
-    const spec = Planner.CATALOG[type];
+    const spec = FEATURE_CATALOG[type];
     const img = document.createElement("img");
     img.src = state === "seen" && spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
     img.width = 32;
@@ -190,7 +190,9 @@ Ui.prototype.makeCard = function (card, forest, index) {
   img.height = 32;
   img.alt = "";
   const n = document.createElement("span");
-  n.textContent = String(card.plan.size);
+  n.textContent = card.locked && card.plan.size > forest.maxN
+    ? "?"
+    : String(card.plan.size);
   size.appendChild(img);
   size.appendChild(n);
   btn.appendChild(size);
