@@ -6,7 +6,7 @@ const FEATURE_CATALOG = {
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
   hawk: { minN: 9, p: 0.3, icon: "images/hawk.png" },
-  trees: { minN: 8, p: 0.5, icon: "images/trees.png", defaults: { size: 1 } },
+  trees: { minN: 8, p: 0.6, icon: "images/trees.png", defaults: { size: 1 } },
 };
 
 const UNLOCK_CHART = [
