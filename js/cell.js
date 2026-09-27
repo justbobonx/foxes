@@ -30,8 +30,8 @@ const CELL_TYPES = {
     markO: "o",
   },
   water: {
-    fill: "#082145",
-    edge: "#073D88",
+    fill: "#001D66",
+    edge: "#1B3E98",
     tap: false,
   },
   cave: {
@@ -149,8 +149,14 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     else ctx.strokeRect(x, y, s, s);
   }
 
+  ctx.save();
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+  ctx.lineWidth = Math.max(1, Math.floor(s * 0.05));
+  paint(false);
+  
   ctx.fillStyle = this.fill || look.fill || "#6b8f4e";
   paint(true);
+  
   if (look.edge) {
     const checkW = Math.max(2, Math.floor(s * 0.07));
     ctx.strokeStyle = look.edge;

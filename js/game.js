@@ -453,15 +453,23 @@ function drawHawkBand() {
     });
   }
   ctx.save();
-  ctx.strokeStyle = spec.edge;
-  ctx.globalAlpha = 0.9;
-  ctx.lineWidth = Math.max(4, Math.floor(cellSize * (spec.bandFrac || 0.2)));
   ctx.lineCap = "butt";
   ctx.lineJoin = "miter";
+  ctx.globalAlpha = .8;
+  ctx.strokeStyle = spec.edge;
+  ctx.lineWidth = Math.floor(cellSize * .8);    
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = spec.fill;
+  ctx.lineWidth = Math.floor(cellSize * .75);  
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+  
   ctx.restore();
 }
 

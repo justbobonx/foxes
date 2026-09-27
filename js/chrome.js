@@ -64,5 +64,5 @@ PlayChrome.prototype.enter = function () {
 
 PlayChrome.prototype.leave = function () {
   this.releaseWakeLock();
-  this.exitFullscreen();
+  //this.exitFullscreen();
 };
