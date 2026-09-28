@@ -453,14 +453,14 @@ function drawHawkBand() {
   ctx.lineJoin = "miter";
   ctx.globalAlpha = .8;
   ctx.strokeStyle = spec.edge;
-  ctx.lineWidth = Math.floor(cellSize * .6);    
+  ctx.lineWidth = Math.floor(cellSize * .5);    
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.strokeStyle = spec.fill;
-  ctx.lineWidth = Math.floor(cellSize * .52);  
+  ctx.lineWidth = Math.floor(cellSize * .40);  
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
