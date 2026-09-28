@@ -175,15 +175,17 @@ canvas {
 
 .find-foxes {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  width: min(400px, 100%);
   min-height: 48px;
 }
 
 .find-foxes img {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }

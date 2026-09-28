@@ -115,8 +115,8 @@ Ui.prototype.setFindFoxes = function (count) {
   while (have < want) {
     const img = document.createElement("img");
     img.src = "images/fox.png";
-    img.width = 40;
-    img.height = 40;
+    img.width = TILE;
+    img.height = TILE;
     img.alt = "";
     this.elFindFoxes.appendChild(img);
     have++;
