@@ -179,6 +179,11 @@ function startField(plan, isTest) {
   GridBuilder.buildAsync(plan, tickFind).then(function (built) {
     if (gen !== buildGen) return;
     building = false;
+    if (!built) {
+      if (!ui.findOpen()) ui.showFind();
+      ui.setFindPath("no go");
+      return;
+    }    
     ui.hideFind();
     grid = built;
     Cell.dressGrid(grid);
@@ -390,6 +395,7 @@ function showTitle() {
   ui.hideFind();
   playChrome.leave();
   ui.showStart();
+  ui.hideFind();
 }
 
 function beginPlay() {
@@ -609,6 +615,12 @@ ui.bind({
   menuBackdrop: function (e) {
     if (e.target === ui.elMenu) ui.hideMenu();
   },
+});
+
+ui.elFind.addEventListener("pointerdown", function (e) {
+  if (!ui.findOpen() || building) return;
+  e.preventDefault();
+  showTitle();
 });
 
 canvas.addEventListener("pointerdown", onBoardDown);

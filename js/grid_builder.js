@@ -70,7 +70,8 @@ GridBuilder.buildAsync = function (plan, onSlice) {
         setTimeout(pump, 0);
         return;
       }
-      resolve(builder.grid);
+      //resolve(builder.grid);
+      resolve(result === "done" ? builder.grid : null);
     }
     pump();
   });
@@ -1022,7 +1023,9 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
 };
 
 GridBuilder.prototype.searchPath = function () {
-  if (!this.searchLand) return "Land";
-  if (this.searchD === 0) return "Land->Foxes";
-  return "Land->Foxes->Dells";
+  const land = "Land(" + (this.searchT + 1) + "/" + UNIQUE_TRIES + ")";
+  if (!this.searchLand) return land;
+  const foxes = "Foxes(" + (this.searchP + 1) + "/" + PACK_TRIES + ")";
+  if (this.searchD === 0) return land + " -> " + foxes;
+  return land + " -> " + foxes + " -> Dells(" + (this.searchD + 1) + "/" + DELL_PAINT_TRIES + ")";
 };
