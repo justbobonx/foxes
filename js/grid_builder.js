@@ -751,18 +751,18 @@ GridBuilder.prototype.placeTrees = function () {
         g.markHole(cell);
       }
       if (i + 1 >= width) continue;
-      const opts = [];
-      for (let top = 0; top <= 1; top++) {
-        for (let bot = 0; bot <= 1; bot++) {
-          const nlo = lo + top;
-          const nhi = hi - bot;
-          if (nlo <= nhi) opts.push([nlo, nhi]);
-        }
-      }
-      if (!opts.length) return false;
-      const pick = opts[Math.floor(Math.random() * opts.length)];
-      lo = pick[0];
-      hi = pick[1];
+      const lastLen = hi - lo + 1;
+      const rem = width - i - 1;
+      const minLen = rem <= 1 ? 1 : 2;
+      const dropMax = Math.ceil((lastLen - 1) / rem);
+      let aggLen = lastLen - dropMax;
+      if (aggLen < minLen) aggLen = minLen;
+      const hiLen = lastLen - 1;
+      if (hiLen < minLen) continue;
+      const nextLen = aggLen + Math.floor(Math.random() * (hiLen - aggLen + 1));
+      const nlo = lo + Math.floor(Math.random() * (lastLen - nextLen + 1));
+      lo = nlo;
+      hi = nlo + nextLen - 1;
     }
     return true;
   }
