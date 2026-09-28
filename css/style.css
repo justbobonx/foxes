@@ -183,6 +183,19 @@ canvas {
   min-height: 48px;
 }
 
+.find-path {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  text-align: center;
+  font-family: pixel_font_sm, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: #ccccdd;
+}
+
 .find-foxes img {
   width: 32px;
   height: 32px;

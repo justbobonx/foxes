@@ -164,7 +164,7 @@ function startField(plan, isTest) {
   const gen = ++buildGen;
   const started = Date.now();
   let foxes = 0;
-  function tickFind() {
+  function tickFind(builder) {
     if (gen !== buildGen) return;
     const elapsed = Date.now() - started;
     if (elapsed < FIND_WAIT_MS) return;
@@ -174,6 +174,7 @@ function startField(plan, isTest) {
       foxes = want;
       ui.setFindFoxes(foxes);
     }
+    if (builder && builder.searchPath) ui.setFindPath(builder.searchPath());
   }
   GridBuilder.buildAsync(plan, tickFind).then(function (built) {
     if (gen !== buildGen) return;

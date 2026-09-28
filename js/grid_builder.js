@@ -2,11 +2,13 @@
 
 const MIN_DELL_SIZE = 2;
 const DELL_TARGET = 3;
-const DELL_PAINT_TRIES = 40;
-const PLACE_TRIES = 200;
-const PACK_TRIES = 8;
+
 const UNIQUE_TRIES = 250;
-const WATER_TRIES = 50;
+  const WATER_TRIES = 50;
+  const PACK_TRIES = 8;
+    const FOX_PLACE_TRIES = 200;
+    const DELL_PAINT_TRIES = 10;  //was 40
+    
 const CAVE_SIZE = [2, 3];
 const POND_MIN_LEVEL = 7;
 const POND_SHAPES = [
@@ -49,7 +51,7 @@ function GridBuilder(plan) {
   this.grid.plan = spec;
 }
 
-GridBuilder.SLICE_MS = 90;
+GridBuilder.SLICE_MS = 200;
 
 GridBuilder.build = function (plan) {
   const builder = new GridBuilder(plan);
@@ -64,7 +66,7 @@ GridBuilder.buildAsync = function (plan, onSlice) {
     function pump() {
       const result = builder.searchSlice(GridBuilder.SLICE_MS);
       if (result === "yield") {
-        if (onSlice) onSlice();
+        if (onSlice) onSlice(builder);
         setTimeout(pump, 0);
         return;
       }
@@ -552,7 +554,7 @@ GridBuilder.prototype.placeOs = function () {
     }
   }
   const massId = this.massMap(masses);
-  for (let t = 0; t < PLACE_TRIES; t++) {
+  for (let t = 0; t < FOX_PLACE_TRIES; t++) {
     if (this.tryPlaceOs(masses, massId)) return true;
   }
   g.clearSprites();
@@ -1017,4 +1019,10 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
     if (Date.now() >= end) return "yield";
   }
   return "fail";
+};
+
+GridBuilder.prototype.searchPath = function () {
+  if (!this.searchLand) return "Land";
+  if (this.searchD === 0) return "Land->Foxes";
+  return "Land->Foxes->Dells";
 };
