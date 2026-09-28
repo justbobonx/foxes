@@ -104,11 +104,7 @@ function layout() {
   const boardH = rows * cellSize;
   originX = Math.floor((w - boardW) / 2);
   if (ui.winOpen()) originY = padTop + gap;
-  else originY = padTop + gap + Math.floor((usableH - boardH) / 2);
-  const inset = Math.max(1, Math.floor(cellSize * 0.06));
-  const tile = cellSize - inset * 2;
-  const dest = Math.max(1, tile - Math.max(0, Math.floor(tile * 0.06)) * 2);
-  ctx.imageSmoothingEnabled = dest < TILE;
+  else originY = padTop + gap + Math.floor((usableH - boardH) / 2);  
 }
 
 function showMenu() {
@@ -457,14 +453,14 @@ function drawHawkBand() {
   ctx.lineJoin = "miter";
   ctx.globalAlpha = .8;
   ctx.strokeStyle = spec.edge;
-  ctx.lineWidth = Math.floor(cellSize * .8);    
+  ctx.lineWidth = Math.floor(cellSize * .6);    
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.strokeStyle = spec.fill;
-  ctx.lineWidth = Math.floor(cellSize * .75);  
+  ctx.lineWidth = Math.floor(cellSize * .52);  
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -479,7 +475,7 @@ function draw() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!grid) return;
   drawHawkBand();
-  const inset = Math.max(1, Math.floor(cellSize * 0.06));
+  const inset = Math.max(2, Math.floor(cellSize * 0.06));
   const s = cellSize - inset * 2;
   grid.each(function (cell, r, c) {
     const x = originX + c * cellSize + inset;
