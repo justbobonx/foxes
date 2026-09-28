@@ -43,11 +43,6 @@ function clearTestPlan() {
   if (ui.btnStart) ui.btnStart.textContent = "Into the Fields";
 }
 
-function setLevel(size) {
-  n = Save.clampSize(size);
-  return n;
-}
-
 function persistForest() {
   Save.writeForest(forest.dump());
 }
@@ -140,7 +135,6 @@ function showBoard(keepWin) {
   ui.hidePlan();
   ui.hideStory();
   ui.hideFind();
-  setLevel(n);
   paintScore();
   layout();
   draw();
@@ -165,7 +159,7 @@ function startField(plan, isTest) {
   ui.hideFind();
   ui.hidePlan();
   playingTest = !!isTest;
-  n = setLevel(plan.size);
+  n = plan.size;
   building = true;
   const gen = ++buildGen;
   const started = Date.now();
@@ -325,7 +319,7 @@ function restoreBoard() {
   forest.lastPlan = Plan.copy(plan);
   forest.offers = null;
   persistForest();
-  n = Save.clampSize(grid.n);
+  n = grid.n;
   clockElapsed = data.elapsedMs > 0 ? data.elapsedMs | 0 : 0;
   clockStarted = Date.now();
   hintCount = data.hintCount | 0;
@@ -634,7 +628,6 @@ window.addEventListener("pagehide", function () {
   stashPlay();
 });
 
-setLevel(n);
 persistForest();
 paintScore();
 layout();

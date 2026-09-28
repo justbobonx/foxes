@@ -1,5 +1,9 @@
 /** Content tables and card offers. Reads forest. Does not build a field. */
 
+const SIZE_MIN = 6;
+const SIZE_MAX = 12;
+const DEFAULT_SIZE = SIZE_MIN;
+
 const FEATURE_CATALOG = {
   pond: { minN: 7, p: 0.7, icon: "images/pond.png", defaults: { size: 1 } },
   river: { minN: 8, icon: "images/stream.png" },
@@ -31,6 +35,13 @@ const CARD_TITLES = {
 };
 
 function Planner() {}
+
+Planner.clampSize = function (n) {
+  n = n | 0;
+  if (n < SIZE_MIN) return SIZE_MIN;
+  if (n > SIZE_MAX) return SIZE_MAX;
+  return n;
+};
 
 Planner.parseUnlock = function (name) {
   if (!name) return null;
@@ -169,7 +180,7 @@ Planner.deeperCard = function (forest) {
     const need = spec ? spec.minN : Save.SIZE_MIN;
     let size = loc.size < forest.maxN ? loc.size + 1 : loc.size;
     if (size < need) size = need;
-    size = Save.clampSize(size);
+    size = Planner.clampSize(size);
     const features = forceFeature(Planner.rollFeatures(forest, size), parsed.type);
     const lock = !!(lockedNext && size >= need);
     return Planner.getCard("deeper", Plan.make(size, features), lock, lock ? costTarget : 0);
@@ -181,7 +192,7 @@ Planner.deeperCard = function (forest) {
   }
 
   if (parsed && parsed.kind === "size") {
-    const size = Save.clampSize(parsed.n);
+    const size = Planner.clampSize(parsed.n);
     return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), lockedNext, lockedNext ? costTarget : 0);
   }
 

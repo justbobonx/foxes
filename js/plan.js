@@ -8,7 +8,7 @@ Plan.blank = function () {
 
 Plan.copy = function (plan) {
   if (!plan) return Plan.blank();
-  const size = Save.clampSize(plan.size || plan.n || Save.SIZE_MIN);
+  const size = plan.size || plan.n || Save.SIZE_MIN;
   const src = Array.isArray(plan.features) ? plan.features : [];
   const features = [];
   for (let i = 0; i < src.length; i++) {
@@ -102,7 +102,7 @@ Plan.make = function (size, features) {
     if (aa !== bb) return aa - bb;
     return (a.size || 0) - (b.size || 0);
   });
-  return { size: Save.clampSize(size), features: list };
+  return { size: size, features: list };
 };
 
 Plan.fromQuery = function (search) {

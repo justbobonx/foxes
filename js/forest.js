@@ -7,7 +7,7 @@ function Forest(data) {
     return;
   }
   this.stars = data.stars | 0;
-  this.maxN = Save.clampSize(data.maxN || Save.SIZE_MIN);
+  this.maxN = Planner.clampSize(data.maxN || SIZE_MIN);
   this.curUnlockInd = data.curUnlockInd | 0;
   if (this.curUnlockInd < 0) this.curUnlockInd = 0;
   if (this.curUnlockInd > UNLOCK_CHART.length) this.curUnlockInd = UNLOCK_CHART.length;
@@ -176,7 +176,7 @@ Forest.prototype.win = function (plan) {
     this.lastClaimStars = this.stars;
     this.curUnlockInd += 1;
     if (parsed && parsed.kind === "size") {
-      if (parsed.n > this.maxN) this.maxN = Save.clampSize(parsed.n);
+      if (parsed.n > this.maxN) this.maxN = Planner.clampSize(parsed.n);
     } else if (parsed && this.featureState[parsed.type] === "locked") {
       this.featureState[parsed.type] = "unlocked";
     }

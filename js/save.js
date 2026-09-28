@@ -1,20 +1,7 @@
 const SAVE_BOARD = "foxes_field";
 const SAVE_FOREST = "foxes_forest";
-const SIZE_MIN = 6;
-const SIZE_MAX = 12;
-const DEFAULT_SIZE = SIZE_MIN;
 
 function Save() {}
-
-Save.SIZE_MIN = SIZE_MIN;
-Save.SIZE_MAX = SIZE_MAX;
-
-Save.clampSize = function (n) {
-  n = n | 0;
-  if (n < SIZE_MIN) return SIZE_MIN;
-  if (n > SIZE_MAX) return SIZE_MAX;
-  return n;
-};
 
 Save.readBoard = function () {
   try {
