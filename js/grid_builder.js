@@ -379,20 +379,24 @@ GridBuilder.prototype.placeCave = function () {
   return true;
 };
 
-GridBuilder.prototype.bunnySeats = function (row, col) {
+GridBuilder.prototype.bunnyRingOpen = function (row, col) {
   const g = this.grid;
   const out = [];
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
       if (!dr && !dc) continue;
-      if (g.foxSeatOk(row + dr, col + dc)) out.push({ r: row + dr, c: col + dc });
+      const r = row + dr;
+      const c = col + dc;
+      if (!g.inBoard(r, c)) continue;
+      if (g.cells[r][c].isHole()) continue;
+      out.push({ r: r, c: c });
     }
   }
   return out;
 };
 
 GridBuilder.prototype.bunnyPairs = function (row, col) {
-  const seats = this.bunnySeats(row, col);
+  const seats = this.bunnyRingOpen(row, col);
   const out = [];
   for (let i = 0; i < seats.length; i++) {
     for (let j = i + 1; j < seats.length; j++) {
@@ -460,7 +464,7 @@ GridBuilder.prototype.placeBunny = function () {
     for (let c = 0; c < g.cols; c++) {
       if (r === 0 || r === lastR || c === 0 || c === lastC) continue;
       if (g.cells[r][c].isHole()) continue;
-      if (this.bunnySeats(r, c).length < 6) continue;
+      if (this.bunnyRingOpen(r, c).length < 6) continue;
       if (!this.bunnyPairs(r, c).length) continue;
       spots.push({ r: r, c: c });
     }
@@ -473,18 +477,29 @@ GridBuilder.prototype.placeBunny = function () {
   return true;
 };
 
-GridBuilder.prototype.hasNearbyO = function (row, col) {
+GridBuilder.prototype.caveCells = function () {
   const g = this.grid;
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (!dr && !dc) continue;
-      const r = row + dr;
-      const c = col + dc;
-      if (r < 0 || c < 0 || r >= g.rows || c >= g.cols) continue;
-      if (g.cells[r][c].spriteId === "o") return true;
+  const out = [];
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
+      if (g.cells[r][c].is("cave")) out.push({ r: r, c: c });
     }
   }
-  return false;
+  return out;
+};
+
+GridBuilder.prototype.hawkLineOpen = function () {
+  const g = this.grid;
+  const out = [];
+  if (!g.hawk) return out;
+  for (let r = 0; r < g.rows; r++) {
+    for (let c = 0; c < g.cols; c++) {
+      if (!g.onHawkLine(r, c)) continue;
+      if (g.cells[r][c].isHole()) continue;
+      out.push({ r: r, c: c });
+    }
+  }
+  return out;
 };
 
 GridBuilder.prototype.grassMasses = function () {
@@ -539,11 +554,10 @@ GridBuilder.prototype.massMap = function (masses) {
   return map;
 };
 
-GridBuilder.prototype.placeOs = function () {
+GridBuilder.prototype.placeFoxes = function () {
   const g = this.grid;
   const masses = this.grassMasses();
   const n = g.n;
-  const cols = g.cols;
   if (!masses.length || masses.length > n) {
     g.clearSprites();
     return false;
@@ -556,13 +570,13 @@ GridBuilder.prototype.placeOs = function () {
   }
   const massId = this.massMap(masses);
   for (let t = 0; t < FOX_PLACE_TRIES; t++) {
-    if (this.tryPlaceOs(masses, massId)) return true;
+    if (this.tryPlaceFoxes(masses, massId)) return true;
   }
   g.clearSprites();
   return false;
 };
 
-GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
+GridBuilder.prototype.tryPlaceFoxes = function (masses, massId) {
   const g = this.grid;
   g.clearSprites();
   const n = g.n;
@@ -570,6 +584,7 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
   if (!masses) masses = this.grassMasses();
   if (!masses.length || masses.length > n) return false;
   if (!massId) massId = this.massMap(masses);
+
   const room = [];
   const hits = [];
   let cap = 0;
@@ -581,79 +596,171 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
   }
   if (cap < n) return false;
 
-  const freeRow = [];
-  const runUsed = [];
+  const stillOk = [];
+  let stillN = 0;
+  for (let r = 0; r < n; r++) {
+    const row = [];
+    for (let c = 0; c < cols; c++) {
+      const ok = g.foxSeatOk(r, c) && g.runOf(r, c) >= 0;
+      row.push(ok);
+      if (ok) stillN++;
+    }
+    stillOk.push(row);
+  }
+
   let rowsLeft = n;
-  for (let r = 0; r < n; r++) freeRow[r] = true;
+  const runUsed = [];
   for (let c = 0; c < cols; c++) runUsed[c] = 0;
 
-  const self = this;
-  let hawkPlanted = false;
-  function takeSeat(r, c) {
-    const mid = massId[r][c];
+  function dropSeat(r, c) {
+    if (r < 0 || c < 0 || r >= n || c >= cols) return;
+    if (!stillOk[r][c]) return;
+    stillOk[r][c] = false;
+    stillN--;
+  }
+
+  function punchFox(r, c) {
     const run = g.runOf(r, c);
-    if (mid < 0 || !room[mid]) return false;
-    if (run < 0) return false;
-    if (!freeRow[r]) return false;
-    if (runUsed[c] & (1 << run)) return false;
-    if (!g.foxSeatOk(r, c)) return false;
-    if (self.hasNearbyO(r, c)) return false;
-    if (hawkPlanted && g.onHawkLine(r, c)) return false;
+    for (let cc = 0; cc < cols; cc++) dropSeat(r, cc);
+    if (run >= 0) {
+      for (let rr = 0; rr < n; rr++) {
+        if (g.runOf(rr, c) === run) dropSeat(rr, c);
+      }
+      runUsed[c] |= 1 << run;
+    }
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) dropSeat(r + dr, c + dc);
+    }
+    const mid = massId[r][c];
+    if (mid >= 0) {
+      room[mid]--;
+      hits[mid]++;
+      if (!room[mid]) {
+        const cells = masses[mid].cells;
+        for (let k = 0; k < cells.length; k++) dropSeat(cells[k].r, cells[k].c);
+      }
+    }
+  }
+
+  function punchHawkLine() {
+    if (!g.hawk) return;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (g.onHawkLine(r, c)) dropSeat(r, c);
+      }
+    }
+  }
+
+  function placeFox(r, c) {
+    if (!stillOk[r][c]) return false;
+    const onHawk = !!(g.hawk && g.onHawkLine(r, c));
     g.cells[r][c].setSprite("o");
-    freeRow[r] = false;
-    runUsed[c] |= 1 << run;
+    punchFox(r, c);
+    if (onHawk) punchHawkLine();
     rowsLeft--;
-    room[mid]--;
-    hits[mid]++;
     return true;
   }
 
-  if (g.hawk) {
-    const seats = [];
-    const use = g.hawk;
-    for (let r = 1; r < n; r++) {
-      const c = use === "L" ? r : n - 1 - r;
-      if (g.foxSeatOk(r, c)) seats.push({ r: r, c: c });
-    }
-    shuffleInPlace(seats);
-    for (let i = 0; i < seats.length; i++) {
-      if (takeSeat(seats[i].r, seats[i].c)) {
-        hawkPlanted = true;
-        break;
+  function pickFrom(list) {
+    if (!list.length) return false;
+    const pick = list[Math.floor(Math.random() * list.length)];
+    return placeFox(pick.r, pick.c);
+  }
+
+  function seatsWhere(ok) {
+    const out = [];
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!stillOk[r][c]) continue;
+        if (ok && !ok(r, c)) continue;
+        out.push({ r: r, c: c });
       }
     }
-    if (!hawkPlanted) return false;
+    return out;
+  }
+
+  function foxAt(r, c) {
+    return g.cells[r][c].spriteId === "o";
+  }
+
+  const cave = this.caveCells();
+  if (g.wolfRow >= 0) {
+    const ring = seatsWhere(function (r, c) {
+      for (let i = 0; i < cave.length; i++) {
+        if (Math.max(Math.abs(r - cave[i].r), Math.abs(c - cave[i].c)) === 1) return true;
+      }
+      return false;
+    });
+    const seenRing = {};
+    let onRing = 0;
+    for (let i = 0; i < cave.length; i++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          const r = cave[i].r + dr;
+          const c = cave[i].c + dc;
+          if (!g.inBoard(r, c) || !foxAt(r, c)) continue;
+          const key = r + "," + c;
+          if (seenRing[key]) continue;
+          seenRing[key] = true;
+          onRing++;
+        }
+      }
+    }
+    if (!onRing) {
+      if (!pickFrom(ring)) return false;
+    }
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!g.nearWolf(r, c)) continue;
+        if (foxAt(r, c)) return false;
+      }
+    }
   }
 
   const bunny = g.findBunny();
   if (bunny) {
-    const pairs = this.bunnyPairs(bunny.row, bunny.col);
-    if (!pairs.length) return false;
-    shuffleInPlace(pairs);
-    let planted = false;
-    for (let i = 0; i < pairs.length; i++) {
-      const a = pairs[i][0];
-      const b = pairs[i][1];
-      const ma = massId[a.r][a.c];
-      const mb = massId[b.r][b.c];
-      if (ma < 0 || mb < 0) continue;
-      if (ma === mb && room[ma] < 2) continue;
-      if (ma !== mb && (!room[ma] || !room[mb])) continue;
-      if (!takeSeat(a.r, a.c)) continue;
-      if (!takeSeat(b.r, b.c)) {
-        g.cells[a.r][a.c].clearSprite();
-        const mid = massId[a.r][a.c];
-        room[mid]++;
-        hits[mid]--;
-        freeRow[a.r] = true;
-        runUsed[a.c] &= ~(1 << g.runOf(a.r, a.c));
-        rowsLeft++;
-        continue;
-      }
-      planted = true;
-      break;
+    const open = this.bunnyRingOpen(bunny.row, bunny.col);
+    if (open.length < 6) return false;
+    const onRing = [];
+    for (let i = 0; i < open.length; i++) {
+      if (foxAt(open[i].r, open[i].c)) onRing.push(open[i]);
     }
-    if (!planted) return false;
+    if (onRing.length > 2) return false;
+    while (onRing.length < 2) {
+      const ring = seatsWhere(function (r, c) {
+        return Math.max(Math.abs(r - bunny.row), Math.abs(c - bunny.col)) === 1;
+      });
+      if (!pickFrom(ring)) return false;
+      onRing.length = 0;
+      for (let i = 0; i < open.length; i++) {
+        if (foxAt(open[i].r, open[i].c)) onRing.push(open[i]);
+      }
+    }
+    if (onRing.length !== 2) return false;
+  }
+
+  if (g.hawk) {
+    const open = this.hawkLineOpen();
+    if (open.length < 5) return false;
+    const onLine = [];
+    for (let i = 0; i < open.length; i++) {
+      if (foxAt(open[i].r, open[i].c)) onLine.push(open[i]);
+    }
+    if (onLine.length > 1) return false;
+    if (onLine.length === 1) {
+      punchHawkLine();
+    } else {
+      const line = seatsWhere(function (r, c) {
+        return g.onHawkLine(r, c);
+      });
+      if (!pickFrom(line)) return false;
+    }
+    let found = 0;
+    for (let i = 0; i < open.length; i++) {
+      if (foxAt(open[i].r, open[i].c)) found++;
+    }
+    if (found !== 1) return false;
   }
 
   const order = [];
@@ -661,24 +768,13 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
   order.sort(function (a, b) {
     return masses[a].size - masses[b].size;
   });
-
   for (let i = 0; i < order.length; i++) {
     const mid = order[i];
     if (hits[mid]) continue;
-    const opts = [];
-    const cells = masses[mid].cells;
-    for (let k = 0; k < cells.length; k++) {
-      const r = cells[k].r;
-      const c = cells[k].c;
-      const run = g.runOf(r, c);
-      if (!freeRow[r] || run < 0 || (runUsed[c] & (1 << run))) continue;
-      if (!g.foxSeatOk(r, c)) continue;
-      if (this.hasNearbyO(r, c)) continue;
-      opts.push({ r: r, c: c });
-    }
-    if (!opts.length) return false;
-    const pick = opts[Math.floor(Math.random() * opts.length)];
-    if (!takeSeat(pick.r, pick.c)) return false;
+    const opts = seatsWhere(function (r, c) {
+      return massId[r][c] === mid;
+    });
+    if (!pickFrom(opts)) return false;
   }
 
   for (let c = 0; c < cols; c++) {
@@ -686,39 +782,16 @@ GridBuilder.prototype.tryPlaceOs = function (masses, massId) {
     if (!span) continue;
     for (let run = 0; run <= 1; run++) {
       if (runUsed[c] & (1 << run)) continue;
-      const opts = [];
-      for (let r = 0; r < n; r++) {
-        if (!freeRow[r]) continue;
-        if (g.runOf(r, c) !== run) continue;
-        if (!g.foxSeatOk(r, c)) continue;
-        if (this.hasNearbyO(r, c)) continue;
-        const mid = massId[r][c];
-        if (mid < 0 || !room[mid]) continue;
-        opts.push({ r: r, c: c });
-      }
-      if (!opts.length) return false;
-      const pick = opts[Math.floor(Math.random() * opts.length)];
-      if (!takeSeat(pick.r, pick.c)) return false;
+      const opts = seatsWhere(function (r, cc) {
+        return cc === c && g.runOf(r, cc) === run;
+      });
+      if (!pickFrom(opts)) return false;
     }
   }
 
   while (rowsLeft) {
-    const opts = [];
-    for (let r = 0; r < n; r++) {
-      if (!freeRow[r]) continue;
-      for (let c = 0; c < cols; c++) {
-        const run = g.runOf(r, c);
-        if (run < 0 || (runUsed[c] & (1 << run))) continue;
-        const mid = massId[r][c];
-        if (mid < 0 || !room[mid]) continue;
-        if (!g.foxSeatOk(r, c)) continue;
-        if (this.hasNearbyO(r, c)) continue;
-        opts.push({ r: r, c: c });
-      }
-    }
-    if (!opts.length) return false;
-    const pick = opts[Math.floor(Math.random() * opts.length)];
-    if (!takeSeat(pick.r, pick.c)) return false;
+    const opts = seatsWhere(null);
+    if (!pickFrom(opts)) return false;
   }
   return true;
 };
@@ -810,9 +883,9 @@ GridBuilder.prototype.prepLand = function () {
   const g = this.grid;
   if (!this.placeTrees()) return false;
   if (!this.placeWater()) return false;
-  if (!this.placeHawk()) return false;
   if (!this.placeCave()) return false;
   if (!this.placeBunny()) return false;
+  if (!this.placeHawk()) return false;
   this.fillWaterIslands();
   if (!this.treeRunsOk()) return false;
   const masses = this.grassMasses();
@@ -1001,7 +1074,7 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
       this.searchLand = true;
     }
     while (this.searchP < PACK_TRIES) {
-      if (this.searchD === 0 && !this.placeOs()) break;
+      if (this.searchD === 0 && !this.placeFoxes()) break;
       while (this.searchD < DELL_PAINT_TRIES) {
         if (this.tryPaintDells()) {
           g.unique = true;
