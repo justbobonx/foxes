@@ -2,12 +2,14 @@
 
 const MIN_DELL_SIZE = 2;
 const DELL_TARGET = 3;
+const STRIP_MAX = 3;
 
+//indentation shows place in builder looping
 const UNIQUE_TRIES = 250;
   const WATER_TRIES = 50;
   const PACK_TRIES = 8;
     const FOX_PLACE_TRIES = 200;
-    const DELL_PAINT_TRIES = 10;  //was 40
+    const DELL_PAINT_TRIES = 10;
     
 const CAVE_SIZE = [2, 3];
 const POND_MIN_LEVEL = 7;
@@ -849,7 +851,9 @@ GridBuilder.prototype.tryPaintDells = function () {
   const cols = g.cols;
   const floor = Math.min(MIN_DELL_SIZE, n);
   const target = Math.min(DELL_TARGET, n);
-  const tinyQuota = Math.random() < 0.5 ? 2 : 1;
+  const want2 = Math.random() < 0.5 ? 2 : 1;
+  const want3 = Math.random() < 0.5 ? 2 : 1;
+  const wantBlob = Math.random() < 0.5 ? 2 : 1;
 
   const seeds = [];
   for (let r = 0; r < n; r++) {
@@ -868,26 +872,59 @@ GridBuilder.prototype.tryPaintDells = function () {
   }
 
   const sizes = [];
+  const box = [];
   const frontier = [];
   for (let i = 0; i < seeds.length; i++) {
     const s = seeds[i];
     g.cells[s.r][s.c].dellId = i;
     sizes[i] = 1;
+    box[i] = { r0: s.r, r1: s.r, c0: s.c, c1: s.c };
     frontier.push({ r: s.r, c: s.c, id: i });
   }
 
-  const reserved2 = {};
-  const reserved3 = {};
-  let reserved = false;
+  const frozen2 = {};
+  const frozen3 = {};
+  const blobs = {};
+  const strips = {};
+  let picked2 = false;
+  let pickedRoles = false;
 
-  function countSize(cap, exact) {
-    let count = 0;
+  function shortAxis(id, r, c) {
+    const b = box[id];
+    const h = Math.max(b.r1, r) - Math.min(b.r0, r) + 1;
+    const w = Math.max(b.c1, c) - Math.min(b.c0, c) + 1;
+    return Math.min(h, w);
+  }
+
+  function pickFrom(list, want, dest) {
+    shuffleInPlace(list);
+    const take = Math.min(want, list.length);
+    for (let i = 0; i < take; i++) dest[list[i]] = true;
+    return list.slice(take);
+  }
+
+  function assignSmall2() {
+    const twos = [];
     for (let i = 0; i < sizes.length; i++) {
-      if (!sizes[i]) continue;
-      if (exact && sizes[i] === cap) count++;
-      else if (!exact && sizes[i] < cap) count++;
+      if (sizes[i] === floor) twos.push(i);
     }
-    return count;
+    pickFrom(twos, want2, frozen2);
+    picked2 = true;
+  }
+
+  function assignRoles() {
+    const pool = [];
+    const threes = [];
+    for (let i = 0; i < sizes.length; i++) {
+      if (frozen2[i]) continue;
+      if (sizes[i] === target) threes.push(i);
+      else pool.push(i);
+    }
+    const leftover3 = pickFrom(threes, want3, frozen3);
+    for (let i = 0; i < leftover3.length; i++) pool.push(leftover3[i]);
+    const leftoverBlob = pickFrom(pool, wantBlob, blobs);
+    for (let i = 0; i < leftoverBlob.length; i++) strips[leftoverBlob[i]] = true;
+    pickedRoles = true;
   }
 
   function edgesFrom(allow) {
@@ -907,41 +944,29 @@ GridBuilder.prototype.tryPaintDells = function () {
   }
 
   function nextOpts() {
-    if (countSize(floor, false)) {
-      return edgesFrom(function (id, sz) {
-        return sz < floor;
-      });
-    }
-    if (countSize(target, false) > tinyQuota) {
-      return edgesFrom(function (id, sz) {
-        return sz < target;
-      });
-    }
-    if (!reserved) {
-      reserved = true;
-      const twos = [];
-      const threes = [];
-      for (let i = 0; i < sizes.length; i++) {
-        if (sizes[i] === floor) twos.push(i);
-        if (sizes[i] === target) threes.push(i);
-      }
-      shuffleInPlace(twos);
-      shuffleInPlace(threes);
-      const keep2 = Math.min(tinyQuota, twos.length);
-      for (let i = 0; i < keep2; i++) reserved2[twos[i]] = true;
-      const keep3 = Math.max(0, 3 - keep2);
-      for (let i = 0; i < threes.length && i < keep3; i++) reserved3[threes[i]] = true;
-    }
-    const rest = edgesFrom(function (id, sz) {
-      return !reserved2[id] && !reserved3[id];
+    const hungry2 = edgesFrom(function (id, sz) {
+      return sz < floor;
     });
-    if (rest.length) return rest;
-    const grow3 = edgesFrom(function (id) {
-      return !!reserved3[id];
+    if (hungry2.length) return hungry2;
+
+    if (!picked2) assignSmall2();
+
+    const hungry3 = edgesFrom(function (id, sz) {
+      return !frozen2[id] && sz < target;
     });
-    if (grow3.length) return grow3;
+    if (hungry3.length) return hungry3;
+
+    if (!pickedRoles) assignRoles();
+
+    const stripGrow = edgesFrom(function (id) {
+      return !!strips[id];
+    }).filter(function (e) {
+      return shortAxis(e.id, e.r, e.c) <= STRIP_MAX;
+    });
+    if (stripGrow.length) return stripGrow;
+
     return edgesFrom(function (id) {
-      return !!reserved2[id];
+      return !!blobs[id];
     });
   }
 
@@ -964,6 +989,11 @@ GridBuilder.prototype.tryPaintDells = function () {
       if (g.cells[e.r][e.c].dellId !== -1) continue;
       g.cells[e.r][e.c].dellId = e.id;
       sizes[e.id]++;
+      const b = box[e.id];
+      if (e.r < b.r0) b.r0 = e.r;
+      if (e.r > b.r1) b.r1 = e.r;
+      if (e.c < b.c0) b.c0 = e.c;
+      if (e.c > b.c1) b.c1 = e.c;
       frontier.push({ r: e.r, c: e.c, id: e.id });
       placed = true;
       break;
@@ -971,9 +1001,19 @@ GridBuilder.prototype.tryPaintDells = function () {
     if (!placed) return false;
   }
 
+  let got2 = 0;
+  let got3 = 0;
+  let fat = 0;
   for (let i = 0; i < sizes.length; i++) {
-    if (sizes[i] && sizes[i] < floor) return false;
+    if (!sizes[i] || sizes[i] < floor) return false;
+    if (sizes[i] === floor) got2++;
+    if (sizes[i] === target) got3++;
+    const b = box[i];
+    const short = Math.min(b.r1 - b.r0 + 1, b.c1 - b.c0 + 1);
+    if (short > STRIP_MAX) fat++;
   }
+  if (got2 < 1 || got3 < 1) return false;
+  if (fat > 2) return false;
   return new Solver(g).count(2) === 1;
 };
 
