@@ -77,9 +77,9 @@ Feature types the catalog knows: `pond`, `river`, `wolf`, `bunny`, `hawk`, `tree
 
 `Plan` copies, keys, and reads those fields. `Plan.fromQuery` accepts `?plan=` as JSON or a compact comma list. That path is a test field; it does not advance forest.
 
-`Forest` is the run. Stars, current unlock, feature state (`locked` / `unlocked` / `seen`), location, last plan, cached offers, stories already shown. Game owns the instance. Save stores a dump.
+`Forest` is the run. Stars, current unlock, feature state (`locked` / `unlocked` / `seen`), per-feature scores (`±20`), running size average, location, last plan, cached offers, stories already shown. Game owns the instance. Save stores a dump.
 
-`Planner` does not build a field. It rolls features the forest is allowed to see, builds travel cards (chill / stay / deeper) and give-up cards (chill / retry / variant), and marks a card locked when the next unlock is not paid for yet.
+`Planner` does not build a field. `travel` builds all three cards in one pass. Size pool is `[n-2 if n>=avg, n-1, n, n+1, n+2 if n<=avg]`, clamped to `[SIZE_MIN, maxN]`, pick 3, sort small to large. Features roll independently with `p = p0 + score/100`. Water gate is the mean of pond/river `p` when river is in play; `waterParts` replaces the old `0.5` coins with `riverP/(pondP+riverP)`. Next unlock only on card 3. Give-up is `travel(forest, lastPlan)` so that exact plan key is rerolled. Card pick calls `forest.notePick`: `+1` chosen feature types, `-0.5` once per feature that appeared only on a rejected card, then updates `sizeAvg`.
 
 ## Build
 

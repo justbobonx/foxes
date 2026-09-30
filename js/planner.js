@@ -2,11 +2,11 @@
 
 const SIZE_MIN = 6;
 const SIZE_MAX = 12;
-const DEFAULT_SIZE = SIZE_MIN;
+const SCORE_CAP = 20;
 
 const FEATURE_CATALOG = {
   pond: { minN: 7, p: 0.7, icon: "images/pond.png", defaults: { size: 1 } },
-  river: { minN: 8, icon: "images/stream.png" },
+  river: { minN: 8, p: 0.7, icon: "images/stream.png" },
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
   hawk: { minN: 8, p: 0.3, icon: "images/hawk.png" },
@@ -18,9 +18,9 @@ const UNLOCK_CHART = [
   { unlock: "pond", plus: 3, story: "first_pond" },
   { unlock: "size-8", plus: 3, story: "" },
   { unlock: "river", plus: 3, story: "first_river" },
-  { unlock: "bunny", plus: 3, story: "first_bunny" },  
+  { unlock: "bunny", plus: 3, story: "first_bunny" },
   { unlock: "size-9", plus: 3, story: "" },
-  { unlock: "wolf", plus: 3, story: "first_wolf" },  
+  { unlock: "wolf", plus: 3, story: "first_wolf" },
   { unlock: "size-10", plus: 3, story: "" },
   { unlock: "hawk", plus: 3, story: "first_hawk" },
   { unlock: "trees", plus: 3, story: "first_trees" },
@@ -32,8 +32,6 @@ const CARD_TITLES = {
   chill: ["lighter", "quieter"],
   stay: ["hang around"],
   deeper: ["deeper...", "further..."],
-  retry: ["let's try again", "one more try"],
-  variant: ["maybe something else"],
 };
 
 function Planner() {}
@@ -61,6 +59,12 @@ Planner.canPut = function (forest, type, n) {
   return forest.stateOf(type) !== "locked";
 };
 
+Planner.featureP = function (forest, type) {
+  const spec = FEATURE_CATALOG[type];
+  if (!spec || spec.p == null) return 0;
+  return spec.p + forest.scoreOf(type) / 100;
+};
+
 Planner.featureItem = function (type, size) {
   const spec = FEATURE_CATALOG[type];
   const item = { type: type };
@@ -71,10 +75,9 @@ Planner.featureItem = function (type, size) {
   return item;
 };
 
-Planner.pondParts = function (forest, n, trees) {
+Planner.waterParts = function (forest, n, trees) {
   const spec = FEATURE_CATALOG.pond;
-  const min = spec.minN;
-  let amount = n - min + 1 - (trees | 0);
+  let amount = n - spec.minN + 1 - (trees | 0);
   if (amount < 1) return [];
   const parts = [];
   function addPonds(left) {
@@ -85,8 +88,11 @@ Planner.pondParts = function (forest, n, trees) {
     }
   }
   const riverOk = Planner.canPut(forest, "river", n) && amount >= 2;
-  if (riverOk && Math.random() < 0.5) {
-    if (Math.random() < 0.5) {
+  const pondP = Planner.featureP(forest, "pond");
+  const riverP = Planner.featureP(forest, "river");
+  const riverW = pondP + riverP > 0 ? riverP / (pondP + riverP) : 0.5;
+  if (riverOk && Math.random() < riverW) {
+    if (Math.random() < riverW) {
       parts.push(Planner.featureItem("river", 2));
       addPonds(amount - 2);
     } else {
@@ -102,7 +108,7 @@ Planner.pondParts = function (forest, n, trees) {
 Planner.rollFeatures = function (forest, n) {
   const out = [];
   let trees = 0;
-  if (Planner.canPut(forest, "trees", n) && Math.random() < FEATURE_CATALOG.trees.p) {
+  if (Planner.canPut(forest, "trees", n) && Math.random() < Planner.featureP(forest, "trees")) {
     const max = Math.max(0, n + 1 - FEATURE_CATALOG.trees.minN);
     if (max > 0) {
       trees = Math.ceil(max * (0.45 + 0.55 * Math.random()));
@@ -113,37 +119,76 @@ Planner.rollFeatures = function (forest, n) {
     if (type === "pond" || type === "river" || type === "trees") continue;
     if (type === "hawk" && trees) continue;
     if (!Planner.canPut(forest, type, n)) continue;
-    if (Math.random() < FEATURE_CATALOG[type].p) out.push(Planner.featureItem(type));
+    if (Math.random() < Planner.featureP(forest, type)) out.push(Planner.featureItem(type));
   }
-  if (Planner.canPut(forest, "pond", n) && Math.random() < FEATURE_CATALOG.pond.p) {
-    const parts = Planner.pondParts(forest, n, trees);
-    for (let i = 0; i < parts.length; i++) out.push(parts[i]);
+  if (Planner.canPut(forest, "pond", n)) {
+    let pWater = Planner.featureP(forest, "pond");
+    if (Planner.canPut(forest, "river", n)) {
+      pWater = (pWater + Planner.featureP(forest, "river")) / 2;
+    }
+    if (Math.random() < pWater) {
+      const parts = Planner.waterParts(forest, n, trees);
+      for (let i = 0; i < parts.length; i++) out.push(parts[i]);
+    }
   }
   return out;
 };
 
-Planner.rollDiffer = function (forest, n, avoid) {
-  const plan = Plan.make(n, Planner.rollFeatures(forest, n));
-  if (avoid && Plan.key(plan) === Plan.key(avoid)) {
-    const again = Plan.make(n, Planner.rollFeatures(forest, n));
-    if (Plan.key(again) !== Plan.key(avoid)) return again;
+Planner.getCard = function (kind, plan, locked, costTarget) {
+  const list = CARD_TITLES[kind] || [kind];
+  return {
+    kind: kind,
+    title: list[Math.floor(Math.random() * list.length)],
+    plan: Plan.copy(plan),
+    locked: !!locked,
+    costTarget: costTarget | 0,
+  };
+};
+
+Planner.refreshLocked = function (cards, forest) {
+  const target = forest.needStars();
+  for (let i = 0; i < cards.length; i++) {
+    if (!cards[i] || !cards[i].locked) continue;
+    cards[i].costTarget = target;
   }
-  return plan;
+  return cards;
 };
 
-Planner.chillCard = function (forest) {
-  const loc = forest.location;
-  if (loc.size <= Save.SIZE_MIN) return null;
-  const size = loc.size - 1;
-  return Plan.make(size, Planner.rollFeatures(forest, size));
-};
+Planner.prototype.travel = function (forest, avoid) {
+  if (!avoid && forest.offers && forest.offers.length) {
+    return Planner.refreshLocked(forest.offers, forest);
+  }
 
-Planner.deeperCard = function (forest) {
-  const loc = forest.location;
+  const locN = Planner.clampSize(forest.location.size);
+  const avg = forest.sizeAvg != null ? forest.sizeAvg : locN;
+  const pool = [];
+  const wobble = Math.sin((forest.sizeCount | 0) * 12.9898) * 0.35;
+  if (locN >= avg + wobble) pool.push(locN - 2);
+  pool.push(locN - 1, locN, locN + 1);
+  if (locN <= avg + wobble) pool.push(locN + 2);
+  for (let i = 0; i < pool.length; i++) {
+    let s = pool[i];
+    if (s < SIZE_MIN) s = SIZE_MIN;
+    if (s > forest.maxN) s = forest.maxN;
+    pool[i] = s;
+  }
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+  }
+  const sizes = pool.length <= 3 ? pool : pool.slice(0, 3);
+  sizes.sort(function (a, b) {
+    return a - b;
+  });
+
   const item = forest.nextItem();
   const parsed = item ? Planner.parseUnlock(item.unlock) : null;
   const lockedNext = !!(item && !forest.canAfford());
   const costTarget = item ? forest.needStars() : 0;
+  const avoidKey = avoid ? Plan.key(avoid) : "";
+  const kinds = ["chill", "stay", "deeper"];
 
   function forceFeature(features, type) {
     const out = features.slice();
@@ -177,86 +222,52 @@ Planner.deeperCard = function (forest) {
     return out;
   }
 
-  if (parsed && parsed.kind === "feature") {
-    const spec = FEATURE_CATALOG[parsed.type];
-    const need = spec ? spec.minN : Save.SIZE_MIN;
-    let size = loc.size < forest.maxN ? loc.size + 1 : loc.size;
-    if (size < need) size = need;
-    size = Planner.clampSize(size);
-    const features = forceFeature(Planner.rollFeatures(forest, size), parsed.type);
-    const lock = !!(lockedNext && size >= need);
-    return Planner.getCard("deeper", Plan.make(size, features), lock, lock ? costTarget : 0);
+  function rollPlan(size, deeper) {
+    let n = size;
+    let features = Planner.rollFeatures(forest, n);
+    let lock = false;
+    let cost = 0;
+    if (deeper && parsed) {
+      if (parsed.kind === "feature") {
+        const spec = FEATURE_CATALOG[parsed.type];
+        const need = spec ? spec.minN : SIZE_MIN;
+        if (n < need) n = Planner.clampSize(need);
+        features = forceFeature(Planner.rollFeatures(forest, n), parsed.type);
+        if (lockedNext && n >= need) {
+          lock = true;
+          cost = costTarget;
+        }
+      } else if (parsed.kind === "size") {
+        const want = Planner.clampSize(parsed.n);
+        if (want > forest.maxN) {
+          n = want;
+          features = Planner.rollFeatures(forest, n);
+          if (lockedNext) {
+            lock = true;
+            cost = costTarget;
+          }
+        }
+      }
+    }
+    return { plan: Plan.make(n, features), lock: lock, cost: cost };
   }
 
-  if (loc.size < forest.maxN) {
-    const size = loc.size + 1;
-    return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), false, 0);
-  }
-
-  if (parsed && parsed.kind === "size") {
-    const size = Planner.clampSize(parsed.n);
-    return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), lockedNext, lockedNext ? costTarget : 0);
-  }
-
-  const size = loc.size < Save.SIZE_MAX ? loc.size + 1 : loc.size;
-  return Planner.getCard("deeper", Plan.make(size, Planner.rollFeatures(forest, size)), false, 0);
-};
-
-Planner.getCard = function (kind, plan, locked, costTarget) {
-  const list = CARD_TITLES[kind] || [kind];
-  return {
-    kind: kind,
-    title: list[Math.floor(Math.random() * list.length)],
-    plan: Plan.copy(plan),
-    locked: !!locked,
-    costTarget: costTarget | 0,
-  };
-};
-
-Planner.dedupe = function (cards) {
-  const seen = {};
-  const out = [];
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    if (!card || !card.plan) continue;
-    const sig = Plan.key(card.plan) + (card.locked ? "|L" : "|P");
-    if (seen[sig]) continue;
-    seen[sig] = true;
-    out.push(card);
-  }
-  return out;
-};
-
-Planner.refreshLocked = function (cards, forest) {
-  const target = forest.needStars();
-  for (let i = 0; i < cards.length; i++) {
-    if (!cards[i] || !cards[i].locked) continue;
-    cards[i].costTarget = target;
-  }
-  return cards;
-};
-
-Planner.prototype.travel = function (forest) {
-  if (forest.offers && forest.offers.length) {
-    return Planner.refreshLocked(forest.offers, forest);
-  }
   const cards = [];
-  const chill = Planner.chillCard(forest);
-  if (chill) cards.push(Planner.getCard("chill", chill, false, 0));
-  cards.push(Planner.getCard("stay", Planner.rollDiffer(forest, forest.location.size, forest.location), false, 0));
-  cards.push(Planner.deeperCard(forest));
-  const offers = Planner.refreshLocked(Planner.dedupe(cards), forest);
-  forest.offers = offers;
-  return offers;
-};
+  for (let i = 0; i < sizes.length; i++) {
+    const deeper = i === sizes.length - 1;
+    let built = rollPlan(sizes[i], deeper);
+    for (let t = 0; t < 8; t++) {
+      const key = Plan.key(built.plan);
+      let clash = !!(avoidKey && key === avoidKey);
+      for (let k = 0; k < cards.length && !clash; k++) {
+        if (Plan.key(cards[k].plan) === key) clash = true;
+      }
+      if (!clash) break;
+      built = rollPlan(sizes[i], deeper);
+    }
+    cards.push(Planner.getCard(kinds[i] || "stay", built.plan, built.lock, built.cost));
+  }
 
-Planner.prototype.giveUp = function (forest) {
-  const cards = [];
-  const chill = Planner.chillCard(forest);
-  if (chill) cards.push(Planner.getCard("chill", chill, false, 0));
-  cards.push(Planner.getCard("retry", forest.lastPlan || forest.location, false, 0));
-  cards.push(Planner.getCard("variant", Planner.rollDiffer(forest, forest.location.size, forest.lastPlan), false, 0));
-  const offers = Planner.dedupe(cards);
-  forest.offers = offers;
-  return offers;
+  forest.offers = Planner.refreshLocked(cards, forest);
+  return forest.offers;
 };

@@ -27,6 +27,11 @@ function Forest(data) {
     if (state[parsed.type] === "locked") state[parsed.type] = "unlocked";
   }
   this.featureState = state;
+  this.featureScore = Forest.copyScores(data.featureScore);
+  this.sizeAvg = data.sizeAvg != null ? +data.sizeAvg : (data.location && data.location.size) || SIZE_MIN;
+  this.sizeCount = data.sizeCount | 0;
+  if (this.sizeCount < 1) this.sizeCount = 1;
+  if (!(this.sizeAvg >= SIZE_MIN)) this.sizeAvg = SIZE_MIN;
   this.location = Plan.copy(data.location || fresh.location);
   this.lastPlan = Plan.copy(data.lastPlan || this.location);
   this.offers = Forest.copyOffers(data.offers);
@@ -36,6 +41,25 @@ function Forest(data) {
 Forest.blankState = function () {
   const out = {};
   for (const type in FEATURE_CATALOG) out[type] = "locked";
+  return out;
+};
+
+Forest.blankScores = function () {
+  const out = {};
+  for (const type in FEATURE_CATALOG) out[type] = 0;
+  return out;
+};
+
+Forest.copyScores = function (src) {
+  const out = Forest.blankScores();
+  if (!src || typeof src !== "object") return out;
+  for (const type in out) {
+    let v = +src[type];
+    if (!v) v = 0;
+    if (v > SCORE_CAP) v = SCORE_CAP;
+    if (v < -SCORE_CAP) v = -SCORE_CAP;
+    out[type] = v;
+  }
   return out;
 };
 
@@ -69,10 +93,13 @@ Forest.blank = function () {
   const loc = Plan.blank();
   return {
     stars: 0,
-    maxN: Save.SIZE_MIN,
+    maxN: Save.SIZE_MIN || SIZE_MIN,
     curUnlockInd: 0,
     lastClaimStars: 0,
     featureState: Forest.blankState(),
+    featureScore: Forest.blankScores(),
+    sizeAvg: SIZE_MIN,
+    sizeCount: 1,
     location: loc,
     lastPlan: Plan.copy(loc),
     offers: null,
@@ -87,6 +114,9 @@ Forest.prototype.dump = function () {
     curUnlockInd: this.curUnlockInd,
     lastClaimStars: this.lastClaimStars,
     featureState: this.featureState,
+    featureScore: Forest.copyScores(this.featureScore),
+    sizeAvg: this.sizeAvg,
+    sizeCount: this.sizeCount | 0,
     location: Plan.copy(this.location),
     lastPlan: Plan.copy(this.lastPlan),
     offers: this.offers,
@@ -96,6 +126,57 @@ Forest.prototype.dump = function () {
 
 Forest.prototype.stateOf = function (type) {
   return this.featureState[type] || "locked";
+};
+
+Forest.prototype.scoreOf = function (type) {
+  if (!this.featureScore) return 0;
+  return this.featureScore[type] || 0;
+};
+
+Forest.prototype.addScore = function (type, delta) {
+  if (!FEATURE_CATALOG[type]) return;
+  if (!this.featureScore) this.featureScore = Forest.blankScores();
+  let v = (this.featureScore[type] || 0) + delta;
+  if (v > SCORE_CAP) v = SCORE_CAP;
+  if (v < -SCORE_CAP) v = -SCORE_CAP;
+  this.featureScore[type] = v;
+};
+
+Forest.prototype.noteSize = function (n) {
+  n = Planner.clampSize(n);
+  this.sizeCount = (this.sizeCount | 0) + 1;
+  if (this.sizeCount <= 1) {
+    this.sizeAvg = n;
+    this.sizeCount = 1;
+    return;
+  }
+  this.sizeAvg += (n - this.sizeAvg) / this.sizeCount;
+};
+
+Forest.prototype.notePick = function (chosen) {
+  const plan = chosen && chosen.plan;
+  const picked = {};
+  const feats = plan && plan.features ? plan.features : [];
+  for (let i = 0; i < feats.length; i++) {
+    const t = feats[i] && feats[i].type;
+    if (!t || t === "water" || !FEATURE_CATALOG[t]) continue;
+    picked[t] = true;
+  }
+  const rejected = {};
+  const list = this.offers || [];
+  for (let i = 0; i < list.length; i++) {
+    const card = list[i];
+    if (!card || card === chosen) continue;
+    const other = card.plan && card.plan.features ? card.plan.features : [];
+    for (let j = 0; j < other.length; j++) {
+      const t = other[j] && other[j].type;
+      if (!t || picked[t] || !FEATURE_CATALOG[t]) continue;
+      rejected[t] = true;
+    }
+  }
+  for (const t in picked) this.addScore(t, 1);
+  for (const t in rejected) this.addScore(t, -0.5);
+  if (plan) this.noteSize(plan.size);
 };
 
 Forest.prototype.sawStory = function (id) {

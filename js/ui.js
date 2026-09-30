@@ -185,8 +185,8 @@ Ui.prototype.makeCard = function (card, forest, index) {
 
   const title = document.createElement("div");
   title.className = "plan-title";
-  title.textContent = card.title || card.kind;
-  btn.appendChild(title);
+  //title.textContent = card.title || card.kind;
+  //btn.appendChild(title);
 
   const size = document.createElement("div");
   size.className = "plan-size";

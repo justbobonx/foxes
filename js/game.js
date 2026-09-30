@@ -216,6 +216,8 @@ function presentStory(pages, done) {
 
 function playCard(card) {
   if (!card || card.locked || building) return;
+  forest.notePick(card);
+  persistForest();
   const id = forest.planStory(card.plan);
   const pages = Story.pages(id);
   function go() {
@@ -359,7 +361,7 @@ function giveUpField() {
     showTitle();
     return;
   }
-  showOffers(planner.giveUp(forest));
+  showOffers(planner.travel(forest, forest.lastPlan));
 }
 
 function onWinOk() {

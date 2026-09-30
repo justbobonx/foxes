@@ -3,6 +3,9 @@ const SAVE_FOREST = "foxes_forest";
 
 function Save() {}
 
+Save.SIZE_MIN = 6;
+Save.SIZE_MAX = 12;
+
 Save.readBoard = function () {
   try {
     const data = JSON.parse(localStorage.getItem(SAVE_BOARD) || "null");

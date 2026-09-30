@@ -73,16 +73,13 @@ Plan.key = function (plan) {
   list.sort(function (a, b) {
     if (a.type < b.type) return -1;
     if (a.type > b.type) return 1;
-    return (a.size || a.amount || 0) - (b.size || b.amount || 0);
+    return 0;
   });
   const parts = [];
   for (let i = 0; i < list.length; i++) {
     const f = list[i];
-    if (!f || f.type === "water") continue;
-    let bit = f.type;
-    const n = f.size || f.amount;
-    if (n) bit += ":" + n;
-    parts.push(bit);
+    if (!f || !f.type || f.type === "water") continue;
+    parts.push(f.type);
   }
   return (plan ? plan.size : 0) + "|" + parts.join(",");
 };
