@@ -10,7 +10,7 @@ const FEATURE_CATALOG = {
   wolf: { minN: 8, p: 0.3, icon: "images/wolf.png" },
   bunny: { minN: 8, p: 0.3, icon: "images/bunny.png" },
   hawk: { minN: 8, p: 0.3, icon: "images/hawk.png" },
-  trees: { minN: 7, p: 0.6, icon: "images/trees.png", defaults: { size: 1 } },
+  trees: { minN: 8, p: 0.6, icon: "images/trees.png", defaults: { size: 1 } },
 };
 
 const UNLOCK_CHART = [
@@ -18,12 +18,14 @@ const UNLOCK_CHART = [
   { unlock: "pond", plus: 3, story: "first_pond" },
   { unlock: "size-8", plus: 3, story: "" },
   { unlock: "river", plus: 3, story: "first_river" },
-  { unlock: "wolf", plus: 3, story: "first_wolf" },
+  { unlock: "bunny", plus: 3, story: "first_bunny" },  
   { unlock: "size-9", plus: 3, story: "" },
-  { unlock: "bunny", plus: 3, story: "first_bunny" },
+  { unlock: "wolf", plus: 3, story: "first_wolf" },  
   { unlock: "size-10", plus: 3, story: "" },
   { unlock: "hawk", plus: 3, story: "first_hawk" },
   { unlock: "trees", plus: 3, story: "first_trees" },
+  { unlock: "size-11", plus: 3, story: "" },
+  { unlock: "size-12", plus: 3, story: "" },
 ];
 
 const CARD_TITLES = {
