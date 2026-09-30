@@ -1096,9 +1096,9 @@ GridBuilder.prototype.searchSlice = function (budgetMs) {
 };
 
 GridBuilder.prototype.searchPath = function () {
-  const land = "Land(" + (this.searchT + 1) + "/" + UNIQUE_TRIES + ")";
+  const land = "L:" + (this.searchT + 1);
   if (!this.searchLand) return land;
-  const foxes = "Foxes(" + (this.searchP + 1) + "/" + PACK_TRIES + ")";
-  if (this.searchD === 0) return land + " -> " + foxes;
-  return land + " -> " + foxes + " -> Dells(" + (this.searchD + 1) + "/" + DELL_PAINT_TRIES + ")";
+  const foxes = "F:" + (this.searchP + 1);
+  if (this.searchD === 0) return land + " " + foxes;
+  return land + " " + foxes + " D:" + (this.searchD + 1);
 };
