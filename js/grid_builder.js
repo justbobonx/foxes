@@ -7,7 +7,7 @@ const UNIQUE_TRIES = 250;
   const WATER_TRIES = 50;
   const PACK_TRIES = 8;
     const FOX_PLACE_TRIES = 200;
-    const DELL_PAINT_TRIES = 10;  //was 40
+    const DELL_PAINT_TRIES = 20;  //was 40
     
 const CAVE_SIZE = [2, 3];
 const POND_MIN_LEVEL = 7;

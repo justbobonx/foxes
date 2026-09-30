@@ -1,7 +1,7 @@
 /** Content tables and card offers. Reads forest. Does not build a field. */
 
 const SIZE_MIN = 6;
-const SIZE_MAX = 12;
+const SIZE_MAX = 14;
 const SCORE_CAP = 20;
 
 const FEATURE_CATALOG = {
@@ -26,6 +26,8 @@ const UNLOCK_CHART = [
   { unlock: "trees", plus: 3, story: "first_trees" },
   { unlock: "size-11", plus: 3, story: "" },
   { unlock: "size-12", plus: 3, story: "" },
+  { unlock: "size-13", plus: 3, story: "" },
+  { unlock: "size-14", plus: 3, story: "" },
 ];
 
 const CARD_TITLES = {
