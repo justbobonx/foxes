@@ -56,11 +56,13 @@ const CELL_TYPES = {
   },
   tree: {
     fill: "#354E31",
-    edge: "#7D9249",
+    edge: "#92A85D",
     tap: false,
     stand: "t",
   },
 };
+
+const CHECK_LINE_W = 0.05;
 
 function Cell(row, col) {
   this.row = row;
@@ -158,9 +160,9 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   paint(true);
   
   if (look.edge) {
-    const checkW = Math.max(2, Math.floor(s * 0.07));
     ctx.strokeStyle = look.edge;
-    ctx.lineWidth = Math.max(1, Math.floor(checkW * (look.edgeFrac || 0.60)));
+    const checkW = Math.max(2, Math.floor(s * CHECK_LINE_W));    
+    ctx.lineWidth = Math.max(1, Math.floor(checkW * 0.80));
     if (ctx.roundRect) {
       ctx.beginPath();
       ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
@@ -206,7 +208,7 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
 
   if (this.warn) {
     ctx.strokeStyle = "#f5c518";
-    ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
+    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
     if (ctx.roundRect) {
       ctx.beginPath();
       ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
@@ -216,7 +218,7 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     }
   } else if (this.wrong) {
     ctx.strokeStyle = "#e23b3b";
-    ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
+    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
     if (ctx.roundRect) {
       ctx.beginPath();
       ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
@@ -226,7 +228,7 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     }
   } else if (this.locked && this.guessId === "o") {
     ctx.strokeStyle = "#7dffa3";
-    ctx.lineWidth = Math.max(2, Math.floor(s * 0.05));
+    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
     if (ctx.roundRect) {
       ctx.beginPath();
       ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
