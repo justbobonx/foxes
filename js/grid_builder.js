@@ -3,26 +3,12 @@
 const MIN_DELL_SIZE = 2;
 const DELL_TARGET = 3;
 
-const UNIQUE_TRIES = 90;
-const WATER_TRIES = 50;
-const PACK_TRIES = 8;
-const FOX_PLACE_TRIES = 200;
-const DELL_PAINT_TRIES = 10;
-const BAND_LANDS = 10;
-const DELL_BANDS = [3, 4, 5, 6];
-
-function dellStartBand(n) {
-  if (n >= 11) return 2;
-  if (n >= 10) return 1;
-  return 0;
-}
-
-function dellPool(n, landI) {
-  const last = DELL_BANDS.length - 1;
-  const i = Math.min(last, dellStartBand(n) + Math.floor((landI || 0) / BAND_LANDS));
-  return DELL_BANDS[i];
-}
-
+const UNIQUE_TRIES = 250;
+  const WATER_TRIES = 50;
+  const PACK_TRIES = 8;
+    const FOX_PLACE_TRIES = 200;
+    const DELL_PAINT_TRIES = 10;  //was 40
+    
 const CAVE_SIZE = [2, 3];
 const POND_MIN_LEVEL = 7;
 const POND_SHAPES = [
@@ -936,8 +922,7 @@ GridBuilder.prototype.tryPaintDells = function () {
   const cols = g.cols;
   const floor = Math.min(MIN_DELL_SIZE, n);
   const target = Math.min(DELL_TARGET, n);
-  const pool = Math.min(dellPool(n, this.searchT), n);
-  const leave2 = Math.min(2, pool);
+  const tinyQuota = Math.random() < 0.5 ? 2 : 1;
 
   const seeds = [];
   for (let r = 0; r < n; r++) {
@@ -964,8 +949,9 @@ GridBuilder.prototype.tryPaintDells = function () {
     frontier.push({ r: s.r, c: s.c, id: i });
   }
 
-  const reserved = {};
-  let didFreeze = false;
+  const reserved2 = {};
+  const reserved3 = {};
+  let reserved = false;
 
   function countSize(cap, exact) {
     let count = 0;
@@ -993,99 +979,42 @@ GridBuilder.prototype.tryPaintDells = function () {
     return out;
   }
 
-  function pickTinySet(ids, want) {
-    const rowsOf = [];
-    const runsOf = [];
-    const is2 = [];
-    for (let i = 0; i < sizes.length; i++) {
-      rowsOf[i] = {};
-      runsOf[i] = {};
-      is2[i] = sizes[i] === floor;
-    }
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < cols; c++) {
-        const id = g.cells[r][c].dellId;
-        if (id < 0 || !rowsOf[id]) continue;
-        rowsOf[id][r] = true;
-        const run = g.runOf(r, c);
-        if (run >= 0) runsOf[id][c * 2 + run] = true;
-      }
-    }
-    function shareLine(a, b) {
-      for (const row in rowsOf[a]) {
-        if (rowsOf[b][row]) return true;
-      }
-      for (const run in runsOf[a]) {
-        if (runsOf[b][run]) return true;
-      }
-      return false;
-    }
-    let best = null;
-    let bestScore = -1;
-    const pick = [];
-    function scorePick() {
-      let cuts = 0;
-      const rowU = {};
-      const runU = {};
-      let twos = 0;
-      for (let i = 0; i < pick.length; i++) {
-        const a = pick[i];
-        if (is2[a]) twos++;
-        for (const row in rowsOf[a]) rowU[row] = true;
-        for (const run in runsOf[a]) runU[run] = true;
-        for (let j = i + 1; j < pick.length; j++) {
-          if (shareLine(a, pick[j])) cuts++;
-        }
-      }
-      let spread = 0;
-      for (const row in rowU) spread++;
-      for (const run in runU) spread++;
-      return cuts * 3 + spread + twos * 0.1;
-    }
-    function walk(start) {
-      if (pick.length === want) {
-        const s = scorePick();
-        if (s > bestScore) {
-          bestScore = s;
-          best = pick.slice();
-        }
-        return;
-      }
-      const need = want - pick.length;
-      for (let i = start; i <= ids.length - need; i++) {
-        pick.push(ids[i]);
-        walk(i + 1);
-        pick.pop();
-      }
-    }
-    walk(0);
-    return best;
-  }
-
   function nextOpts() {
     if (countSize(floor, false)) {
       return edgesFrom(function (id, sz) {
         return sz < floor;
       });
     }
-    if (countSize(target, false) > leave2) {
+    if (countSize(target, false) > tinyQuota) {
       return edgesFrom(function (id, sz) {
         return sz < target;
       });
     }
-    if (!didFreeze) {
-      didFreeze = true;
-      const ids = [];
+    if (!reserved) {
+      reserved = true;
+      const twos = [];
+      const threes = [];
       for (let i = 0; i < sizes.length; i++) {
-        if (sizes[i] === floor || sizes[i] === target) ids.push(i);
+        if (sizes[i] === floor) twos.push(i);
+        if (sizes[i] === target) threes.push(i);
       }
-      if (ids.length < pool) return [];
-      const pick = pickTinySet(ids, pool);
-      if (!pick) return [];
-      for (let i = 0; i < pick.length; i++) reserved[pick[i]] = true;
+      shuffleInPlace(twos);
+      shuffleInPlace(threes);
+      const keep2 = Math.min(tinyQuota, twos.length);
+      for (let i = 0; i < keep2; i++) reserved2[twos[i]] = true;
+      const keep3 = Math.max(0, 3 - keep2);
+      for (let i = 0; i < threes.length && i < keep3; i++) reserved3[threes[i]] = true;
     }
-    return edgesFrom(function (id, sz) {
-      return !reserved[id];
+    const rest = edgesFrom(function (id, sz) {
+      return !reserved2[id] && !reserved3[id];
+    });
+    if (rest.length) return rest;
+    const grow3 = edgesFrom(function (id) {
+      return !!reserved3[id];
+    });
+    if (grow3.length) return grow3;
+    return edgesFrom(function (id) {
+      return !!reserved2[id];
     });
   }
 
@@ -1115,15 +1044,9 @@ GridBuilder.prototype.tryPaintDells = function () {
     if (!placed) return false;
   }
 
-  let n2 = 0;
-  let n3 = 0;
   for (let i = 0; i < sizes.length; i++) {
-    if (!sizes[i] || sizes[i] < floor) return false;
-    if (sizes[i] === floor) n2++;
-    else if (sizes[i] === target) n3++;
+    if (sizes[i] && sizes[i] < floor) return false;
   }
-  if (n2 + n3 < pool) return false;
-  if (n <= 9 && n2 + n3 > pool) return false;
   return new Solver(g).count(2) === 1;
 };
 
@@ -1177,5 +1100,5 @@ GridBuilder.prototype.searchPath = function () {
   if (!this.searchLand) return land;
   const foxes = "F:" + (this.searchP + 1);
   if (this.searchD === 0) return land + " " + foxes;
-  return land + " " + foxes + " D:" + (this.searchD + 1) + " P:" + dellPool(this.grid.n, this.searchT);
+  return land + " " + foxes + " D:" + (this.searchD + 1);
 };
