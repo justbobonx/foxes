@@ -11,6 +11,8 @@
 Hint Tree (worded for the player)
 -----------
 
+notes, dells are ranges to player.
+
 L0: Two guessed foxes conflict (row, run, range, ring, or extra). Mark both yellow.
 L1: Check guessed foxes. Correct marked green and locked, incorrect marked red.
 
