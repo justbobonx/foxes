@@ -814,7 +814,7 @@ GridBuilder.prototype.placeTrees = function () {
     const maxBand = n - 5;
     const minBand = width;
     if (minBand < 1 || maxBand < minBand || maxBand > maxLen) return false;
-    const bell = (Math.random()+Math.random())/2;
+    const bell = (Math.random()+Math.random())*.4;
     const len = minBand + Math.floor(bell * (maxBand - minBand + 1));
     let lo = minLo + Math.floor(Math.random() * (maxLen - len + 1));
     let hi = lo + len - 1;
