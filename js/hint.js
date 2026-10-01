@@ -1,48 +1,62 @@
 /**
   Local hint painter, missed Xs only (hint level 2-5; 0-1 are O checks elsewhere).
-    2 forced from a found fox: {row, col, ring, dell}, then {bunny, hawk, wolf}.
-    3 intersection: one-line, then halo, then two-line; then {bunny, hawk}.
+    2 found leftovers: {row, run, ring, dell}, then {bunny, hawk, wolf}.
+    3 basics in order: one-line, halo, two-line, three-line; then extras {bunny, hawk, cave}.
     4 leak: cut one fox-free row/run off a live dell, leave at least 2 unknowns.
     5 giveaway: last truth Xs of a dell, leaving the O.
-  Col-shaped lines are runs (tree split). Prints only land on blank unlocked grass.
+  Col-shaped lines are runs. Prints land on blank unlocked grass, and on blank caves when a rule names them.
  */
 
-/* 
+/*
 Hint Tree (worded for the player)
 -----------
-
-notes, dells are ranges to player.
+notes:
+- dells are ranges to player.
+- a/b pairs are the line intersection subtypes.
+   a: ranges sit fully on the line, mark the other opens there.
+   b: the line holds opens from exactly those ranges, mark those ranges off the line.
 
 L0: Two guessed foxes conflict (row, run, range, ring, or extra). Mark both yellow.
-L1: Check guessed foxes. Correct marked green and locked, incorrect marked red.
+L0: Two guessed wolves. Mark both yellow.
 
-L2: pool 1, fox sight rules (any order)
+L1: Check guessed foxes. Correct marked green and locked, incorrect marked red.
+L1: Check guessed wolves. Correct cave marked green and locked, incorrect marked red.
+
+L2: Fox found leftovers
+L2.1: Basics, sight rules (any order)
 L2.1.1: Mark off the rest of the row of a found fox.
 L2.1.2: Mark off the rest of the run of a found fox.
-L2.1.3: Mark off the rest of the ring spots of a found fox.
+L2.1.3: Mark off the rest of the ring of a found fox, grass and cave spots.
 L2.1.4: Mark off the rest of the range of a found fox.
 
-L2: pool 2 (any order)
-L2.2.5: Both foxes next to the bunny found. Mark off the rest.
-L2.2.6: Found the fox on the hawk line. Mark off the rest of the line.
-L2.2.7: Adjacent to every cave cell. Mark it off.
+L2.2: Extras (any order)
+L2.2.5: Both foxes found next to the bunny. Mark off any other open cells on the bunny ring.
+L2.2.6: Found the fox on the hawk line. Mark off any other open cells on the hawk diagonal.
+L2.2.7: Found the wolf. Mark X on the other caves, and mark off the grass in its 8-way neighborhood.
 
 L3: rule intersections (in order)
-L3.1: one-line (row or run) (any order)
-L3.1.a: One range's open spots all sit on one row or run. Mark off other opens on that line.
-L3.1.b: One row or run holds opens from exactly one range. Mark off that range off the line.
+L3.1 Basics
+L3.1.1: one-line (row or run) (any order)
+L3.1.1.a: One range's open spots all sit on one row or run. Mark off other opens on that line.
+L3.1.1.b: One row or run holds opens from exactly one range. Mark off that range off the line.
+L3.1.2: Halo. A cell conflicts with every remaining seat of a 2-4 seat range (row, run, touch, or hawk). Mark it off.
+L3.1.3: two-line (rows or runs) (any order)
+L3.1.3.a: Two adjacent lines hold all the opens of exactly two ranges. Mark off other opens on those lines.
+L3.1.3.b: Two adjacent lines hold opens from exactly two ranges. Mark off those ranges off the pair.
+L3.1.4: three-line (rows or runs) (any order)
+L3.1.4.a: Three adjacent lines hold all the opens of exactly three ranges. Mark off other opens on those lines.
+L3.1.4.b: Three adjacent lines hold opens from exactly three ranges. Mark off those ranges off the triple.
 
-L3.2: Halo. A cell conflicts with every remaining seat of a 2-4 seat range (row, run, touch, or hawk). Mark it off.
+L3.2 Extras (any order)
+L3.2.1: bunny ring (any order)
+L3.2.1.a: Two ranges have all their open spots on the bunny ring. Mark off other opens on the ring.
+L3.2.1.b: Fewer than two foxes found, and the ring holds opens from exactly two ranges. Mark off those ranges off the ring.
+L3.2.2: hawk diagonal (any order)
+L3.2.2.a: One range has all its open spots on the hawk diagonal. Mark off other opens on the diagonal.
+L3.2.2.b: No fox found on the diagonal, and it holds opens from exactly one range. Mark off that range off the diagonal.
+L3.2.3: Any spot that touches all cave cells can be marked off.
 
-L3.3: two-line (rows or runs) (any order)
-L3.3.a: Two adjacent lines hold all the opens of exactly two ranges. Mark off other opens on those lines.
-L3.3.b: Two adjacent lines hold opens from exactly two ranges. Mark off those ranges off the pair.
-
-L3: pool 2 (any order)
-L3.4: Exactly two ranges still have a seat on the bunny ring. Mark off their off-ring opens.
-L3.5: Exactly one range still has a seat on the hawk line. Mark off its off-line opens.
-
-L4: No more logic can be deduced, Give one fox-free row or run out of a range with no guessed fox.
+L4: No more logic can be deduced. Give one fox-free row or run out of a range with no guessed fox.
 L5: Nothing left but to give a fox away. Mark off the last unknown spots in a range.
 */
 
@@ -64,16 +78,31 @@ Hint.prototype.isEmptyGrass = function (cell) {
   return !!(cell && cell.is("grass") && !cell.guessId && !cell.locked);
 };
 
+Hint.prototype.isEmptyCave = function (cell) {
+  return !!(cell && cell.is("cave") && !cell.guessId && !cell.locked);
+};
+
 Hint.prototype.isFoundFox = function (cell) {
   return !!(cell && cell.is("grass") && cell.locked && cell.guessId === "o");
+};
+
+Hint.prototype.isFoundWolf = function (cell) {
+  return !!(
+    cell &&
+    cell.is("cave") &&
+    cell.locked &&
+    cell.guessId === "o" &&
+    this.grid.isWolfAt(cell.row, cell.col)
+  );
 };
 
 Hint.prototype.applyPrints = function (cells) {
   let n = 0;
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
-    if (!this.isEmptyGrass(cell)) continue;
-    if (cell.spriteId === "o") continue;
+    const cave = this.isEmptyCave(cell);
+    if (!cave && !this.isEmptyGrass(cell)) continue;
+    if (!cave && cell.spriteId === "o") continue;
     cell.setGuess("x");
     cell.locked = true;
     n++;
@@ -166,10 +195,12 @@ Hint.prototype.boardRuns = function () {
 Hint.prototype.tryLevel2 = function () {
   const g = this.grid;
   const foxes = [];
+  let wolf = null;
   for (let r = 0; r < g.rows; r++) {
     for (let c = 0; c < g.cols; c++) {
       const cell = g.at(r, c);
       if (this.isFoundFox(cell)) foxes.push(cell);
+      if (this.isFoundWolf(cell)) wolf = cell;
     }
   }
 
@@ -204,7 +235,7 @@ Hint.prototype.tryLevel2 = function () {
         const c = fox.col + dc;
         if (r < 0 || c < 0 || r >= g.rows || c >= g.cols) continue;
         const cell = g.at(r, c);
-        if (self.isEmptyGrass(cell)) targets.push(cell);
+        if (self.isEmptyGrass(cell) || self.isEmptyCave(cell)) targets.push(cell);
       }
     }
     return targets;
@@ -253,21 +284,22 @@ Hint.prototype.tryLevel2 = function () {
     return targets;
   }
   function paintWolf() {
-    const cave = self.caveCells();
-    if (cave.length < 2) return [];
+    if (!wolf) return [];
     const targets = [];
-    for (let r = 0; r < g.rows; r++) {
-      for (let c = 0; c < g.cols; c++) {
+    const caves = self.caveCells();
+    for (let i = 0; i < caves.length; i++) {
+      const cell = caves[i];
+      if (cell.row === wolf.row && cell.col === wolf.col) continue;
+      if (self.isEmptyCave(cell)) targets.push(cell);
+    }
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        const r = wolf.row + dr;
+        const c = wolf.col + dc;
+        if (r < 0 || c < 0 || r >= g.rows || c >= g.cols) continue;
         const cell = g.at(r, c);
-        if (!self.isEmptyGrass(cell)) continue;
-        let all = true;
-        for (let i = 0; i < cave.length; i++) {
-          if (Math.max(Math.abs(r - cave[i].row), Math.abs(c - cave[i].col)) > 1) {
-            all = false;
-            break;
-          }
-        }
-        if (all) targets.push(cell);
+        if (self.isEmptyGrass(cell)) targets.push(cell);
       }
     }
     return targets;
@@ -312,13 +344,16 @@ Hint.prototype.tryLevel3 = function () {
     seatsOf[id] = seats;
   }
 
-  function onRows(cell, a, b) {
-    return cell.row === a || cell.row === b;
+  function onRows(cell, rows) {
+    for (let i = 0; i < rows.length; i++) if (cell.row === rows[i]) return true;
+    return false;
   }
 
-  function onRuns(cell, ka, kb) {
+  function onRuns(cell, keys) {
     const key = g.runKey(cell.row, cell.col);
-    return !!(key && (key === ka || key === kb));
+    if (!key) return false;
+    for (let i = 0; i < keys.length; i++) if (key === keys[i]) return true;
+    return false;
   }
 
   const opensOf = {};
@@ -334,9 +369,10 @@ Hint.prototype.tryLevel3 = function () {
   const ones = [];
   const halos = [];
   const twos = [];
+  const threes = [];
   const self = this;
 
-  function oneLine(onLine, eachOnLine) {
+  function lineHit(need, onLine, eachOnLine, bucket) {
     const closed = [];
     const touching = [];
     for (const id in opensOf) {
@@ -350,41 +386,47 @@ Hint.prototype.tryLevel3 = function () {
       if (any) touching.push(+id);
       if (any && all) closed.push(+id);
     }
-    if (closed.length === 1) {
-      const keep = closed[0];
+    if (closed.length === need) {
+      const keep = {};
+      for (let i = 0; i < closed.length; i++) keep[closed[i]] = true;
       const out = [];
       eachOnLine(function (cell) {
         if (!self.isEmptyGrass(cell)) return;
-        if (cell.dellId === keep) return;
+        if (keep[cell.dellId]) return;
         out.push(cell);
       });
-      if (out.length) ones.push(out);
+      if (out.length) bucket.push(out);
     }
-    if (touching.length === 1) {
+    if (touching.length === need) {
       const out = [];
-      const opens = opensOf[touching[0]];
-      for (let k = 0; k < opens.length; k++) {
-        if (!onLine(opens[k])) out.push(opens[k]);
+      for (let n = 0; n < touching.length; n++) {
+        const opens = opensOf[touching[n]];
+        for (let k = 0; k < opens.length; k++) {
+          if (!onLine(opens[k])) out.push(opens[k]);
+        }
       }
-      if (out.length) ones.push(out);
+      if (out.length) bucket.push(out);
     }
   }
 
   for (let r = 0; r < g.rows; r++) {
-    oneLine(
+    lineHit(
+      1,
       function (cell) {
         return cell.row === r;
       },
       function (fn) {
         for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
-      }
+      },
+      ones
     );
   }
 
   const runs = this.boardRuns();
   for (let i = 0; i < runs.length; i++) {
     const key = runs[i].key;
-    oneLine(
+    lineHit(
+      1,
       function (cell) {
         return g.runKey(cell.row, cell.col) === key;
       },
@@ -393,59 +435,24 @@ Hint.prototype.tryLevel3 = function () {
         for (let r = 0; r < g.rows; r++) {
           if (g.runKey(r, col) === key) fn(g.at(r, col));
         }
-      }
+      },
+      ones
     );
   }
 
-  function twoLine(onLine, eachOnPair) {
-    const closed = [];
-    const touching = [];
-    for (const id in opensOf) {
-      const opens = opensOf[id];
-      let any = false;
-      let all = true;
-      for (let k = 0; k < opens.length; k++) {
-        if (onLine(opens[k])) any = true;
-        else all = false;
-      }
-      if (any) touching.push(+id);
-      if (any && all) closed.push(+id);
-    }
-    if (closed.length === 2) {
-      const keep = {};
-      keep[closed[0]] = true;
-      keep[closed[1]] = true;
-      const out = [];
-      eachOnPair(function (cell) {
-        if (!self.isEmptyGrass(cell)) return;
-        if (keep[cell.dellId]) return;
-        out.push(cell);
-      });
-      if (out.length) twos.push(out);
-    }
-    if (touching.length === 2) {
-      const out = [];
-      for (let n = 0; n < 2; n++) {
-        const opens = opensOf[touching[n]];
-        for (let k = 0; k < opens.length; k++) {
-          if (!onLine(opens[k])) out.push(opens[k]);
-        }
-      }
-      if (out.length) twos.push(out);
-    }
-  }
-
   for (let a = 0; a < g.rows - 1; a++) {
-    const b = a + 1;
-    twoLine(
+    const rows = [a, a + 1];
+    lineHit(
+      2,
       function (cell) {
-        return onRows(cell, a, b);
+        return onRows(cell, rows);
       },
       function (fn) {
-        for (let r = a; r <= b; r++) {
+        for (let r = a; r <= a + 1; r++) {
           for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
         }
-      }
+      },
+      twos
     );
   }
 
@@ -453,21 +460,66 @@ Hint.prototype.tryLevel3 = function () {
     for (let j = i + 1; j < runs.length; j++) {
       if (runs[i].run !== runs[j].run) continue;
       if (Math.abs(runs[i].col - runs[j].col) !== 1) continue;
-      const ka = runs[i].key;
-      const kb = runs[j].key;
-      twoLine(
+      const keys = [runs[i].key, runs[j].key];
+      lineHit(
+        2,
         function (cell) {
-          return onRuns(cell, ka, kb);
+          return onRuns(cell, keys);
         },
         function (fn) {
           for (let r = 0; r < g.rows; r++) {
             for (let c = 0; c < g.cols; c++) {
               const cell = g.at(r, c);
-              if (onRuns(cell, ka, kb)) fn(cell);
+              if (onRuns(cell, keys)) fn(cell);
             }
           }
-        }
+        },
+        twos
       );
+    }
+  }
+
+  for (let a = 0; a < g.rows - 2; a++) {
+    const rows = [a, a + 1, a + 2];
+    lineHit(
+      3,
+      function (cell) {
+        return onRows(cell, rows);
+      },
+      function (fn) {
+        for (let r = a; r <= a + 2; r++) {
+          for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
+        }
+      },
+      threes
+    );
+  }
+
+  for (let i = 0; i < runs.length; i++) {
+    for (let j = i + 1; j < runs.length; j++) {
+      for (let k = j + 1; k < runs.length; k++) {
+        if (runs[i].run !== runs[j].run || runs[j].run !== runs[k].run) continue;
+        const cols = [runs[i].col, runs[j].col, runs[k].col].sort(function (x, y) {
+          return x - y;
+        });
+        if (cols[1] !== cols[0] + 1 || cols[2] !== cols[1] + 1) continue;
+        const keys = [runs[i].key, runs[j].key, runs[k].key];
+        lineHit(
+          3,
+          function (cell) {
+            return onRuns(cell, keys);
+          },
+          function (fn) {
+            for (let r = 0; r < g.rows; r++) {
+              for (let c = 0; c < g.cols; c++) {
+                const cell = g.at(r, c);
+                if (onRuns(cell, keys)) fn(cell);
+              }
+            }
+          },
+          threes
+        );
+      }
     }
   }
 
@@ -507,85 +559,133 @@ Hint.prototype.tryLevel3 = function () {
     this.shuffle(twos);
     return this.applyPrints(twos[0]);
   }
+  if (threes.length) {
+    this.shuffle(threes);
+    return this.applyPrints(threes[0]);
+  }
 
-  const extras = this.shuffle(["bunny", "hawk"]);
-  for (let e = 0; e < extras.length; e++) {
-    const targets = [];
-    if (extras[e] === "bunny") {
-      const ring = this.bunnyRing();
-      if (ring.length) {
-        const onRing = {};
-        let found = 0;
-        const foundDells = {};
+  function splitOpens(onLine) {
+    const closed = [];
+    const touching = [];
+    for (const id in opensOf) {
+      const opens = opensOf[id];
+      let any = false;
+      let all = true;
+      for (let k = 0; k < opens.length; k++) {
+        if (onLine(opens[k])) any = true;
+        else all = false;
+      }
+      if (any) touching.push(+id);
+      if (any && all) closed.push(+id);
+    }
+    return { closed: closed, touching: touching };
+  }
+
+  function bunnyTargets() {
+    const ring = self.bunnyRing();
+    if (!ring.length) return [];
+    const onRing = {};
+    let found = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const cell = ring[i];
+      onRing[cell.row + "," + cell.col] = true;
+      if (self.isFoundFox(cell)) found++;
+    }
+    const hit = splitOpens(function (cell) {
+      return !!onRing[cell.row + "," + cell.col];
+    });
+    const kinds = self.shuffle(["a", "b"]);
+    for (let n = 0; n < kinds.length; n++) {
+      const out = [];
+      if (kinds[n] === "a" && hit.closed.length === 2) {
+        const keep = {};
+        keep[hit.closed[0]] = true;
+        keep[hit.closed[1]] = true;
         for (let i = 0; i < ring.length; i++) {
           const cell = ring[i];
-          onRing[cell.row + "," + cell.col] = true;
-          if (this.isFoundFox(cell)) {
-            found++;
-            foundDells[cell.dellId] = true;
-          }
+          if (!self.isEmptyGrass(cell)) continue;
+          if (keep[cell.dellId]) continue;
+          out.push(cell);
         }
-        const touching = [];
-        for (const id in seatsOf) {
-          const seats = seatsOf[id];
-          let any = false;
-          for (let i = 0; i < seats.length; i++) {
-            if (onRing[seats[i].row + "," + seats[i].col]) {
-              any = true;
-              break;
-            }
-          }
-          if (any) touching.push(+id);
-        }
-        let pick = [];
-        if (found === 2) {
-          for (const id in foundDells) pick.push(+id);
-        } else if (touching.length === 2) {
-          pick = touching;
-        } else if (found === 1 && touching.length === 1) {
-          pick = touching;
-        }
-        for (let i = 0; i < pick.length; i++) {
-          const cells = dells[pick[i]];
-          if (!cells) continue;
-          for (let k = 0; k < cells.length; k++) {
-            const cell = cells[k];
-            if (onRing[cell.row + "," + cell.col]) continue;
-            if (this.isEmptyGrass(cell)) targets.push(cell);
+      } else if (kinds[n] === "b" && found < 2 && hit.touching.length === 2 - found) {
+        for (let i = 0; i < hit.touching.length; i++) {
+          const opens = opensOf[hit.touching[i]];
+          for (let k = 0; k < opens.length; k++) {
+            if (onRing[opens[k].row + "," + opens[k].col]) continue;
+            out.push(opens[k]);
           }
         }
       }
-    } else if (g.hawk) {
-      const touching = [];
-      let foundDell = -1;
-      for (const id in seatsOf) {
-        const seats = seatsOf[id];
-        let any = false;
-        for (let i = 0; i < seats.length; i++) {
-          if (g.onHawkLine(seats[i].row, seats[i].col)) {
-            any = true;
+      if (out.length) return out;
+    }
+    return [];
+  }
+
+  function hawkTargets() {
+    if (!g.hawk) return [];
+    let found = 0;
+    for (let r = 0; r < g.rows; r++) {
+      for (let c = 0; c < g.cols; c++) {
+        if (!g.onHawkLine(r, c)) continue;
+        if (self.isFoundFox(g.at(r, c))) found++;
+      }
+    }
+    const hit = splitOpens(function (cell) {
+      return g.onHawkLine(cell.row, cell.col);
+    });
+    const kinds = self.shuffle(["a", "b"]);
+    for (let n = 0; n < kinds.length; n++) {
+      const out = [];
+      if (kinds[n] === "a" && hit.closed.length === 1) {
+        const keep = hit.closed[0];
+        for (let r = 0; r < g.rows; r++) {
+          for (let c = 0; c < g.cols; c++) {
+            if (!g.onHawkLine(r, c)) continue;
+            const cell = g.at(r, c);
+            if (!self.isEmptyGrass(cell)) continue;
+            if (cell.dellId === keep) continue;
+            out.push(cell);
+          }
+        }
+      } else if (kinds[n] === "b" && found === 0 && hit.touching.length === 1) {
+        const opens = opensOf[hit.touching[0]];
+        for (let k = 0; k < opens.length; k++) {
+          if (g.onHawkLine(opens[k].row, opens[k].col)) continue;
+          out.push(opens[k]);
+        }
+      }
+      if (out.length) return out;
+    }
+    return [];
+  }
+
+  function caveTargets() {
+    const cave = self.caveCells();
+    if (cave.length < 2) return [];
+    const out = [];
+    for (let r = 0; r < g.rows; r++) {
+      for (let c = 0; c < g.cols; c++) {
+        const cell = g.at(r, c);
+        if (!self.isEmptyGrass(cell)) continue;
+        let all = true;
+        for (let i = 0; i < cave.length; i++) {
+          if (Math.max(Math.abs(r - cave[i].row), Math.abs(c - cave[i].col)) > 1) {
+            all = false;
             break;
           }
         }
-        if (any) touching.push(+id);
-      }
-      for (let r = 0; r < g.rows; r++) {
-        for (let c = 0; c < g.cols; c++) {
-          if (!g.onHawkLine(r, c)) continue;
-          const cell = g.at(r, c);
-          if (this.isFoundFox(cell)) foundDell = cell.dellId;
-        }
-      }
-      const pick = foundDell >= 0 ? foundDell : touching.length === 1 ? touching[0] : -1;
-      if (pick >= 0 && dells[pick]) {
-        const cells = dells[pick];
-        for (let i = 0; i < cells.length; i++) {
-          const cell = cells[i];
-          if (g.onHawkLine(cell.row, cell.col)) continue;
-          if (this.isEmptyGrass(cell)) targets.push(cell);
-        }
+        if (all) out.push(cell);
       }
     }
+    return out;
+  }
+
+  const extras = this.shuffle(["bunny", "hawk", "cave"]);
+  for (let e = 0; e < extras.length; e++) {
+    let targets = [];
+    if (extras[e] === "bunny") targets = bunnyTargets();
+    else if (extras[e] === "hawk") targets = hawkTargets();
+    else targets = caveTargets();
     if (targets.length) return this.applyPrints(targets);
   }
   return 0;

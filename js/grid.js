@@ -205,9 +205,11 @@ Grid.prototype.markConflicts = function () {
     }
   }
   const foxes = [];
+  const wolves = [];
   this.each(function (cell) {
     cell.warn = false;
     if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
+    if (cell.is("cave") && cell.guessId === "o") wolves.push(cell);
   });
   const rows = {};
   const runs = {};
@@ -241,8 +243,10 @@ Grid.prototype.markConflicts = function () {
       if (!scored(b)) b.warn = true;
     }
   }
+  flag(wolves);
   let nWarn = 0;
   for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) nWarn++;
+  for (let i = 0; i < wolves.length; i++) if (wolves[i].warn) nWarn++;
   return nWarn;
 };
 
@@ -317,31 +321,34 @@ Grid.prototype.checkGuesses = function () {
       if (cell.spriteId === "o") win = false;
     }
   });
-  const won = win && found === this.n;
 
   const wolf = this.wolfRow < 0 ? null : this.cells[this.wolfRow][this.wolfCol];
-  this.wolfShown = !!(won && wolf);
-  let wolfRight = false;
   let wolfWrongs = 0;
   const self = this;
   this.each(function (cell, r, c) {
     if (!cell.is("cave")) return;
+    if (cell.warn) {
+      win = false;
+      return;
+    }
     if (cell.guessId === "o") {
       if (self.isWolfAt(r, c)) {
-        wolfRight = true;
+        if (!cell.locked) rights++;
+        cell.locked = true;
         cell.wrong = false;
       } else {
         cell.wrong = true;
+        win = false;
         wolfWrongs++;
       }
     } else {
       cell.wrong = false;
     }
-    if (!self.isWolfAt(r, c)) cell.locked = false;
   });
-  if (wolf) wolf.locked = !!(won && wolfRight && wolfWrongs === 0);
+  const won = win && found === this.n && wolfWrongs === 0;
+  this.wolfShown = !!(won && wolf);
 
-  return { win: won, rights: rights, wrongs: wrongs };
+  return { win: won, rights: rights, wrongs: wrongs + wolfWrongs };
 };
 
 Grid.prototype.dump = function () {
