@@ -7,6 +7,43 @@
   Col-shaped lines are runs (tree split). Prints only land on blank unlocked grass.
  */
 
+/* 
+Hint Tree (worded for the player)
+-----------
+
+L0: Two guessed foxes conflict (row, run, range, ring, or extra). Mark both yellow.
+L1: Check guessed foxes. Correct marked green and locked, incorrect marked red.
+
+L2: pool 1, fox sight rules (any order)
+L2.1.1: Mark off the rest of the row of a found fox.
+L2.1.2: Mark off the rest of the run of a found fox.
+L2.1.3: Mark off the rest of the ring spots of a found fox.
+L2.1.4: Mark off the rest of the range of a found fox.
+
+L2: pool 2 (any order)
+L2.2.5: Both foxes next to the bunny found. Mark off the rest.
+L2.2.6: Found the fox on the hawk line. Mark off the rest of the line.
+L2.2.7: Adjacent to every cave cell. Mark it off.
+
+L3: rule intersections (in order)
+L3.1: one-line (row or run) (any order)
+L3.1.a: One range's open spots all sit on one row or run. Mark off other opens on that line.
+L3.1.b: One row or run holds opens from exactly one range. Mark off that range off the line.
+
+L3.2: Halo. A cell conflicts with every remaining seat of a 2-4 seat range (row, run, touch, or hawk). Mark it off.
+
+L3.3: two-line (rows or runs) (any order)
+L3.3.a: Two adjacent lines hold all the opens of exactly two ranges. Mark off other opens on those lines.
+L3.3.b: Two adjacent lines hold opens from exactly two ranges. Mark off those ranges off the pair.
+
+L3: pool 2 (any order)
+L3.4: Exactly two ranges still have a seat on the bunny ring. Mark off their off-ring opens.
+L3.5: Exactly one range still has a seat on the hawk line. Mark off its off-line opens.
+
+L4: No more logic can be deduced, Give one fox-free row or run out of a range with no guessed fox.
+L5: Nothing left but to give a fox away. Mark off the last unknown spots in a range.
+*/
+
 function Hint(grid) {
   this.grid = grid;
 }
