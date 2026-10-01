@@ -1,10 +1,13 @@
 /**
-  Local hint painter, missed Xs only (hint level 2-5; 0-1 are O checks elsewhere).
+  HINT button pass.
+    0 clash: guessed foxes that share a row, run, dell, ring, or hawk line. Two guessed wolves. Yellow. Already scored stays put.
+    1 check: lock a correct fox or wolf, paint a miss red. Win is N locked foxes and no wolf miss.
     2 found leftovers: {row, run, ring, dell}, then {bunny, hawk, wolf}.
     3 basics in order: one-line, halo, two-line, three-line; then extras {bunny, hawk, cave}.
     4 leak: cut one fox-free row/run off a live dell, leave at least 2 unknowns.
     5 giveaway: last truth Xs of a dell, leaving the O.
   Col-shaped lines are runs. Prints land on blank unlocked grass, and on blank caves when a rule names them.
+  apply() returns { level, id, win, warns, wrongs, rights }. Prints do not run if 0 or 1 fired.
  */
 
 /*
@@ -138,6 +141,7 @@ Hint.prototype.dellSeats = function (cells) {
 
 Hint.prototype.conflicts = function (a, b) {
   if (a.row === b.row) return true;
+  if (a.dellId >= 0 && a.dellId === b.dellId) return true;
   const ra = this.grid.runKey(a.row, a.col);
   const rb = this.grid.runKey(b.row, b.col);
   if (ra && rb && ra === rb) return true;
@@ -771,10 +775,128 @@ Hint.prototype.tryLevel5 = function () {
   return this.applyPrints(batches[0]);
 };
 
+Hint.prototype.tryLevel0 = function () {
+  const g = this.grid;
+  const foxes = [];
+  const wolves = [];
+  g.each(function (cell) {
+    cell.warn = false;
+    if (cell.is("grass") && cell.guessId === "o") foxes.push(cell);
+    if (cell.is("cave") && cell.guessId === "o") wolves.push(cell);
+  });
+  function scored(cell) {
+    return !!(cell.locked || cell.wrong);
+  }
+  for (let i = 0; i < foxes.length; i++) {
+    for (let j = i + 1; j < foxes.length; j++) {
+      if (!this.conflicts(foxes[i], foxes[j])) continue;
+      if (!scored(foxes[i])) foxes[i].warn = true;
+      if (!scored(foxes[j])) foxes[j].warn = true;
+    }
+  }
+  let wolfWarn = 0;
+  if (wolves.length >= 2) {
+    for (let i = 0; i < wolves.length; i++) {
+      if (scored(wolves[i])) continue;
+      wolves[i].warn = true;
+      wolfWarn++;
+    }
+  }
+  let foxWarn = 0;
+  for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) foxWarn++;
+  const warns = foxWarn + wolfWarn;
+  if (!warns) return null;
+  return { warns: warns, id: foxWarn ? "hint.clash" : "hint.wolf" };
+};
+
+Hint.prototype.tryLevel1 = function () {
+  const g = this.grid;
+  let win = true;
+  let found = 0;
+  let rights = 0;
+  let wrongs = 0;
+  g.each(function (cell) {
+    if (!cell.is("grass")) return;
+    if (cell.warn) {
+      win = false;
+      return;
+    }
+    if (cell.guessId === "o") {
+      if (cell.spriteId === "o") {
+        found++;
+        if (!cell.locked) rights++;
+        cell.locked = true;
+        cell.wrong = false;
+      } else {
+        cell.wrong = true;
+        win = false;
+        wrongs++;
+      }
+    } else {
+      cell.wrong = false;
+      if (cell.spriteId === "o") win = false;
+    }
+  });
+  let wolfWrongs = 0;
+  g.each(function (cell, r, c) {
+    if (!cell.is("cave")) return;
+    if (cell.warn) {
+      win = false;
+      return;
+    }
+    if (cell.guessId === "o") {
+      if (g.isWolfAt(r, c)) {
+        if (!cell.locked) rights++;
+        cell.locked = true;
+        cell.wrong = false;
+      } else {
+        cell.wrong = true;
+        win = false;
+        wolfWrongs++;
+      }
+    } else {
+      cell.wrong = false;
+    }
+  });
+  const bad = wrongs + wolfWrongs;
+  const won = win && found === g.n && wolfWrongs === 0;
+  g.wolfShown = !!(won && g.wolfRow >= 0);
+  let id = "";
+  if (bad) id = "hint.miss";
+  else if (rights) id = "hint.hit";
+  return { win: won, rights: rights, wrongs: bad, id: id };
+};
+
 Hint.prototype.apply = function () {
-  if (this.tryLevel2()) return 2;
-  if (this.tryLevel3()) return 3;
-  if (this.tryLevel4()) return 4;
-  if (this.tryLevel5()) return 5;
-  return 0;
+  const clash = this.tryLevel0();
+  const check = this.tryLevel1();
+  if ((clash && clash.warns) || check.wrongs) {
+    return {
+      level: check.wrongs ? 1 : 0,
+      id: check.wrongs ? "hint.miss" : clash.id,
+      win: false,
+      warns: clash ? clash.warns : 0,
+      wrongs: check.wrongs,
+      rights: check.rights,
+    };
+  }
+  if (check.win) {
+    return {
+      level: 1,
+      id: check.id || "hint.hit",
+      win: true,
+      warns: 0,
+      wrongs: 0,
+      rights: check.rights,
+    };
+  }
+  if (this.grid.guessOCount() >= this.grid.n) {
+    return { level: 0, id: "", win: false, warns: 0, wrongs: 0, rights: check.rights };
+  }
+  let level = 0;
+  if (this.tryLevel2()) level = 2;
+  else if (this.tryLevel3()) level = 3;
+  else if (this.tryLevel4()) level = 4;
+  else if (this.tryLevel5()) level = 5;
+  return { level: level, id: "", win: false, warns: 0, wrongs: 0, rights: 0 };
 };

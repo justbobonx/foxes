@@ -274,10 +274,8 @@ function onCheckHint() {
   grid.each(function (cell, r, c) {
     before[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
   });
-  const warns = grid.markConflicts();
-  const checkMode = grid.guessOCount() >= grid.n;
-  const result = grid.checkGuesses();
-  if (warns || result.wrongs > 0) {
+  const result = new Hint(grid).apply();
+  if (result.warns || result.wrongs > 0) {
     let fresh = 0;
     grid.each(function (cell, r, c) {
       const prev = before[r + "," + c] || {};
@@ -302,12 +300,7 @@ function onCheckHint() {
     finishBoardAction(true);
     return;
   }
-  if (checkMode) {
-    finishBoardAction(true);
-    return;
-  }
-  const level = new Hint(grid).apply();
-  if (level) chargeHint(level);
+  if (result.level) chargeHint(result.level);
   finishBoardAction(true);
 }
 
