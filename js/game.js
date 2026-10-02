@@ -36,6 +36,7 @@ if (loadedPlan && ui.btnStart) ui.btnStart.textContent = "Play URL Plan";
 let playingTest = false;
 let buildGen = 0;
 let building = false;
+let hintId = "";
 
 function clearTestPlan() {
   loadedPlan = null;
@@ -236,6 +237,7 @@ function playCard(card) {
 }
 
 function resetBoard() {
+  clearHintLight();
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideWin();
   ui.hideMenu();
@@ -247,6 +249,7 @@ function resetBoard() {
 }
 
 function clearMarks() {
+  clearHintLight();
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideMenu();
   grid.clearLooseMarks();
@@ -259,6 +262,36 @@ function clearMarks() {
 function currentFieldPlan() {
   if (grid && grid.plan) return grid.plan;
   return forest.location;
+}
+
+
+function clearHintLight() {
+  hintId = "";
+  ui.hideWhy();
+  if (!grid) return;
+  grid.each(function (cell) {
+    cell.hintEdge = "";
+  });
+}
+
+function holdHint(result) {
+  clearHintLight();
+  if (!result || !result.id || result.win) return;
+  hintId = result.id;
+  const reason = result.reason || [];
+  const prints = result.prints || [];
+  for (let i = 0; i < reason.length; i++) reason[i].hintEdge = "reason";
+  for (let i = 0; i < prints.length; i++) prints[i].hintEdge = "print";
+  ui.showWhy();
+}
+
+function maybeHintStory(id) {
+  if (!id || forest.sawStory(id)) return;
+  const pages = Story.pages(id);
+  if (!pages.length) return;
+  forest.markStory(id);
+  persistForest();
+  presentStory(pages);
 }
 
 function finishBoardAction(persist) {
@@ -275,6 +308,18 @@ function onCheckHint() {
     before[r + "," + c] = { warn: !!cell.warn, wrong: !!cell.wrong };
   });
   const result = new Hint(grid).apply();
+  if (result.win) {
+    clearHintLight();
+    if (!playingTest) {
+      forest.win(currentFieldPlan());
+      persistForest();
+    }
+    clockOff();
+    paintWin();
+    ui.showWin();
+    finishBoardAction(true);
+    return;
+  }
   if (result.warns || result.wrongs > 0) {
     let fresh = 0;
     grid.each(function (cell, r, c) {
@@ -286,22 +331,16 @@ function onCheckHint() {
       hintCut *= CHECK_CUT * Math.pow(CHECK_HIT, Math.max(1, fresh));
       hintCount += 1;
     }
+    holdHint(result);
     finishBoardAction(true);
-    return;
-  }
-  if (result.win) {
-    if (!playingTest) {
-      forest.win(currentFieldPlan());
-      persistForest();
-    }
-    clockOff();
-    paintWin();
-    ui.showWin();
-    finishBoardAction(true);
+    maybeHintStory(result.id);
     return;
   }
   if (result.level) chargeHint(result.level);
+  if (result.id) holdHint(result);
+  else if (result.rights) clearHintLight();
   finishBoardAction(true);
+  maybeHintStory(result.id);
 }
 
 function restoreBoard() {
@@ -339,6 +378,7 @@ function restoreBoard() {
 }
 
 function giveUpField() {
+  clearHintLight();
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideMenu();
   clockOff();
@@ -379,6 +419,7 @@ function stashPlay() {
 }
 
 function showTitle() {
+  clearHintLight();
   buildGen++;
   building = false;
   if (playing || grid) stashPlay();
@@ -536,6 +577,10 @@ function endDrag(e) {
 function onBoardDown(e) {
   if (!playing || !grid || ui.winOpen() || ui.menuOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   const hit = cellAtEvent(e);
+  if (hintId) {
+    clearHintLight();
+    draw();
+  }
   if (!hit) return;
   e.preventDefault();
   if (tapTimer && sameCell(tapCell, hit)) {
@@ -607,6 +652,10 @@ ui.bind({
   giveUp: giveUpField,
   winNew: onWinOk,
   check: onCheckHint,
+  why: function () {
+    if (!hintId || ui.storyOpen()) return;
+    presentStory(Story.pages(hintId));
+  },
   menuBackdrop: function (e) {
     if (e.target === ui.elMenu) ui.hideMenu();
   },

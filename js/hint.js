@@ -7,7 +7,10 @@
     4 leak: cut one fox-free row/run off a live dell, leave at least 2 unknowns.
     5 giveaway: last truth Xs of a dell, leaving the O.
   Col-shaped lines are runs. Prints land on blank unlocked grass, and on blank caves when a rule names them.
-  apply() returns { level, id, win, warns, wrongs, rights }. Prints do not run if 0 or 1 fired.
+  apply() returns { level, id, win, warns, wrongs, rights, reason, prints }.
+  id is a StoryPages key, or "". Green locks and a win leave id empty.
+  reason and prints are empty on a clash or a miss. Those rings already show.
+  Prints do not run if 0 or 1 fired.
  */
 
 /*
@@ -100,7 +103,7 @@ Hint.prototype.isFoundWolf = function (cell) {
 };
 
 Hint.prototype.applyPrints = function (cells) {
-  let n = 0;
+  const painted = [];
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
     const cave = this.isEmptyCave(cell);
@@ -108,9 +111,13 @@ Hint.prototype.applyPrints = function (cells) {
     if (!cave && cell.spriteId === "o") continue;
     cell.setGuess("x");
     cell.locked = true;
-    n++;
+    painted.push(cell);
   }
-  return n;
+  return painted;
+};
+
+Hint.prototype.pack = function (id, reason, prints) {
+  return { id: id, reason: reason || [], prints: this.applyPrints(prints || []) };
 };
 
 Hint.prototype.dellMap = function () {
@@ -320,7 +327,10 @@ Hint.prototype.tryLevel2 = function () {
         else if (rules[i] === "col") targets = paintRun(fox);
         else if (rules[i] === "ring") targets = paintRing(fox);
         else targets = paintDell(fox);
-        if (targets.length) return this.applyPrints(targets);
+        if (targets.length) {
+          const id = rules[i] === "row" ? "L2.1.1" : rules[i] === "col" ? "L2.1.2" : rules[i] === "ring" ? "L2.1.3" : "L2.1.4";
+          return this.pack(id, [fox], targets);
+        }
       }
     }
   }
@@ -328,12 +338,27 @@ Hint.prototype.tryLevel2 = function () {
   const extras = this.shuffle(["bunny", "hawk", "wolf"]);
   for (let i = 0; i < extras.length; i++) {
     let targets;
-    if (extras[i] === "bunny") targets = paintBunny();
-    else if (extras[i] === "hawk") targets = paintHawk();
-    else targets = paintWolf();
-    if (targets.length) return this.applyPrints(targets);
+    let reason = [];
+    let id = "";
+    if (extras[i] === "bunny") {
+      targets = paintBunny();
+      id = "L2.2.5";
+      const ring = this.bunnyRing();
+      for (let k = 0; k < ring.length; k++) if (this.isFoundFox(ring[k])) reason.push(ring[k]);
+    } else if (extras[i] === "hawk") {
+      targets = paintHawk();
+      id = "L2.2.6";
+      for (let f = 0; f < foxes.length; f++) {
+        if (g.hawk && g.onHawkLine(foxes[f].row, foxes[f].col)) reason.push(foxes[f]);
+      }
+    } else {
+      targets = paintWolf();
+      id = "L2.2.7";
+      if (wolf) reason = [wolf];
+    }
+    if (targets.length) return this.pack(id, reason, targets);
   }
-  return 0;
+  return null;
 };
 
 Hint.prototype.tryLevel3 = function () {
@@ -390,26 +415,31 @@ Hint.prototype.tryLevel3 = function () {
       if (any) touching.push(+id);
       if (any && all) closed.push(+id);
     }
+    const idA = need === 1 ? "L3.1.1.a" : need === 2 ? "L3.1.3.a" : "L3.1.4.a";
+    const idB = need === 1 ? "L3.1.1.b" : need === 2 ? "L3.1.3.b" : "L3.1.4.b";
     if (closed.length === need) {
       const keep = {};
       for (let i = 0; i < closed.length; i++) keep[closed[i]] = true;
-      const out = [];
+      const prints = [];
+      const reason = [];
       eachOnLine(function (cell) {
         if (!self.isEmptyGrass(cell)) return;
-        if (keep[cell.dellId]) return;
-        out.push(cell);
+        if (keep[cell.dellId]) reason.push(cell);
+        else prints.push(cell);
       });
-      if (out.length) bucket.push(out);
+      if (prints.length) bucket.push({ id: idA, reason: reason, prints: prints });
     }
     if (touching.length === need) {
-      const out = [];
+      const prints = [];
+      const reason = [];
       for (let n = 0; n < touching.length; n++) {
         const opens = opensOf[touching[n]];
         for (let k = 0; k < opens.length; k++) {
-          if (!onLine(opens[k])) out.push(opens[k]);
+          if (onLine(opens[k])) reason.push(opens[k]);
+          else prints.push(opens[k]);
         }
       }
-      if (out.length) bucket.push(out);
+      if (prints.length) bucket.push({ id: idB, reason: reason, prints: prints });
     }
   }
 
@@ -548,25 +578,17 @@ Hint.prototype.tryLevel3 = function () {
         if (all) out.push(cell);
       }
     }
-    if (out.length) halos.push(out);
+    if (out.length) halos.push({ id: "L3.1.2", reason: seats.slice(), prints: out });
   }
 
-  if (ones.length) {
-    this.shuffle(ones);
-    return this.applyPrints(ones[0]);
+  function take(bucket) {
+    if (!bucket.length) return null;
+    self.shuffle(bucket);
+    const hit = bucket[0];
+    return self.pack(hit.id, hit.reason, hit.prints);
   }
-  if (halos.length) {
-    this.shuffle(halos);
-    return this.applyPrints(halos[0]);
-  }
-  if (twos.length) {
-    this.shuffle(twos);
-    return this.applyPrints(twos[0]);
-  }
-  if (threes.length) {
-    this.shuffle(threes);
-    return this.applyPrints(threes[0]);
-  }
+  const basic = take(ones) || take(halos) || take(twos) || take(threes);
+  if (basic) return basic;
 
   function splitOpens(onLine) {
     const closed = [];
@@ -587,7 +609,7 @@ Hint.prototype.tryLevel3 = function () {
 
   function bunnyTargets() {
     const ring = self.bunnyRing();
-    if (!ring.length) return [];
+    if (!ring.length) return null;
     const onRing = {};
     let found = 0;
     for (let i = 0; i < ring.length; i++) {
@@ -600,33 +622,41 @@ Hint.prototype.tryLevel3 = function () {
     });
     const kinds = self.shuffle(["a", "b"]);
     for (let n = 0; n < kinds.length; n++) {
-      const out = [];
+      const prints = [];
+      const reason = [];
+      let id = "";
       if (kinds[n] === "a" && hit.closed.length === 2) {
+        id = "L3.2.1.a";
         const keep = {};
         keep[hit.closed[0]] = true;
         keep[hit.closed[1]] = true;
+        for (let i = 0; i < hit.closed.length; i++) {
+          const opens = opensOf[hit.closed[i]];
+          for (let k = 0; k < opens.length; k++) reason.push(opens[k]);
+        }
         for (let i = 0; i < ring.length; i++) {
           const cell = ring[i];
           if (!self.isEmptyGrass(cell)) continue;
           if (keep[cell.dellId]) continue;
-          out.push(cell);
+          prints.push(cell);
         }
       } else if (kinds[n] === "b" && found < 2 && hit.touching.length === 2 - found) {
+        id = "L3.2.1.b";
         for (let i = 0; i < hit.touching.length; i++) {
           const opens = opensOf[hit.touching[i]];
           for (let k = 0; k < opens.length; k++) {
-            if (onRing[opens[k].row + "," + opens[k].col]) continue;
-            out.push(opens[k]);
+            if (onRing[opens[k].row + "," + opens[k].col]) reason.push(opens[k]);
+            else prints.push(opens[k]);
           }
         }
       }
-      if (out.length) return out;
+      if (prints.length) return { id: id, reason: reason, prints: prints };
     }
-    return [];
+    return null;
   }
 
   function hawkTargets() {
-    if (!g.hawk) return [];
+    if (!g.hawk) return null;
     let found = 0;
     for (let r = 0; r < g.rows; r++) {
       for (let c = 0; c < g.cols; c++) {
@@ -639,33 +669,39 @@ Hint.prototype.tryLevel3 = function () {
     });
     const kinds = self.shuffle(["a", "b"]);
     for (let n = 0; n < kinds.length; n++) {
-      const out = [];
+      const prints = [];
+      const reason = [];
+      let id = "";
       if (kinds[n] === "a" && hit.closed.length === 1) {
+        id = "L3.2.2.a";
         const keep = hit.closed[0];
+        const opens = opensOf[keep] || [];
+        for (let k = 0; k < opens.length; k++) reason.push(opens[k]);
         for (let r = 0; r < g.rows; r++) {
           for (let c = 0; c < g.cols; c++) {
             if (!g.onHawkLine(r, c)) continue;
             const cell = g.at(r, c);
             if (!self.isEmptyGrass(cell)) continue;
             if (cell.dellId === keep) continue;
-            out.push(cell);
+            prints.push(cell);
           }
         }
       } else if (kinds[n] === "b" && found === 0 && hit.touching.length === 1) {
+        id = "L3.2.2.b";
         const opens = opensOf[hit.touching[0]];
         for (let k = 0; k < opens.length; k++) {
-          if (g.onHawkLine(opens[k].row, opens[k].col)) continue;
-          out.push(opens[k]);
+          if (g.onHawkLine(opens[k].row, opens[k].col)) reason.push(opens[k]);
+          else prints.push(opens[k]);
         }
       }
-      if (out.length) return out;
+      if (prints.length) return { id: id, reason: reason, prints: prints };
     }
-    return [];
+    return null;
   }
 
   function caveTargets() {
     const cave = self.caveCells();
-    if (cave.length < 2) return [];
+    if (cave.length < 2) return null;
     const out = [];
     for (let r = 0; r < g.rows; r++) {
       for (let c = 0; c < g.cols; c++) {
@@ -681,18 +717,19 @@ Hint.prototype.tryLevel3 = function () {
         if (all) out.push(cell);
       }
     }
-    return out;
+    if (!out.length) return null;
+    return { id: "L3.2.3", reason: cave, prints: out };
   }
 
   const extras = this.shuffle(["bunny", "hawk", "cave"]);
   for (let e = 0; e < extras.length; e++) {
-    let targets = [];
-    if (extras[e] === "bunny") targets = bunnyTargets();
-    else if (extras[e] === "hawk") targets = hawkTargets();
-    else targets = caveTargets();
-    if (targets.length) return this.applyPrints(targets);
+    let hit = null;
+    if (extras[e] === "bunny") hit = bunnyTargets();
+    else if (extras[e] === "hawk") hit = hawkTargets();
+    else hit = caveTargets();
+    if (hit) return this.pack(hit.id, hit.reason, hit.prints);
   }
-  return 0;
+  return null;
 };
 
 Hint.prototype.tryLevel4 = function () {
@@ -748,12 +785,20 @@ Hint.prototype.tryLevel4 = function () {
       }
       if (group.length < 1) continue;
       if (empty.length - group.length < 2) continue;
-      if (!best || group.length > best.length) best = group;
+      if (!best || group.length > best.length) {
+        const reason = [];
+        if (fox) reason.push(fox);
+        for (let k = 0; k < empty.length; k++) {
+          if (group.indexOf(empty[k]) >= 0) continue;
+          reason.push(empty[k]);
+        }
+        best = { reason: reason, prints: group };
+      }
     }
   }
 
-  if (!best) return 0;
-  return this.applyPrints(best);
+  if (!best) return null;
+  return this.pack("L4", best.reason, best.prints);
 };
 
 Hint.prototype.tryLevel5 = function () {
@@ -762,17 +807,17 @@ Hint.prototype.tryLevel5 = function () {
   for (const id in dells) {
     const cells = dells[id];
     const xs = [];
-    let foxOpen = false;
+    let fox = null;
     for (let i = 0; i < cells.length; i++) {
       const cell = cells[i];
-      if (cell.spriteId === "o" && !this.isFoundFox(cell)) foxOpen = true;
+      if (cell.spriteId === "o" && !this.isFoundFox(cell)) fox = cell;
       if (this.isEmptyGrass(cell) && cell.spriteId !== "o") xs.push(cell);
     }
-    if (foxOpen && xs.length) batches.push(xs);
+    if (fox && xs.length) batches.push({ reason: [fox], prints: xs });
   }
-  if (!batches.length) return 0;
+  if (!batches.length) return null;
   this.shuffle(batches);
-  return this.applyPrints(batches[0]);
+  return this.pack("L5", batches[0].reason, batches[0].prints);
 };
 
 Hint.prototype.tryLevel0 = function () {
@@ -806,7 +851,7 @@ Hint.prototype.tryLevel0 = function () {
   for (let i = 0; i < foxes.length; i++) if (foxes[i].warn) foxWarn++;
   const warns = foxWarn + wolfWarn;
   if (!warns) return null;
-  return { warns: warns, id: foxWarn ? "hint.clash" : "hint.wolf" };
+  return { warns: warns, id: foxWarn ? "L0" : "L0.wolf" };
 };
 
 Hint.prototype.tryLevel1 = function () {
@@ -862,41 +907,39 @@ Hint.prototype.tryLevel1 = function () {
   const won = win && found === g.n && wolfWrongs === 0;
   g.wolfShown = !!(won && g.wolfRow >= 0);
   let id = "";
-  if (bad) id = "hint.miss";
-  else if (rights) id = "hint.hit";
+  if (bad) id = wrongs ? "L1" : "L1.wolf";
   return { win: won, rights: rights, wrongs: bad, id: id };
+};
+
+Hint.prototype.blank = function (level, extra) {
+  const src = extra || {};
+  return {
+    level: level,
+    id: src.id || "",
+    win: !!src.win,
+    warns: src.warns || 0,
+    wrongs: src.wrongs || 0,
+    rights: src.rights || 0,
+    reason: src.reason || [],
+    prints: src.prints || [],
+  };
 };
 
 Hint.prototype.apply = function () {
   const clash = this.tryLevel0();
   const check = this.tryLevel1();
   if ((clash && clash.warns) || check.wrongs) {
-    return {
-      level: check.wrongs ? 1 : 0,
-      id: check.wrongs ? "hint.miss" : clash.id,
-      win: false,
+    return this.blank(check.wrongs ? 1 : 0, {
+      id: check.wrongs ? check.id : clash.id,
       warns: clash ? clash.warns : 0,
       wrongs: check.wrongs,
       rights: check.rights,
-    };
+    });
   }
-  if (check.win) {
-    return {
-      level: 1,
-      id: check.id || "hint.hit",
-      win: true,
-      warns: 0,
-      wrongs: 0,
-      rights: check.rights,
-    };
-  }
-  if (this.grid.guessOCount() >= this.grid.n) {
-    return { level: 0, id: "", win: false, warns: 0, wrongs: 0, rights: check.rights };
-  }
-  let level = 0;
-  if (this.tryLevel2()) level = 2;
-  else if (this.tryLevel3()) level = 3;
-  else if (this.tryLevel4()) level = 4;
-  else if (this.tryLevel5()) level = 5;
-  return { level: level, id: "", win: false, warns: 0, wrongs: 0, rights: 0 };
+  if (check.win) return this.blank(1, { win: true, rights: check.rights });
+  if (this.grid.guessOCount() >= this.grid.n) return this.blank(0, { rights: check.rights });
+  const hit = this.tryLevel2() || this.tryLevel3() || this.tryLevel4() || this.tryLevel5();
+  if (!hit) return this.blank(0);
+  const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
+  return this.blank(level, hit);
 };

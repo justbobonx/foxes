@@ -237,6 +237,18 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
       ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
     }
   }
+
+  if (this.hintEdge) {
+    ctx.strokeStyle = this.hintEdge === "print" ? "#3e7cff" : "#3ee0e0";
+    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
+      ctx.stroke();
+    } else {
+      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+    }
+  }
 };
 
 Cell.samePatch = function (grid, cell, row, col) {

@@ -16,6 +16,7 @@ function Ui() {
   this.btnClear = document.getElementById("btn-clear");
   this.btnGiveUp = document.getElementById("btn-give-up");
   this.btnCheck = document.getElementById("btn-check");
+  this.btnWhy = document.getElementById("btn-why");
   this.btnStart = document.getElementById("btn-start");
   this.btnHelp = document.getElementById("btn-help");
   this.elStart = document.getElementById("start-screen");
@@ -102,6 +103,14 @@ Ui.prototype.findOpen = function () {
 
 Ui.prototype.showFind = function () {
   if (this.elFind) this.elFind.hidden = false;
+};
+
+Ui.prototype.showWhy = function () {
+  if (this.btnWhy) this.btnWhy.hidden = false;
+};
+
+Ui.prototype.hideWhy = function () {
+  if (this.btnWhy) this.btnWhy.hidden = true;
 };
 
 Ui.prototype.hideFind = function () {
@@ -316,5 +325,6 @@ Ui.prototype.bind = function (handlers) {
   on(this.btnGiveUp, "click", handlers.giveUp);
   on(this.btnWinNew, "click", handlers.winNew);
   on(this.btnCheck, "click", handlers.check);
+  on(this.btnWhy, "click", handlers.why);
   on(this.elMenu, "click", handlers.menuBackdrop);
 };
