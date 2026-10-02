@@ -10,6 +10,7 @@
   apply() returns { level, id, win, warns, wrongs, rights, reason, prints }.
   id is a StoryPages key, or "". Green locks and a win leave id empty.
   reason and prints are empty on a clash or a miss. Those rings already show.
+  L4 and L5 return an empty reason so the hidden fox is not ringed.
   Prints do not run if 0 or 1 fired.
  */
 
@@ -786,19 +787,13 @@ Hint.prototype.tryLevel4 = function () {
       if (group.length < 1) continue;
       if (empty.length - group.length < 2) continue;
       if (!best || group.length > best.length) {
-        const reason = [];
-        if (fox) reason.push(fox);
-        for (let k = 0; k < empty.length; k++) {
-          if (group.indexOf(empty[k]) >= 0) continue;
-          reason.push(empty[k]);
-        }
-        best = { reason: reason, prints: group };
+        best = group;
       }
     }
   }
 
   if (!best) return null;
-  return this.pack("L4", best.reason, best.prints);
+  return this.pack("L4", [], best);
 };
 
 Hint.prototype.tryLevel5 = function () {
@@ -813,11 +808,11 @@ Hint.prototype.tryLevel5 = function () {
       if (cell.spriteId === "o" && !this.isFoundFox(cell)) fox = cell;
       if (this.isEmptyGrass(cell) && cell.spriteId !== "o") xs.push(cell);
     }
-    if (fox && xs.length) batches.push({ reason: [fox], prints: xs });
+    if (fox && xs.length) batches.push(xs);
   }
   if (!batches.length) return null;
   this.shuffle(batches);
-  return this.pack("L5", batches[0].reason, batches[0].prints);
+  return this.pack("L5", [], batches[0]);
 };
 
 Hint.prototype.tryLevel0 = function () {
