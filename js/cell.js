@@ -42,8 +42,8 @@ const CELL_TYPES = {
     markO: "w",
   },
   bunny: {
-    fill: "#44571E",
-    edge: "#A4C85B",
+    fill: "#205F16",
+    edge: "#329B22",
     tap: false,
     stand: "b",
   },
