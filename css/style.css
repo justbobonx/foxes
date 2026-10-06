@@ -589,13 +589,18 @@ button.story-card,
 .story-text {
   width: 100%;
   padding: 0 6px;
-  font-family: pixel_font_sm, sans-serif;
+  font-family: pixel_font, sans-serif;
   font-size: 26px;
-  line-height: 1.1;
+  line-height: 0.9;
   letter-spacing: 0.02em;
   text-align: center;
   color: #112233;
   white-space: pre-wrap;
+}
+.story-text br {
+  display: block;
+  content: "";
+  margin-bottom: 0.35em;
 }
 
 .story-continue {
