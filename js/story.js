@@ -71,49 +71,53 @@ if the trees stand between them`
   "L2.1.4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `No other foxes can be in that territory` },
   "L2.2.5": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No more foxes can fit around the bunnies` },
+`No more foxes can fit around the bunnies spot` },
   "L2.2.6": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `No other fox can be in the hawk's sight line` },
   "L2.2.7": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Only one wolf in the caves and no foxes by the wolf` },
   "L3.1.1.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`A whole territory is on this line, so no others may contain a fox` },
+`All remaining open spots of this territory are on this line, so spots from any other territory on this line must be empty` },
   "L3.1.1.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`This line is all one territory, so its fox must be on this line and not another` },
+`This line is all one territory so its fox must be on this line, so spots of this territory on other lines must be empty` },
   "L3.1.2": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`These spots could be seen by the fox of that territory no matter on which spot it sits.` },
+`These spots could be seen by the fox of that territory no matter which spot it sits, so they must be empty.` },
   "L3.1.3.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`These two territories sit wholly on this group of two lines.
+`All remaining open spots of these two territories sit wholly on this group of two lines.
 
-So no other territory can have a fox on them.` },
+So spots from any other territory on this group of two lines must be empty.` },
   "L3.1.3.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`This group of two lines hold all the open spots for these two territories.
+`This group of two lines only holds remaining open spots for these two territories.
 
-So the foxes of these two territories must be in these two lines and nowhere else.` },
+So the foxes of these two territories must be on these two lines and all the spots of these two territories on other lines must be empty.` },
   "L3.1.4.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`These three territories sit wholly on this group of three lines.
+`All remaining open spots of these three territories sit wholly on this group of three lines.
 
-So no other territory can have a fox on them.` },
+So spots from any other territory on this group of three lines must be empty.` },
   "L3.1.4.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`This group of three lines hold all the open spots for these three territories.
+`This group of three lines only holds remaining open spots for these three territories.
 
-So the foxes of these three territories must be in these three lines and nowhere else.` },
+So the foxes of these three territories must be on these three lines and all the spots of these three territories on other lines must be empty.` },
   "L3.2.1.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`There are only two territories around the bunnies spot.
+`These two territories only have remaining open spots around the bunnies spot.
 
-So their foxes must be aroundt he bunnies and nowhere else.` },
+So, spots from any other territory around the bunnies spot must be empty.` },
   "L3.2.1.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`We have found the two foxes hunting the bunnies, so all other spots next to the bunny will be empty.` },
+`There are only two territories open around the bunnies, so those foxes must be hunting the bunnies.
+
+So, all other spots of those two territoires not around the bunnies spot must be empty.` },
   "L3.2.2.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`One territory is wholly in the hawks line so it must have its fox there.  All other spots will be empty.` },
+`All remaining open spots for this territory are in the hawks line, so it must have its fox there.
+
+So, all spots from other territoires must be empty.` },
   "L3.2.2.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`The hawks line contains only one territory so its fox must be there, any other spots of its territory must be empty` },
+`The hawks line contains only one territory so its fox must be there, so any other spots of that territory must be empty` },
   "L3.2.3": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Any spot that is next to all cave spots must be next to the wolf and so cannot contain a fox` },
   "L4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Still stumped?
 
-Let's look for some fox tracks.
+Then let's look for some fox tracks.
 
 Here's a few spots a fox is not.` },
   "L5": { image: "images/prints.png", sizex: 64, sizey: 64, text:

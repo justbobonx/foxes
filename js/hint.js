@@ -932,6 +932,7 @@ Hint.prototype.apply = function () {
     });
   }
   if (check.win) return this.blank(1, { win: true, rights: check.rights });
+  if (check.rights) return this.blank(1, { rights: check.rights });
   if (this.grid.guessOCount() >= this.grid.n) return this.blank(0, { rights: check.rights });
   const hit = this.tryLevel2() || this.tryLevel3() || this.tryLevel4() || this.tryLevel5();
   if (!hit) return this.blank(0);
