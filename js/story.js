@@ -93,7 +93,7 @@ So the foxes of these two territories must be in these two lines and nowhere els
   "L3.1.4.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `These three territories sit wholly on this group of three lines.
 
-So no other territory can have a fox on them.`
+So no other territory can have a fox on them.` },
   "L3.1.4.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `This group of three lines hold all the open spots for these three territories.
 
@@ -103,9 +103,9 @@ So the foxes of these three territories must be in these three lines and nowhere
 
 So their foxes must be aroundt he bunnies and nowhere else.` },
   "L3.2.1.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-"We have found the two foxes hunting the bunnies, so all other spots next to the bunny will be empty.` },
+`We have found the two foxes hunting the bunnies, so all other spots next to the bunny will be empty.` },
   "L3.2.2.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-"One territory is wholly in the hawks line so it must have its fox there.  All other spots will be empty.` },
+`One territory is wholly in the hawks line so it must have its fox there.  All other spots will be empty.` },
   "L3.2.2.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `The hawks line contains only one territory so its fox must be there, any other spots of its territory must be empty` },
   "L3.2.3": { image: "images/prints.png", sizex: 64, sizey: 64, text:
