@@ -1,7 +1,7 @@
 /** Fills a Grid from a plan { size, features[] }. */
 
 const MIN_DELL_SIZE = 2;
-const DELL_TARGET = 3;
+const DELL_SMALL_SIZE = 3;
 
 const UNIQUE_TRIES = 250;
   const WATER_TRIES = 50;
@@ -922,9 +922,11 @@ GridBuilder.prototype.tryPaintDells = function () {
   const n = g.n;
   const cols = g.cols;
   const floor = Math.min(MIN_DELL_SIZE, n);
-  const target = Math.min(DELL_TARGET, n);
-  const tinyQuota = Math.random() < 0.5 ? 2 : 1;
-
+  const minTiny = 1; //n>=10 ? 2 : 1;
+  const mostTiny = 2;
+  const tinyQuota = Math.floor(Math.random() * (mostTiny - minTiny + 1)) + minTiny;
+  const smallsNeeded = n>=9 ? 4 : 3;
+  
   const seeds = [];
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < cols; c++) {
@@ -986,9 +988,9 @@ GridBuilder.prototype.tryPaintDells = function () {
         return sz < floor;
       });
     }
-    if (countSize(target, false) > tinyQuota) {
+    if (countSize(DELL_SMALL_SIZE, false) > tinyQuota) {
       return edgesFrom(function (id, sz) {
-        return sz < target;
+        return sz < DELL_SMALL_SIZE;
       });
     }
     if (!reserved) {
@@ -997,13 +999,13 @@ GridBuilder.prototype.tryPaintDells = function () {
       const threes = [];
       for (let i = 0; i < sizes.length; i++) {
         if (sizes[i] === floor) twos.push(i);
-        if (sizes[i] === target) threes.push(i);
+        if (sizes[i] === DELL_SMALL_SIZE) threes.push(i);
       }
       shuffleInPlace(twos);
       shuffleInPlace(threes);
       const keep2 = Math.min(tinyQuota, twos.length);
       for (let i = 0; i < keep2; i++) reserved2[twos[i]] = true;
-      const keep3 = Math.max(0, 3 - keep2);
+      const keep3 = Math.max(0, smallsNeeded - keep2);
       for (let i = 0; i < threes.length && i < keep3; i++) reserved3[threes[i]] = true;
     }
     const rest = edgesFrom(function (id, sz) {
