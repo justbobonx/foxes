@@ -8,6 +8,7 @@ const sprites = SpriteBank.defaults(function () {
 const playChrome = new PlayChrome();
 const planner = new Planner();
 const TAP_MS = 350;
+const LONG_MS = 500;
 const FIND_WAIT_MS = 500;
 const FIND_FOX_MS = 1000;
 const FIND_FOX_MAX = 60;
@@ -23,11 +24,13 @@ let originX = 0;
 let originY = 0;
 let tapTimer = 0;
 let tapCell = null;
+let holdTimer = 0;
 let playing = false;
 let clockElapsed = 0;
 let clockStarted = 0;
 let dragMode = null;
 let dragCell = null;
+let dragPointer = -1;
 let dragDirty = false;
 let hintCount = 0;
 let hintCut = 1;
@@ -564,12 +567,14 @@ function applyDouble(hit) {
 }
 
 function endDrag(e) {
-  if (e && canvas.hasPointerCapture && canvas.hasPointerCapture(e.pointerId)) {
-    canvas.releasePointerCapture(e.pointerId);
+  const id = e ? e.pointerId : dragPointer;
+  if (id >= 0 && canvas.hasPointerCapture && canvas.hasPointerCapture(id)) {
+    canvas.releasePointerCapture(id);
   }
   if (dragDirty) persistBoard();
   dragMode = null;
   dragCell = null;
+  dragPointer = -1;
   dragDirty = false;
 }
 
@@ -582,6 +587,10 @@ function onBoardDown(e) {
   }
   if (!hit) return;
   e.preventDefault();
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = 0;
+  }
   if (tapTimer && sameCell(tapCell, hit)) {
     clearTimeout(tapTimer);
     tapTimer = 0;
@@ -592,10 +601,12 @@ function onBoardDown(e) {
   }
   const cell = grid.at(hit.row, hit.col);
   if (!cell.canTap()) return;
+  const wasFox = cell.guessId === "o";
   dragCell = hit;
+  dragPointer = e.pointerId;
   dragDirty = false;
   if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
-  if (cell.guessId === "o") {
+  if (wasFox) {
     cell.setGuess(null);
     dragMode = "clear";
     dragDirty = true;
@@ -604,6 +615,18 @@ function onBoardDown(e) {
   } else {
     dragMode = cell.guessId === "x" ? "clear" : "x";
     applyStroke(hit, dragMode);
+    const start = hit;
+    holdTimer = setTimeout(function () {
+      holdTimer = 0;
+      if (!dragMode || !sameCell(start, dragCell)) return;
+      applyDouble(start);
+      if (tapTimer) {
+        clearTimeout(tapTimer);
+        tapTimer = 0;
+        tapCell = null;
+      }
+      endDrag(null);
+    }, LONG_MS);
   }
   if (tapTimer) clearTimeout(tapTimer);
   tapCell = hit;
@@ -617,6 +640,43 @@ function onBoardMove(e) {
   if (!dragMode) return;
   const hit = cellAtEvent(e);
   if (!hit || sameCell(hit, dragCell)) return;
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = 0;
+  }
+  let blocked = grid.at(hit.row, hit.col).is("tree");
+  if (!blocked) {
+    let r0 = dragCell.row;
+    let c0 = dragCell.col;
+    const r1 = hit.row;
+    const c1 = hit.col;
+    const adr = Math.abs(r1 - r0);
+    const adc = Math.abs(c1 - c0);
+    const sr = r0 < r1 ? 1 : -1;
+    const sc = c0 < c1 ? 1 : -1;
+    let err = adr - adc;
+    while (!blocked && (r0 !== r1 || c0 !== c1)) {
+      const e2 = err * 2;
+      if (e2 > -adc) {
+        err -= adc;
+        r0 += sr;
+      }
+      if (e2 < adr) {
+        err += adr;
+        c0 += sc;
+      }
+      if (grid.at(r0, c0).is("tree")) blocked = true;
+    }
+  }
+  if (blocked) {
+    if (tapTimer) {
+      clearTimeout(tapTimer);
+      tapTimer = 0;
+      tapCell = null;
+    }
+    endDrag(e);
+    return;
+  }
   if (tapTimer) {
     clearTimeout(tapTimer);
     tapTimer = 0;
@@ -627,6 +687,10 @@ function onBoardMove(e) {
 }
 
 function onBoardUp(e) {
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = 0;
+  }
   if (!dragMode) return;
   endDrag(e);
 }
@@ -670,6 +734,9 @@ canvas.addEventListener("pointerdown", onBoardDown);
 canvas.addEventListener("pointermove", onBoardMove);
 canvas.addEventListener("pointerup", onBoardUp);
 canvas.addEventListener("pointercancel", onBoardUp);
+canvas.addEventListener("contextmenu", function (e) {
+  e.preventDefault();
+});
 
 window.addEventListener("resize", onViewport);
 if (window.visualViewport) {
