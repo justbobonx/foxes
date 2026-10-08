@@ -40,6 +40,8 @@ let playingTest = false;
 let buildGen = 0;
 let building = false;
 let hintId = "";
+let keepBoard = false;
+let wonPending = false;
 
 function clearTestPlan() {
   loadedPlan = null;
@@ -112,11 +114,11 @@ function showMenu() {
 }
 
 function persistBoard(force) {
-  if (!grid) return;
+  if (!grid || !keepBoard) return;
   if (!force && (!playing || ui.planOpen() || ui.storyOpen() || ui.findOpen())) return;
   const data = grid.dump();
   data.elapsedMs = clockNow();
-  data.won = ui.winOpen() || grid.isCleared();
+  data.won = wonPending || ui.winOpen() || grid.isCleared();
   data.hintCount = hintCount;
   data.hintCut = hintCut;
   data.testPlan = !!playingTest;
@@ -195,6 +197,8 @@ function startField(plan, isTest) {
     hintCut = 1;
     clockElapsed = 0;
     clockStarted = Date.now();
+    wonPending = false;
+    keepBoard = true;
     forest.offers = null;
     persistForest();
     persistBoard(true);
@@ -317,6 +321,7 @@ function onCheckHint() {
       persistForest();
     }
     clockOff();
+    wonPending = true;
     paintWin();
     ui.showWin();
     finishBoardAction(true);
@@ -367,7 +372,9 @@ function restoreBoard() {
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;
   playingTest = false;
+  keepBoard = true;
   const won = !!(data.won || loaded.isCleared());
+  wonPending = won;
   if (won) {
     clockOff();
     paintWin();
@@ -387,6 +394,8 @@ function giveUpField() {
   const here = currentFieldPlan();
   forest.location = Plan.copy(here);
   forest.lastPlan = Plan.copy(here);
+  keepBoard = false;
+  wonPending = false;
   Save.clearBoard();
   forest.offers = null;
   persistForest();
@@ -401,6 +410,8 @@ function giveUpField() {
 
 function onWinOk() {
   ui.hideWin();
+  keepBoard = false;
+  wonPending = false;
   Save.clearBoard();
   forest.offers = null;
   persistForest();
@@ -415,7 +426,7 @@ function onWinOk() {
 }
 
 function stashPlay() {
-  persistBoard(true);
+  if (keepBoard) persistBoard(true);
   persistForest();
   clockOff();
 }
@@ -449,8 +460,8 @@ function beginPlay() {
       draw();
       return;
     }
-    if (grid && !playingTest) {
-      showBoard();
+    if (forest.offers && forest.offers.length) {
+      showOffers(planner.travel(forest));
       return;
     }
     if (!forest.sawStory("start")) {
@@ -468,6 +479,9 @@ function showHelp() {
 }
 
 function onPlanBack() {
+  keepBoard = false;
+  wonPending = false;
+  Save.clearBoard();
   persistForest();
   ui.hidePlan();
   showTitle();
