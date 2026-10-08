@@ -1,12 +1,30 @@
 /** One board square. type is the kind. spriteId is hidden fox. guessId is the mark. */
 
-const CELL_DELL_COLORS = [
-  "#6b8f4e",  //this one is the default grass
-  "#7a4e4e",  "#4e6a8a",  "#8a6b3f",  "#755b7d",
-  "#4e5a4e",  "#8a5a6a",  "#a08a4a",  "#4e5a6b",
-  "#6b5a3f",  "#3f6b6b",  "#4e7a6b",  "#5a7a5a",
-  "#747454",  "#6b6b5a" ]
+// const CELL_DELL_COLORS = [
+  // "#6b8f4e",  //this one is the default grass
+  // "#7a4e4e",  "#5a6b7e",  "#8a6b3f",  "#5c6a5c",
+  // "#a08a4a",  "#3f6b6b",  "#545c64",  "#6b5a3f",
+  // "#8b6196",  "#946f7b",  "#4e7a6b",  "#917d75",
+  // "#6b6b5a",  "#5a7a5a" ]
 
+const CELL_DELL_COLORS = [
+  "#6b8f4e", // grass
+  "#8d4d4a", // brick
+  "#a67c56", // clay
+  "#9a8444", // ochre
+  "#5f6844", // khaki
+  "#3d6a50", // pine
+  "#3e7874", // teal
+  "#a15d3f", // rust
+  "#4e4a78", // indigo
+  "#7a5284", // plum  
+  "#a86a78", // rose
+  "#6b5644", // umber
+  "#75797d", // steel
+  "#6d6896", // lilac
+  "#5a6c96", // slate
+];
+  
 const CELL_TYPES = {
   grass: {
     glyphColor: "#000000",
@@ -114,7 +132,7 @@ Cell.prototype.resetMarks = function () {
 
 Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   const look = this.look || CELL_TYPES[this.type] || CELL_TYPES.grass;
-  const rad = Math.max(4, Math.floor(s * 0.17));
+  const rad = Math.max(5, Math.floor(s * 0.19));
   const max = s / 2;
   const corners = [
     Math.min(this.round[0] ? rad : 0, max),
