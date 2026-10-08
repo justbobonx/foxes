@@ -402,7 +402,7 @@ Hint.prototype.tryLevel3 = function () {
   const threes = [];
   const self = this;
 
-  function lineHit(need, onLine, eachOnLine, bucket) {
+  function lineHit(need, onLine, eachOnLine, lineOf, bucket) {
     const closed = [];
     const touching = [];
     for (const id in opensOf) {
@@ -430,17 +430,40 @@ Hint.prototype.tryLevel3 = function () {
       });
       if (prints.length) bucket.push({ id: idA, reason: reason, prints: prints });
     }
+    // b: the lines own exactly `need` ranges, and every line in the group still holds an open of those ranges.
+    // A pair whose opens all sit on one row is a one-line claim, not L3.1.3.b.
     if (touching.length === need) {
-      const prints = [];
+      const keep = {};
+      for (let n = 0; n < touching.length; n++) keep[touching[n]] = true;
+      let foundOn = false;
+      let foreign = false;
+      const covered = {};
+      let coverCount = 0;
       const reason = [];
-      for (let n = 0; n < touching.length; n++) {
-        const opens = opensOf[touching[n]];
-        for (let k = 0; k < opens.length; k++) {
-          if (onLine(opens[k])) reason.push(opens[k]);
-          else prints.push(opens[k]);
+      eachOnLine(function (cell) {
+        if (self.isFoundFox(cell)) foundOn = true;
+        if (!self.isEmptyGrass(cell)) return;
+        if (!keep[cell.dellId]) {
+          foreign = true;
+          return;
         }
+        const lk = lineOf(cell);
+        if (!covered[lk]) {
+          covered[lk] = true;
+          coverCount++;
+        }
+        reason.push(cell);
+      });
+      if (!foundOn && !foreign && coverCount === need) {
+        const prints = [];
+        for (let n = 0; n < touching.length; n++) {
+          const opens = opensOf[touching[n]];
+          for (let k = 0; k < opens.length; k++) {
+            if (!onLine(opens[k])) prints.push(opens[k]);
+          }
+        }
+        if (prints.length) bucket.push({ id: idB, reason: reason, prints: prints });
       }
-      if (prints.length) bucket.push({ id: idB, reason: reason, prints: prints });
     }
   }
 
@@ -452,6 +475,9 @@ Hint.prototype.tryLevel3 = function () {
       },
       function (fn) {
         for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
+      },
+      function (cell) {
+        return cell.row;
       },
       ones
     );
@@ -471,6 +497,9 @@ Hint.prototype.tryLevel3 = function () {
           if (g.runKey(r, col) === key) fn(g.at(r, col));
         }
       },
+      function (cell) {
+        return g.runKey(cell.row, cell.col);
+      },
       ones
     );
   }
@@ -486,6 +515,9 @@ Hint.prototype.tryLevel3 = function () {
         for (let r = a; r <= a + 1; r++) {
           for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
         }
+      },
+      function (cell) {
+        return cell.row;
       },
       twos
     );
@@ -509,6 +541,9 @@ Hint.prototype.tryLevel3 = function () {
             }
           }
         },
+        function (cell) {
+          return g.runKey(cell.row, cell.col);
+        },
         twos
       );
     }
@@ -525,6 +560,9 @@ Hint.prototype.tryLevel3 = function () {
         for (let r = a; r <= a + 2; r++) {
           for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
         }
+      },
+      function (cell) {
+        return cell.row;
       },
       threes
     );
@@ -551,6 +589,9 @@ Hint.prototype.tryLevel3 = function () {
                 if (onRuns(cell, keys)) fn(cell);
               }
             }
+          },
+          function (cell) {
+            return g.runKey(cell.row, cell.col);
           },
           threes
         );
