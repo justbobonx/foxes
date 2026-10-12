@@ -66,11 +66,13 @@ Trees block foxes view as well as movement
 Unlike water, two foxes can sit on the same line if a tree sits between them blocking their view of each other
 ` },
   "L0": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`Two foxes cannot share the same row, run, ring or territory` },
+`These foxes are breaking the rules!
+
+No two foxes can share the same row, run, territory or be next to each other` },
   "L0.wolf": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There is only one wolf in the caves` },
   "L1": { image: "images/prints.png", sizex: 64, sizey: 64, text: 
-`There is no fox there` },
+`There is no fox at that spot` },
   "L1.wolf": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `The wolf is not in that cave` },
   "L2.1.1": { image: "images/prints.png", sizex: 64, sizey: 64, text:
