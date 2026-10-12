@@ -158,7 +158,7 @@ Story.normPage = function (p) {
 };
 
 Story.pages = function (id) {
-  return [Story.normPage(StoryPages['first_bunny'])];
+  //return [Story.normPage(StoryPages['first_bunny'])]; //for testing
   if (!id) return [];
   const entry = StoryPages[id];
   if (!entry) return [];
