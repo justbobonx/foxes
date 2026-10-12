@@ -3,6 +3,8 @@
 const SIZE_MIN = 6;
 const SIZE_MAX = 14;
 const SCORE_CAP = 20;
+const WIDTH_MAX = 11;
+const WATER_CAP = 6;
 
 const FEATURE_CATALOG = {
   pond: { minN: 7, p: 0.7, icon: "images/pond.png", defaults: { size: 1 } },
@@ -12,6 +14,12 @@ const FEATURE_CATALOG = {
   hawk: { minN: 8, p: 0.3, icon: "images/hawk.png" },
   trees: { minN: 8, p: 0.6, icon: "images/trees.png", defaults: { size: 1 } },
 };
+
+// Columns are n - trees. Past 11 the board does not generate, so trees are forced.
+// Pack is still owed when trees sit on that floor. A tree above the floor, an extra,
+// or two water-units each cancel one point. Water-unit = pond size or river size.
+const TREE_FLOOR = { 12: 1, 13: 2, 14: 3 };
+const PACK_AT_FLOOR = { 9: 2, 10: 3, 11: 4, 12: 4, 13: 4, 14: 4 };
 
 const UNLOCK_CHART = [
   { unlock: "size-7", plus: 3, story: "first_7" },
@@ -77,9 +85,11 @@ Planner.featureItem = function (type, size) {
   return item;
 };
 
-Planner.waterParts = function (forest, n, trees) {
+Planner.waterParts = function (forest, n, trees, minAmount) {
   const spec = FEATURE_CATALOG.pond;
   let amount = n - spec.minN + 1 - (trees | 0);
+  if ((minAmount | 0) > amount) amount = minAmount | 0;
+  if (amount > WATER_CAP) amount = WATER_CAP;
   if (amount < 1) return [];
   const parts = [];
   function addPonds(left) {
@@ -109,29 +119,128 @@ Planner.waterParts = function (forest, n, trees) {
 
 Planner.rollFeatures = function (forest, n) {
   const out = [];
+  const floor = TREE_FLOOR[n] || 0;
   let trees = 0;
-  if (Planner.canPut(forest, "trees", n) && Math.random() < Planner.featureP(forest, "trees")) {
+  const treesOk = Planner.canPut(forest, "trees", n);
+  if (treesOk && Math.random() < Planner.featureP(forest, "trees")) {
     const max = Math.max(0, n + 1 - FEATURE_CATALOG.trees.minN);
-    if (max > 0) {
-      trees = Math.ceil(max * (0.45 + 0.55 * Math.random()));
-      out.push(Planner.featureItem("trees", trees));
-    }
+    if (max > 0) trees = Math.ceil(max * (0.45 + 0.55 * Math.random()));
   }
+  if (treesOk && trees < floor) trees = floor;
+  if (trees > 0) out.push(Planner.featureItem("trees", trees));
   for (const type in FEATURE_CATALOG) {
     if (type === "pond" || type === "river" || type === "trees") continue;
     if (type === "hawk" && trees) continue;
     if (!Planner.canPut(forest, type, n)) continue;
     if (Math.random() < Planner.featureP(forest, type)) out.push(Planner.featureItem(type));
   }
+  let extraN = 0;
+  for (let i = 0; i < out.length; i++) {
+    const t = out[i].type;
+    if (t === "wolf" || t === "bunny" || t === "hawk") extraN++;
+  }
+  const gap = (PACK_AT_FLOOR[n] || 0) - (extraN + Math.max(0, trees - floor));
+  const minWater = gap > 0 ? gap * 2 : 0;
   if (Planner.canPut(forest, "pond", n)) {
     let pWater = Planner.featureP(forest, "pond");
     if (Planner.canPut(forest, "river", n)) {
       pWater = (pWater + Planner.featureP(forest, "river")) / 2;
     }
-    if (Math.random() < pWater) {
-      const parts = Planner.waterParts(forest, n, trees);
+    if (minWater > 0 || Math.random() < pWater) {
+      const parts = Planner.waterParts(forest, n, trees, minWater);
       for (let i = 0; i < parts.length; i++) out.push(parts[i]);
     }
+  }
+  return Planner.cover(forest, n, out);
+};
+
+// Raises trees, water, and extras up to the floors. Does not remove a roll.
+Planner.cover = function (forest, n, features) {
+  const out = features ? features.slice() : [];
+  const floor = TREE_FLOOR[n] || 0;
+  const need = PACK_AT_FLOOR[n] || 0;
+
+  if (floor > 0 && Planner.canPut(forest, "trees", n)) {
+    let idx = -1;
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].type === "trees") {
+        idx = i;
+        break;
+      }
+    }
+    if (idx < 0) out.push(Planner.featureItem("trees", floor));
+    else if ((out[idx].size | 0) < floor) out[idx].size = floor;
+  }
+
+  let trees = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i].type === "trees") trees = out[i].size | 0 || 1;
+  }
+  if (trees) {
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (out[i].type === "hawk") out.splice(i, 1);
+    }
+  }
+
+  function waterUnits() {
+    let u = 0;
+    for (let i = 0; i < out.length; i++) {
+      const f = out[i];
+      if (f.type === "pond" || f.type === "river") u += f.size | 0 || 1;
+    }
+    return u;
+  }
+  function extraN() {
+    let e = 0;
+    for (let i = 0; i < out.length; i++) {
+      const t = out[i].type;
+      if (t === "wolf" || t === "bunny" || t === "hawk") e++;
+    }
+    return e;
+  }
+  function points() {
+    return extraN() + Math.floor(waterUnits() / 2) + Math.max(0, trees - floor);
+  }
+
+  let units = waterUnits();
+  while (points() < need && units < WATER_CAP && Planner.canPut(forest, "pond", n)) {
+    const room = WATER_CAP - units;
+    const take = 1 + Math.floor(Math.random() * Math.min(room, 4));
+    out.push(Planner.featureItem("pond", take));
+    units += take;
+  }
+  if (points() < need && !Planner.canPut(forest, "pond", n) && Planner.canPut(forest, "river", n)) {
+    let hasRiver = false;
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].type === "river") hasRiver = true;
+    }
+    if (!hasRiver) out.push(Planner.featureItem("river", 2));
+  }
+
+  const kinds = ["wolf", "bunny", "hawk"];
+  for (let i = kinds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = kinds[i];
+    kinds[i] = kinds[j];
+    kinds[j] = tmp;
+  }
+  while (points() < need) {
+    if (extraN() >= 1 && need - points() < 2) break;
+    let pick = "";
+    for (let i = 0; i < kinds.length; i++) {
+      const type = kinds[i];
+      if (type === "hawk" && trees) continue;
+      if (!Planner.canPut(forest, type, n)) continue;
+      let has = false;
+      for (let k = 0; k < out.length; k++) {
+        if (out[k].type === type) has = true;
+      }
+      if (has) continue;
+      pick = type;
+      break;
+    }
+    if (!pick) break;
+    out.push(Planner.featureItem(pick));
   }
   return out;
 };
@@ -184,6 +293,12 @@ Planner.prototype.travel = function (forest, avoid) {
   sizes.sort(function (a, b) {
     return a - b;
   });
+  const open = [];
+  for (let i = 0; i < sizes.length; i++) {
+    if (sizes[i] > WIDTH_MAX && !Planner.canPut(forest, "trees", sizes[i])) continue;
+    open.push(sizes[i]);
+  }
+  const cardSizes = open.length ? open : sizes;
 
   const item = forest.nextItem();
   const parsed = item ? Planner.parseUnlock(item.unlock) : null;
@@ -234,7 +349,7 @@ Planner.prototype.travel = function (forest, avoid) {
         const spec = FEATURE_CATALOG[parsed.type];
         const need = spec ? spec.minN : SIZE_MIN;
         if (n < need) n = Planner.clampSize(need);
-        features = forceFeature(Planner.rollFeatures(forest, n), parsed.type);
+        features = Planner.cover(forest, n, forceFeature(Planner.rollFeatures(forest, n), parsed.type));
         if (lockedNext && n >= need) {
           lock = true;
           cost = costTarget;
@@ -255,9 +370,9 @@ Planner.prototype.travel = function (forest, avoid) {
   }
 
   const cards = [];
-  for (let i = 0; i < sizes.length; i++) {
-    const deeper = i === sizes.length - 1;
-    let built = rollPlan(sizes[i], deeper);
+  for (let i = 0; i < cardSizes.length; i++) {
+    const deeper = i === cardSizes.length - 1;
+    let built = rollPlan(cardSizes[i], deeper);
     for (let t = 0; t < 8; t++) {
       const key = Plan.key(built.plan);
       let clash = !!(avoidKey && key === avoidKey);
@@ -265,7 +380,7 @@ Planner.prototype.travel = function (forest, avoid) {
         if (Plan.key(cards[k].plan) === key) clash = true;
       }
       if (!clash) break;
-      built = rollPlan(sizes[i], deeper);
+      built = rollPlan(cardSizes[i], deeper);
     }
     cards.push(Planner.getCard(kinds[i] || "stay", built.plan, built.lock, built.cost));
   }
