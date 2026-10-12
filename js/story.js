@@ -29,10 +29,12 @@ And no fox can sit next to another fox in any direction`
  ],
   first_7: { image: "images/sizes.png", sizex: 64, sizey: 64, text:
 `As the fields grow larger
-that means more foxes`
+that means more foxes
+
+Always 1 per row, run, and territory`
   },
   first_pond: { image: "images/pond.png", sizex: 64, sizey: 64, text:
-`Foxes don't go in ponds, but the can see over them` },
+`Foxes don't go in ponds, but they can see over them` },
   first_river: { image: "images/stream.png", sizex: 64, sizey: 64, text:
 `Rivers are just like ponds
 
@@ -43,17 +45,26 @@ Only longer` },
 No fox wants to be next to a wolf
 
 But foxes love to taunt the wolf. They often sit right next to cave spaces where the wolf is not!` },
-  first_bunny: { image: "images/bunny.png", sizex: 64, sizey: 64, text: "bunny go hop hop" },
+  first_bunny: { image: "images/bunny.png", sizex: 64, sizey: 64, text:
+`The foxes have found a rabbits den
+
+Foxes love to hunt rabbits
+
+There will always be the most foxes that can fit around a rabbits den (that's two)` },
   first_hawk: { image: "images/hawk.png", sizex: 64, sizey: 64, text:
-`a hawk stares down
-from the corner of the forest
-exactly one fox on that line`
+`A hawk stares down from the corner of the field
+
+The hawk has a favorite fox and protects only it
+
+There is always exactly one fox on the hawk's line`
   },
   first_trees: { image: "images/trees.png", sizex: 64, sizey: 64, text:
-`trees on the edge split a column
-two foxes can share that file
-if the trees stand between them`
-  },
+`Sometimes trees grow into a field from the sides
+
+Trees block foxes view as well as movement
+
+Unlike water, two foxes can sit on the same line if a tree sits between them blocking their view of each other
+` },
   "L0": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Two foxes cannot share the same row, run, ring or territory` },
   "L0.wolf": { image: "images/prints.png", sizex: 64, sizey: 64, text:
@@ -147,7 +158,7 @@ Story.normPage = function (p) {
 };
 
 Story.pages = function (id) {
-  //return [Story.normPage(StoryPages['L3.1.3.b'])];
+  return [Story.normPage(StoryPages['first_bunny'])];
   if (!id) return [];
   const entry = StoryPages[id];
   if (!entry) return [];
