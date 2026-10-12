@@ -63,14 +63,19 @@ L3.2.2.a: One range has all its open spots on the hawk diagonal. Mark off other 
 L3.2.2.b: No fox found on the diagonal, and it holds opens from exactly one range. Mark off that range off the diagonal.
 L3.2.3: Any spot that touches all cave cells must me next to the wolf and can be marked off.
 
-L3.1 (cont) Advanced Basics
 L3.1.3.n: two-line non-adjacent (rows or runs) (any order)
 L3.1.3.a.n: Two non-adjacent lines hold all the opens of exactly two ranges. Mark off other opens on those lines.
 L3.1.3.b.n: Two non-adjacent lines hold opens from exactly two ranges. Mark off those ranges off the pair.
 L3.1.4.n: three-line non-adjacent (rows or runs) (any order)
 L3.1.4.a.n: Three non-adjacent lines hold all the opens of exactly three ranges. Mark off other opens on those lines.
 L3.1.4.b.n: Three non-adjacent lines hold opens from exactly three ranges. Mark off those ranges off the triple.
+
 L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
+
+L3.9: Fox is found
+L3.9.a: Only one spot left on a row. The fox must be there.
+L3.9.b: Only one spot left on a run. The fox must be there.
+L3.9.c: Only one spot left on a territory. The fox must be there.
 
 L4: No more logic can be deduced. Give one fox-free row or run out of a range with no guessed fox.
 L5: Nothing left but to give a fox away. Mark off the last unknown spots in a range.
@@ -959,6 +964,32 @@ Hint.prototype.tryLevel3 = function () {
   }
   const sharedHit = take(shared);
   if (sharedHit) return sharedHit;
+
+  // L3.9: only one open spot left on a row, run, or territory
+  for (let r = 0; r < g.rows; r++) {
+    const opens = [];
+    for (let c = 0; c < g.cols; c++) {
+      const cell = g.at(r, c);
+      if (self.isEmptyGrass(cell)) opens.push(cell);
+    }
+    if (opens.length === 1) return self.pack("L3.9.a", opens, []);
+  }
+
+  for (let i = 0; i < runs.length; i++) {
+    const key = runs[i].key;
+    const opens = [];
+    for (let r = 0; r < g.rows; r++) {
+      if (g.runKey(r, runs[i].col) !== key) continue;
+      const cell = g.at(r, runs[i].col);
+      if (self.isEmptyGrass(cell)) opens.push(cell);
+    }
+    if (opens.length === 1) return self.pack("L3.9.b", opens, []);
+  }
+
+  for (const id in opensOf) {
+    const opens = opensOf[id];
+    if (opens.length === 1) return self.pack("L3.9.c", opens, []);
+  }
 
   return null;
 };
