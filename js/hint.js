@@ -61,7 +61,16 @@ L3.2.1.b: Fewer than two foxes found, and the ring holds opens from exactly two 
 L3.2.2: hawk diagonal (any order)
 L3.2.2.a: One range has all its open spots on the hawk diagonal. Mark off other opens on the diagonal.
 L3.2.2.b: No fox found on the diagonal, and it holds opens from exactly one range. Mark off that range off the diagonal.
-L3.2.3: Any spot that touches all cave cells can be marked off.
+L3.2.3: Any spot that touches all cave cells must me next to the wolf and can be marked off.
+
+L3.1 (cont) Advanced Basics
+L3.1.3.n: two-line non-adjacent (rows or runs) (any order)
+L3.1.3.a.n: Two non-adjacent lines hold all the opens of exactly two ranges. Mark off other opens on those lines.
+L3.1.3.b.n: Two non-adjacent lines hold opens from exactly two ranges. Mark off those ranges off the pair.
+L3.1.4.n: three-line non-adjacent (rows or runs) (any order)
+L3.1.4.a.n: Three non-adjacent lines hold all the opens of exactly three ranges. Mark off other opens on those lines.
+L3.1.4.b.n: Three non-adjacent lines hold opens from exactly three ranges. Mark off those ranges off the triple.
+L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
 
 L4: No more logic can be deduced. Give one fox-free row or run out of a range with no guessed fox.
 L5: Nothing left but to give a fox away. Mark off the last unknown spots in a range.
@@ -402,7 +411,7 @@ Hint.prototype.tryLevel3 = function () {
   const threes = [];
   const self = this;
 
-  function lineHit(need, onLine, eachOnLine, lineOf, bucket) {
+  function lineHit(need, onLine, eachOnLine, lineOf, bucket, idA, idB) {
     const closed = [];
     const touching = [];
     for (const id in opensOf) {
@@ -416,8 +425,8 @@ Hint.prototype.tryLevel3 = function () {
       if (any) touching.push(+id);
       if (any && all) closed.push(+id);
     }
-    const idA = need === 1 ? "L3.1.1.a" : need === 2 ? "L3.1.3.a" : "L3.1.4.a";
-    const idB = need === 1 ? "L3.1.1.b" : need === 2 ? "L3.1.3.b" : "L3.1.4.b";
+    idA = idA || (need === 1 ? "L3.1.1.a" : need === 2 ? "L3.1.3.a" : "L3.1.4.a");
+    idB = idB || (need === 1 ? "L3.1.1.b" : need === 2 ? "L3.1.3.b" : "L3.1.4.b");
     if (closed.length === need) {
       const keep = {};
       for (let i = 0; i < closed.length; i++) keep[closed[i]] = true;
@@ -623,6 +632,127 @@ Hint.prototype.tryLevel3 = function () {
     if (out.length) halos.push({ id: "L3.1.2", reason: seats.slice(), prints: out });
   }
 
+  const twosN = [];
+  const threesN = [];
+
+  // non-adjacent row pairs
+  for (let a = 0; a < g.rows; a++) {
+    for (let b = a + 2; b < g.rows; b++) {
+      const rows = [a, b];
+      lineHit(
+        2,
+        function (cell) {
+          return onRows(cell, rows);
+        },
+        function (fn) {
+          for (let ri = 0; ri < rows.length; ri++) {
+            const r = rows[ri];
+            for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
+          }
+        },
+        function (cell) {
+          return cell.row;
+        },
+        twosN,
+        "L3.1.3.a.n",
+        "L3.1.3.b.n"
+      );
+    }
+  }
+
+  // non-adjacent run pairs (any runs)
+  for (let i = 0; i < runs.length; i++) {
+    for (let j = i + 1; j < runs.length; j++) {
+      if (runs[i].run === runs[j].run && Math.abs(runs[i].col - runs[j].col) === 1) continue;
+      const keys = [runs[i].key, runs[j].key];
+      lineHit(
+        2,
+        function (cell) {
+          return onRuns(cell, keys);
+        },
+        function (fn) {
+          for (let r = 0; r < g.rows; r++) {
+            for (let c = 0; c < g.cols; c++) {
+              const cell = g.at(r, c);
+              if (onRuns(cell, keys)) fn(cell);
+            }
+          }
+        },
+        function (cell) {
+          return g.runKey(cell.row, cell.col);
+        },
+        twosN,
+        "L3.1.3.a.n",
+        "L3.1.3.b.n"
+      );
+    }
+  }
+
+  // non-adjacent row triples
+  for (let a = 0; a < g.rows; a++) {
+    for (let b = a + 1; b < g.rows; b++) {
+      for (let c = b + 1; c < g.rows; c++) {
+        const sorted = [a, b, c].sort(function (x, y) {
+          return x - y;
+        });
+        if (sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1) continue;
+        const rows = [a, b, c];
+        lineHit(
+          3,
+          function (cell) {
+            return onRows(cell, rows);
+          },
+          function (fn) {
+            for (let ri = 0; ri < rows.length; ri++) {
+              const r = rows[ri];
+              for (let cc = 0; cc < g.cols; cc++) fn(g.at(r, cc));
+            }
+          },
+          function (cell) {
+            return cell.row;
+          },
+          threesN,
+          "L3.1.4.a.n",
+          "L3.1.4.b.n"
+        );
+      }
+    }
+  }
+
+  // non-adjacent run triples (any runs)
+  for (let i = 0; i < runs.length; i++) {
+    for (let j = i + 1; j < runs.length; j++) {
+      for (let k = j + 1; k < runs.length; k++) {
+        const cols = [runs[i].col, runs[j].col, runs[k].col].sort(function (x, y) {
+          return x - y;
+        });
+        const sameRun = runs[i].run === runs[j].run && runs[j].run === runs[k].run;
+        if (sameRun && cols[1] === cols[0] + 1 && cols[2] === cols[1] + 1) continue;
+        const keys = [runs[i].key, runs[j].key, runs[k].key];
+        lineHit(
+          3,
+          function (cell) {
+            return onRuns(cell, keys);
+          },
+          function (fn) {
+            for (let r = 0; r < g.rows; r++) {
+              for (let c = 0; c < g.cols; c++) {
+                const cell = g.at(r, c);
+                if (onRuns(cell, keys)) fn(cell);
+              }
+            }
+          },
+          function (cell) {
+            return g.runKey(cell.row, cell.col);
+          },
+          threesN,
+          "L3.1.4.a.n",
+          "L3.1.4.b.n"
+        );
+      }
+    }
+  }
+
   function take(bucket) {
     if (!bucket.length) return null;
     self.shuffle(bucket);
@@ -771,6 +901,65 @@ Hint.prototype.tryLevel3 = function () {
     else hit = caveTargets();
     if (hit) return this.pack(hit.id, hit.reason, hit.prints);
   }
+
+  const nHit = take(twosN) || take(threesN);
+  if (nHit) return nHit;
+
+  // L3.1.5 shared-halo: two small ranges that share a line
+  const smallIds = [];
+  for (let i = 0; i < ids.length; i++) {
+    const seats = seatsOf[ids[i]];
+    if (seats && seats.length >= 2 && seats.length <= 4) smallIds.push(ids[i]);
+  }
+  const shared = [];
+  for (let i = 0; i < smallIds.length; i++) {
+    for (let j = i + 1; j < smallIds.length; j++) {
+      const idA = smallIds[i];
+      const idB = smallIds[j];
+      const seatsA = seatsOf[idA];
+      const seatsB = seatsOf[idB];
+      let share = false;
+      for (let ka = 0; ka < seatsA.length && !share; ka++) {
+        for (let kb = 0; kb < seatsB.length && !share; kb++) {
+          const a = seatsA[ka];
+          const b = seatsB[kb];
+          if (a.row === b.row) share = true;
+          else if (g.runKey(a.row, a.col) && g.runKey(a.row, a.col) === g.runKey(b.row, b.col)) share = true;
+        }
+      }
+      if (!share) continue;
+      const legal = [];
+      for (let ka = 0; ka < seatsA.length; ka++) {
+        for (let kb = 0; kb < seatsB.length; kb++) {
+          const a = seatsA[ka];
+          const b = seatsB[kb];
+          if (!self.conflicts(a, b)) legal.push([a, b]);
+        }
+      }
+      if (!legal.length) continue;
+      const prints = [];
+      const reason = seatsA.concat(seatsB);
+      for (let r = 0; r < g.rows; r++) {
+        for (let c = 0; c < g.cols; c++) {
+          const cell = g.at(r, c);
+          if (!self.isEmptyGrass(cell)) continue;
+          let allHit = true;
+          for (let p = 0; p < legal.length; p++) {
+            const pair = legal[p];
+            if (!self.conflicts(cell, pair[0]) && !self.conflicts(cell, pair[1])) {
+              allHit = false;
+              break;
+            }
+          }
+          if (allHit) prints.push(cell);
+        }
+      }
+      if (prints.length) shared.push({ id: "L3.1.5", reason: reason, prints: prints });
+    }
+  }
+  const sharedHit = take(shared);
+  if (sharedHit) return sharedHit;
+
   return null;
 };
 
@@ -980,3 +1169,4 @@ Hint.prototype.apply = function () {
   const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
   return this.blank(level, hit);
 };
+

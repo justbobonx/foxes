@@ -127,6 +127,27 @@ So, all spots from other territoires must be empty.` },
 `The hawks line contains only one territory so its fox must be there, so any other spots of that territory must be empty` },
   "L3.2.3": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Any spot that is next to all cave spots must be next to the wolf and so cannot contain a fox` },
+    "L3.1.3.a.n": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+`All remaining open spots of these two territories sit wholly on this group of two lines.
+
+So spots from any other territory on this group of two lines must be empty.` },
+  "L3.1.3.b.n": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+`This group of two lines only holds remaining open spots for these two territories.
+
+So the foxes of these two territories must be on these two lines and all the spots of these two territories on other lines must be empty.` },
+  "L3.1.4.a.n": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+`All remaining open spots of these three territories sit wholly on this group of three lines.
+
+So spots from any other territory on this group of three lines must be empty.` },
+  "L3.1.4.b.n": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+`This group of three lines only holds remaining open spots for these three territories.
+
+So the foxes of these three territories must be on these three lines and all the spots of these three territories on other lines must be empty.` },
+  "L3.1.5": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+`These two territories have only a few spots left.
+
+No matter which spots their foxes take, these cells are always seen by one of them, so they must be empty.` },
+  
   "L4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Still stumped?
 
