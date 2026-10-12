@@ -275,6 +275,13 @@ function clearHintLight() {
   hintId = "";
   ui.hideWhy();
   if (!grid) return;
+  if (grid.pendingClear) {
+    for (let i = 0; i < grid.pendingClear.length; i++) {
+      const cell = grid.pendingClear[i];
+      if (cell.guessId === "x" && !cell.locked) cell.setGuess(null);
+    }
+    grid.pendingClear = null;
+  }
   grid.each(function (cell) {
     cell.hintEdge = "";
   });
@@ -288,6 +295,7 @@ function holdHint(result) {
   const prints = result.prints || [];
   for (let i = 0; i < reason.length; i++) reason[i].hintEdge = "reason";
   for (let i = 0; i < prints.length; i++) prints[i].hintEdge = "print";
+  if (result.pendingClear) grid.pendingClear = result.pendingClear;
   ui.showWhy();
 }
 

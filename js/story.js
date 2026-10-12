@@ -147,15 +147,15 @@ So the foxes of these three territories must be on these three lines and all the
 `These two territories have only a few spots left.
 
 No matter which spots their foxes take, these cells are always seen by one of them, so they must be empty.` },
-  "L3.9a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+  "L3.9.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There is only one open spot left in this row.
 
 A fox must be there!` },
-  "L3.9b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+  "L3.9.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There is only one open spot left in this run.
 
 A fox must be there!` },
-  "L3.9c": { image: "images/prints.png", sizex: 64, sizey: 64, text:
+  "L3.9.c": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There is only one open spot left in this territoy.
 
 A fox must be there!` },

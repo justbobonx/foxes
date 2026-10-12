@@ -12,6 +12,7 @@ function Grid(n, cols) {
   this.wolfRow = -1;
   this.wolfCol = -1;
   this.hawk = null;
+  this.hintPrints = {};
   this.cells = [];
   for (let r = 0; r < this.rows; r++) {
     const row = [];
@@ -172,6 +173,8 @@ Grid.prototype.clearGuesses = function () {
 
 Grid.prototype.resetMarks = function () {
   this.wolfShown = false;
+  this.hintPrints = {};
+  this.pendingClear = null;
   this.each(function (cell) {
     cell.resetMarks();
   });
@@ -213,6 +216,7 @@ Grid.prototype.clearLooseMarks = function () {
   this.each(function (cell) {
     if (!cell.is("grass") || cell.guessId !== "x") return;
     if (cell.locked) return;
+    if (g.hintPrints && g.hintPrints[cell.row + "," + cell.col]) return;
     let forced = false;
     for (let i = 0; i < foxes.length; i++) {
       const fox = foxes[i];
@@ -258,6 +262,7 @@ Grid.prototype.dump = function () {
     wolfRow: this.wolfRow,
     wolfCol: this.wolfCol,
     hawk: this.hawk || null,
+    hintPrints: this.hintPrints || {},
     plan: Grid.normalizePlan(this.plan, this.n),
     cells: cells,
   };
@@ -275,6 +280,7 @@ Grid.load = function (data) {
   grid.wolfRow = typeof data.wolfRow === "number" ? data.wolfRow : -1;
   grid.wolfCol = typeof data.wolfCol === "number" ? data.wolfCol : -1;
   grid.hawk = data.hawk === "L" || data.hawk === "R" ? data.hawk : null;
+  grid.hintPrints = data.hintPrints || {};
   let i = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {

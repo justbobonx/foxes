@@ -61,7 +61,7 @@ L3.2.1.b: Fewer than two foxes found, and the ring holds opens from exactly two 
 L3.2.2: hawk diagonal (any order)
 L3.2.2.a: One range has all its open spots on the hawk diagonal. Mark off other opens on the diagonal.
 L3.2.2.b: No fox found on the diagonal, and it holds opens from exactly one range. Mark off that range off the diagonal.
-L3.2.3: Any spot that touches all cave cells must me next to the wolf and can be marked off.
+L3.2.3: Any spot that touches all cave cells can be marked off.
 
 L3.1.3.n: two-line non-adjacent (rows or runs) (any order)
 L3.1.3.a.n: Two non-adjacent lines hold all the opens of exactly two ranges. Mark off other opens on those lines.
@@ -70,7 +70,7 @@ L3.1.4.n: three-line non-adjacent (rows or runs) (any order)
 L3.1.4.a.n: Three non-adjacent lines hold all the opens of exactly three ranges. Mark off other opens on those lines.
 L3.1.4.b.n: Three non-adjacent lines hold opens from exactly three ranges. Mark off those ranges off the triple.
 
-L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell outside those ranges that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
+L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
 
 L3.9: Fox is found
 L3.9.a: Only one spot left on a row. The fox must be there.
@@ -119,8 +119,10 @@ Hint.prototype.isFoundWolf = function (cell) {
 
 Hint.prototype.applyPrints = function (cells) {
   const painted = [];
+  const skip = this.skipPaint;
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
+    if (skip && skip[cell.row + "," + cell.col]) continue;
     const cave = this.isEmptyCave(cell);
     if (!cave && !this.isEmptyGrass(cell)) continue;
     if (!cave && cell.spriteId === "o") continue;
@@ -634,7 +636,11 @@ Hint.prototype.tryLevel3 = function () {
         if (all) out.push(cell);
       }
     }
-    if (out.length) halos.push({ id: "L3.1.2", reason: seats.slice(), prints: out });
+    if (out.length) {
+      const reason = [];
+      for (let k = 0; k < seats.length; k++) if (this.isEmptyGrass(seats[k])) reason.push(seats[k]);
+      halos.push({ id: "L3.1.2", reason: reason, prints: out });
+    }
   }
 
   const twosN = [];
@@ -943,12 +949,13 @@ Hint.prototype.tryLevel3 = function () {
       }
       if (!legal.length) continue;
       const prints = [];
-      const reason = seatsA.concat(seatsB);
+      const reason = [];
+      for (let k = 0; k < seatsA.length; k++) if (self.isEmptyGrass(seatsA[k])) reason.push(seatsA[k]);
+      for (let k = 0; k < seatsB.length; k++) if (self.isEmptyGrass(seatsB[k])) reason.push(seatsB[k]);
       for (let r = 0; r < g.rows; r++) {
         for (let c = 0; c < g.cols; c++) {
           const cell = g.at(r, c);
           if (!self.isEmptyGrass(cell)) continue;
-          if (cell.dellId === idA || cell.dellId === idB) continue;
           let allHit = true;
           for (let p = 0; p < legal.length; p++) {
             const pair = legal[p];
@@ -963,8 +970,9 @@ Hint.prototype.tryLevel3 = function () {
       if (prints.length) shared.push({ id: "L3.1.5", reason: reason, prints: prints });
     }
   }
-  const sharedHit = take(shared);
-  if (sharedHit) return sharedHit;
+  // L3.1.5 shared-halo disabled pending debug
+  // const sharedHit = take(shared);
+  // if (sharedHit) return sharedHit;
 
   // L3.9: only one open spot left on a row, run, or territory
   for (let r = 0; r < g.rows; r++) {
@@ -1179,7 +1187,42 @@ Hint.prototype.blank = function (level, extra) {
     rights: src.rights || 0,
     reason: src.reason || [],
     prints: src.prints || [],
+    pendingClear: src.pendingClear || null,
   };
+};
+
+Hint.prototype.withInternal = function (fn) {
+  const g = this.grid;
+  if (!g.hintPrints) g.hintPrints = {};
+  const snap = [];
+  g.each(function (cell) {
+    snap.push({
+      guessId: cell.guessId,
+      locked: !!cell.locked,
+      wrong: !!cell.wrong,
+      warn: !!cell.warn,
+    });
+    const key = cell.row + "," + cell.col;
+    if (cell.guessId === "x" && !cell.locked) cell.guessId = null;
+    if (g.hintPrints[key] && !cell.locked) {
+      cell.setGuess("x");
+      cell.locked = true;
+    }
+  });
+  let result;
+  try {
+    result = fn();
+  } finally {
+    let i = 0;
+    g.each(function (cell) {
+      const s = snap[i++];
+      cell.guessId = s.guessId;
+      cell.locked = s.locked;
+      cell.wrong = s.wrong;
+      cell.warn = s.warn;
+    });
+  }
+  return result;
 };
 
 Hint.prototype.apply = function () {
@@ -1196,10 +1239,41 @@ Hint.prototype.apply = function () {
   if (check.win) return this.blank(1, { win: true, rights: check.rights });
   if (check.rights) return this.blank(1, { rights: check.rights });
   if (this.grid.guessOCount() >= this.grid.n) return this.blank(0, { rights: check.rights });
-  const hit = this.tryLevel2() || this.tryLevel3() || this.tryLevel4() || this.tryLevel5();
-  if (!hit) return this.blank(0);
-  const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
-  return this.blank(level, hit);
-};
 
+  const g = this.grid;
+  if (!g.hintPrints) g.hintPrints = {};
+  const self = this;
+  const hit = this.withInternal(function () {
+    return self.tryLevel2() || self.tryLevel3() || self.tryLevel4() || self.tryLevel5();
+  });
+  if (!hit) return this.blank(0);
+
+  const prints = hit.prints || [];
+  const fresh = [];
+  for (let i = 0; i < prints.length; i++) {
+    const cell = prints[i];
+    const key = cell.row + "," + cell.col;
+    g.hintPrints[key] = true;
+    if (!cell.guessId && !cell.locked) fresh.push(cell);
+  }
+
+  const reason = [];
+  let cleared = 0;
+  const srcReason = hit.reason || [];
+  const pendingClear = [];
+  for (let i = 0; i < srcReason.length; i++) {
+    const cell = srcReason[i];
+    if (cell.guessId === "x" && !cell.locked && !g.hintPrints[cell.row + "," + cell.col]) {
+      pendingClear.push(cell);
+      cleared++;
+    }
+    reason.push(cell);
+  }
+
+  if (!fresh.length && !cleared && hit.id.indexOf("L3.9") !== 0) return this.blank(0);
+
+  const painted = this.applyPrints(fresh);
+  const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
+  return this.blank(level, { id: hit.id, reason: reason, prints: painted, pendingClear: pendingClear });
+};
 
