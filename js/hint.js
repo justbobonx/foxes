@@ -70,7 +70,7 @@ L3.1.4.n: three-line non-adjacent (rows or runs) (any order)
 L3.1.4.a.n: Three non-adjacent lines hold all the opens of exactly three ranges. Mark off other opens on those lines.
 L3.1.4.b.n: Three non-adjacent lines hold opens from exactly three ranges. Mark off those ranges off the triple.
 
-L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
+L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell outside those ranges that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
 
 L3.9: Fox is found
 L3.9.a: Only one spot left on a row. The fox must be there.
@@ -948,6 +948,7 @@ Hint.prototype.tryLevel3 = function () {
         for (let c = 0; c < g.cols; c++) {
           const cell = g.at(r, c);
           if (!self.isEmptyGrass(cell)) continue;
+          if (cell.dellId === idA || cell.dellId === idB) continue;
           let allHit = true;
           for (let p = 0; p < legal.length; p++) {
             const pair = legal[p];
@@ -1200,4 +1201,5 @@ Hint.prototype.apply = function () {
   const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
   return this.blank(level, hit);
 };
+
 
