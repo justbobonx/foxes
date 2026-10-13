@@ -299,11 +299,6 @@ Ui.prototype.paintStory = function (page) {
   foot.textContent = "TAP TO CONTINUE";
   btn.appendChild(foot);
 
-  const self = this;
-  btn.addEventListener("click", function (e) {
-    e.stopPropagation();
-    if (self.onStoryContinue) self.onStoryContinue();
-  });
   this.elStorySlot.appendChild(btn);
 };
 
@@ -327,4 +322,9 @@ Ui.prototype.bind = function (handlers) {
   on(this.btnCheck, "click", handlers.check);
   on(this.btnWhy, "click", handlers.why);
   on(this.elMenu, "click", handlers.menuBackdrop);
+  if (this.elStory) {
+    this.elStory.addEventListener("click", function () {
+      if (this.storyOpen() && this.onStoryContinue) this.onStoryContinue();
+    }.bind(this));
+  }
 };

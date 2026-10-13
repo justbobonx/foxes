@@ -32,6 +32,7 @@ let dragMode = null;
 let dragCell = null;
 let dragPointer = -1;
 let dragDirty = false;
+let dragType = null;
 let hintCount = 0;
 let hintCut = 1;
 let loadedPlan = Plan.fromQuery(window.location.search);
@@ -564,6 +565,7 @@ function sameCell(a, b) {
 function applyStroke(hit, mode) {
   const cell = grid.at(hit.row, hit.col);
   if (!cell.canTap()) return;
+  if (dragType && cell.type !== dragType) return;
   if (cell.guessId === "o") return;
   if (mode === "x") {
     if (cell.guessId) return;
@@ -598,6 +600,7 @@ function endDrag(e) {
   dragCell = null;
   dragPointer = -1;
   dragDirty = false;
+  dragType = null;
 }
 
 function onBoardDown(e) {
@@ -627,6 +630,7 @@ function onBoardDown(e) {
   dragCell = hit;
   dragPointer = e.pointerId;
   dragDirty = false;
+  dragType = cell.type;
   if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
   if (wasFox) {
     cell.setGuess(null);

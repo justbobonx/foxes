@@ -74,19 +74,23 @@ No two foxes can share the same row, run, territory or be next to each other` },
   "L1": { image: "images/prints.png", sizex: 64, sizey: 64, text: 
 `There is no fox at that spot` },
   "L1.wolf": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`The wolf is not in that cave` },
+`The wolf is not in that cave spot` },
   "L2.1.1": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No other foxes can be in that row` },
+`No other foxes can be in that row with the found fox` },
   "L2.1.2": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No other foxes can be in that run` },
+`No other foxes can be in that run with the found fox` },
   "L2.1.3": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No other foxes around that fox` },
+`No other foxes around the found fox` },
   "L2.1.4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No other foxes can be in that territory` },
+`No other foxes can be in thatterritory with the found fox` },
   "L2.2.5": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No more foxes can fit around the rabbits den` },
+`No more foxes can fit around the rabbits den
+
+(it's always exactly two foxes)` },
   "L2.2.6": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No other fox can be in the hawk's sight line` },
+`No other fox can be in the hawk's sight line
+
+(always exactly one fox)` },
   "L2.2.7": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `Only one wolf in the caves and no foxes by the wolf` },
   "L3.1.1.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
@@ -118,7 +122,7 @@ So, spots from any other territory around the rabbits den must be empty.` },
   "L3.2.1.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There are only two territories open around the rabbits den, so those foxes must be hunting the rabbits.
 
-So, all other spots of those two territoires not around the rabbits den must be empty.` },
+All other spots of those two territoires that are not around the rabbits den must be empty.` },
   "L3.2.2.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `All remaining open spots for this territory are in the hawks line, so it must have its fox there.
 
