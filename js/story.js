@@ -84,7 +84,7 @@ No two foxes can share the same row, run, territory or be next to each other` },
   "L2.1.4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `No other foxes can be in that territory` },
   "L2.2.5": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No more foxes can fit around the bunnies spot` },
+`No more foxes can fit around the rabbits den` },
   "L2.2.6": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `No other fox can be in the hawk's sight line` },
   "L2.2.7": { image: "images/prints.png", sizex: 64, sizey: 64, text:
@@ -112,13 +112,13 @@ So spots from any other territory on this group of three lines must be empty.` }
 
 So the foxes of these three territories must be on these three lines and all the spots of these three territories on other lines must be empty.` },
   "L3.2.1.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`These two territories only have remaining open spots around the bunnies spot.
+`These two territories only have remaining open spots around the rabbits den.
 
-So, spots from any other territory around the bunnies spot must be empty.` },
+So, spots from any other territory around the rabbits den must be empty.` },
   "L3.2.1.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`There are only two territories open around the bunnies, so those foxes must be hunting the bunnies.
+`There are only two territories open around the rabbits den, so those foxes must be hunting the rabbits.
 
-So, all other spots of those two territoires not around the bunnies spot must be empty.` },
+So, all other spots of those two territoires not around the rabbits den must be empty.` },
   "L3.2.2.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `All remaining open spots for this territory are in the hawks line, so it must have its fox there.
 
