@@ -119,10 +119,8 @@ Hint.prototype.isFoundWolf = function (cell) {
 
 Hint.prototype.applyPrints = function (cells) {
   const painted = [];
-  const skip = this.skipPaint;
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
-    if (skip && skip[cell.row + "," + cell.col]) continue;
     const cave = this.isEmptyCave(cell);
     if (!cave && !this.isEmptyGrass(cell)) continue;
     if (!cave && cell.spriteId === "o") continue;
@@ -916,7 +914,8 @@ Hint.prototype.tryLevel3 = function () {
   const nHit = take(twosN) || take(threesN);
   if (nHit) return nHit;
 
-  // L3.1.5 shared-halo: two small ranges that share a line
+  // L3.1.5 shared-halo fully disabled
+  if (false) {
   const smallIds = [];
   for (let i = 0; i < ids.length; i++) {
     const seats = seatsOf[ids[i]];
@@ -970,9 +969,9 @@ Hint.prototype.tryLevel3 = function () {
       if (prints.length) shared.push({ id: "L3.1.5", reason: reason, prints: prints });
     }
   }
-  // L3.1.5 shared-halo disabled pending debug
-  // const sharedHit = take(shared);
-  // if (sharedHit) return sharedHit;
+  const sharedHit = take(shared);
+  if (sharedHit) return sharedHit;
+  }
 
   // L3.9: only one open spot left on a row, run, or territory
   for (let r = 0; r < g.rows; r++) {
@@ -1187,13 +1186,11 @@ Hint.prototype.blank = function (level, extra) {
     rights: src.rights || 0,
     reason: src.reason || [],
     prints: src.prints || [],
-    pendingClear: src.pendingClear || null,
   };
 };
 
-Hint.prototype.withInternal = function (fn) {
+Hint.prototype.withPure = function (fn, forced) {
   const g = this.grid;
-  if (!g.hintPrints) g.hintPrints = {};
   const snap = [];
   g.each(function (cell) {
     snap.push({
@@ -1202,9 +1199,9 @@ Hint.prototype.withInternal = function (fn) {
       wrong: !!cell.wrong,
       warn: !!cell.warn,
     });
-    const key = cell.row + "," + cell.col;
     if (cell.guessId === "x" && !cell.locked) cell.guessId = null;
-    if (g.hintPrints[key] && !cell.locked) {
+    const key = cell.row + "," + cell.col;
+    if (forced && forced[key]) {
       cell.setGuess("x");
       cell.locked = true;
     }
@@ -1240,40 +1237,26 @@ Hint.prototype.apply = function () {
   if (check.rights) return this.blank(1, { rights: check.rights });
   if (this.grid.guessOCount() >= this.grid.n) return this.blank(0, { rights: check.rights });
 
-  const g = this.grid;
-  if (!g.hintPrints) g.hintPrints = {};
   const self = this;
-  const hit = this.withInternal(function () {
-    return self.tryLevel2() || self.tryLevel3() || self.tryLevel4() || self.tryLevel5();
-  });
-  if (!hit) return this.blank(0);
+  const forced = {};
+  while (true) {
+    const hit = this.withPure(function () {
+      return self.tryLevel2() || self.tryLevel3() || self.tryLevel4() || self.tryLevel5();
+    }, forced);
+    if (!hit) return this.blank(0);
 
-  const prints = hit.prints || [];
-  const fresh = [];
-  for (let i = 0; i < prints.length; i++) {
-    const cell = prints[i];
-    const key = cell.row + "," + cell.col;
-    g.hintPrints[key] = true;
-    if (!cell.guessId && !cell.locked) fresh.push(cell);
-  }
-
-  const reason = [];
-  let cleared = 0;
-  const srcReason = hit.reason || [];
-  const pendingClear = [];
-  for (let i = 0; i < srcReason.length; i++) {
-    const cell = srcReason[i];
-    if (cell.guessId === "x" && !cell.locked && !g.hintPrints[cell.row + "," + cell.col]) {
-      pendingClear.push(cell);
-      cleared++;
+    const painted = this.applyPrints(hit.prints || []);
+    if (painted.length || hit.id.indexOf("L3.9") === 0) {
+      const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
+      return this.blank(level, { id: hit.id, reason: hit.reason || [], prints: painted });
     }
-    reason.push(cell);
+
+    const prints = hit.prints || [];
+    for (let i = 0; i < prints.length; i++) {
+      const cell = prints[i];
+      forced[cell.row + "," + cell.col] = true;
+    }
   }
-
-  if (!fresh.length && !cleared && hit.id.indexOf("L3.9") !== 0) return this.blank(0);
-
-  const painted = this.applyPrints(fresh);
-  const level = hit.id.indexOf("L2") === 0 ? 2 : hit.id.indexOf("L3") === 0 ? 3 : hit.id === "L4" ? 4 : 5;
-  return this.blank(level, { id: hit.id, reason: reason, prints: painted, pendingClear: pendingClear });
 };
+
 
