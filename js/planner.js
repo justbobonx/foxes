@@ -86,8 +86,7 @@ Planner.featureItem = function (type, size) {
 };
 
 Planner.waterParts = function (forest, n, trees, minAmount) {
-  const spec = FEATURE_CATALOG.pond;
-  let amount = n - spec.minN + 1 - (trees | 0);
+  let amount = n - FEATURE_CATALOG.pond.minN + 1 - (trees | 0);
   if ((minAmount | 0) > amount) amount = minAmount | 0;
   if (amount > WATER_CAP) amount = WATER_CAP;
   if (amount < 1) return [];
@@ -217,13 +216,7 @@ Planner.cover = function (forest, n, features) {
     if (!hasRiver) out.push(Planner.featureItem("river", 2));
   }
 
-  const kinds = ["wolf", "bunny", "hawk"];
-  for (let i = kinds.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = kinds[i];
-    kinds[i] = kinds[j];
-    kinds[j] = tmp;
-  }
+  const kinds = shuffleInPlace(["wolf", "bunny", "hawk"]);
   while (points() < need) {
     if (extraN() >= 1 && need - points() < 2) break;
     let pick = "";
@@ -283,12 +276,7 @@ Planner.prototype.travel = function (forest, avoid) {
     if (s > forest.maxN) s = forest.maxN;
     pool[i] = s;
   }
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = pool[i];
-    pool[i] = pool[j];
-    pool[j] = tmp;
-  }
+  shuffleInPlace(pool);
   const sizes = pool.length <= 3 ? pool : pool.slice(0, 3);
   sizes.sort(function (a, b) {
     return a - b;

@@ -11,11 +11,11 @@ As the fields get bigger other creatures come out and may even change the rules!
 
 ## Play
 
-Start a levle, tap grass cells for an X, tap again to clear, double-tap to place a fox.
+Start a level, tap grass cells for an X, tap again to clear, double-tap to place a fox.
 
-The HINT button checks fox placements and gives extra X when needed.
+The HINT/CHECK button checks fox placements and gives extra X when needed.
 
 ## Menu
-CLEAR removes all unchecked foxes and 'guess' Xs from the board  
+CLEAN UP removes all unchecked foxes and 'guess' Xs from the board  
 RESET completely clears board  
 NEW, [ − / + ] for a new level same, smaller, or larger

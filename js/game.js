@@ -15,6 +15,14 @@ const FIND_FOX_MAX = 60;
 const CHECK_CUT = 0.96;
 const CHECK_HIT = 0.98;
 const HINT_CUT = [0, .99, 0.94, 0.95, 0.97, 0.98, 0.99]; // 2-5 prints, 6 clean up
+const LAYOUT_GAP = 8;
+const CELL_MIN = 16;
+const CELL_INSET = 0.06;
+const HAWK_BAND_ALPHA = 0.8;
+const HAWK_BAND_EDGE_W = 0.5;
+const HAWK_BAND_FILL_W = 0.4;
+const BOARD_BG = "#111111";
+const FIND_FAIL_TEXT = "plan could not be built, sorry, tap to go back";
 
 const forest = Forest.load();
 let n = forest.location.size;
@@ -71,11 +79,10 @@ function clockNow() {
   return clockElapsed + (Date.now() - clockStarted);
 }
 
-function chargeHint(level, extra) {
+function chargeHint(level) {
   const cut = HINT_CUT[level];
   if (!cut) return;
   hintCut *= cut;
-  if (extra) hintCut *= extra;
   hintCount += 1;
 }
 
@@ -99,20 +106,16 @@ function layout() {
   canvas.height = h;
   canvas.style.imageRendering = "pixelated";
   const pad = ui.hudPad();
-  const padTop = pad.top;
-  const padBot = pad.bot;
-  const gap = 8;
-  const usableW = w;
-  const usableH = h - padTop - padBot - gap * 2;
+  const usableH = h - pad.top - pad.bot - LAYOUT_GAP * 2;
   const rows = grid ? grid.rows : n;
   const cols = grid ? grid.cols : n;
-  cellSize = Math.floor(Math.min(usableW / cols, usableH / rows));
-  if (cellSize < 16) cellSize = 16;
+  cellSize = Math.floor(Math.min(w / cols, usableH / rows));
+  if (cellSize < CELL_MIN) cellSize = CELL_MIN;
   const boardW = cols * cellSize;
   const boardH = rows * cellSize;
   originX = Math.floor((w - boardW) / 2);
-  if (ui.winOpen()) originY = padTop + gap;
-  else originY = padTop + gap + Math.floor((usableH - boardH) / 2);  
+  if (ui.winOpen()) originY = pad.top + LAYOUT_GAP;
+  else originY = pad.top + LAYOUT_GAP + Math.floor((usableH - boardH) / 2);
 }
 
 function showMenu() {
@@ -165,6 +168,7 @@ function openTravel() {
 }
 
 function startField(plan, isTest) {
+  keepBoard = false;
   ui.hideWin();
   ui.hideMenu();
   ui.hideStory();
@@ -178,9 +182,9 @@ function startField(plan, isTest) {
   const started = Date.now();
   let foxes = 0;
   function tickFind(builder) {
-    if (gen !== buildGen) return;
+    if (gen !== buildGen) return false;
     const elapsed = Date.now() - started;
-    if (elapsed < FIND_WAIT_MS) return;
+    if (elapsed < FIND_WAIT_MS) return true;
     if (!ui.findOpen()) ui.showFind();
     const want = Math.min(FIND_FOX_MAX, 1 + Math.floor((elapsed - FIND_WAIT_MS) / FIND_FOX_MS));
     if (want > foxes) {
@@ -188,13 +192,14 @@ function startField(plan, isTest) {
       ui.setFindFoxes(foxes);
     }
     if (builder && builder.searchPath) ui.setFindPath(builder.searchPath());
+    return true;
   }
   GridBuilder.buildAsync(plan, tickFind).then(function (built) {
     if (gen !== buildGen) return;
     building = false;
     if (!built) {
       if (!ui.findOpen()) ui.showFind();
-      ui.setFindPath("no go");
+      ui.setFindPath(FIND_FAIL_TEXT);
       return;
     }    
     ui.hideFind();
@@ -284,13 +289,6 @@ function clearHintLight() {
   hintId = "";
   ui.hideWhy();
   if (!grid) return;
-  if (grid.pendingClear) {
-    for (let i = 0; i < grid.pendingClear.length; i++) {
-      const cell = grid.pendingClear[i];
-      if (cell.guessId === "x" && !cell.locked) cell.setGuess(null);
-    }
-    grid.pendingClear = null;
-  }
   grid.each(function (cell) {
     cell.hintEdge = "";
   });
@@ -304,7 +302,6 @@ function holdHint(result) {
   const prints = result.prints || [];
   for (let i = 0; i < reason.length; i++) reason[i].hintEdge = "reason";
   for (let i = 0; i < prints.length; i++) prints[i].hintEdge = "print";
-  if (result.pendingClear) grid.pendingClear = result.pendingClear;
   ui.showWhy();
 }
 
@@ -468,7 +465,6 @@ function showTitle() {
   ui.hideFind();
   playChrome.leave();
   ui.showStart();
-  ui.hideFind();
 }
 
 // fromUrl: the Play URL Plan button. The URL plan stays until its X is hit.
@@ -519,8 +515,7 @@ function onPlanBack() {
 
 function drawHawkBand() {
   if (!grid || !grid.hawk) return;
-  const spec = Cell.types.hawk;
-  const inset = Math.max(1, Math.floor(cellSize * 0.06));
+  const inset = Math.max(1, Math.floor(cellSize * CELL_INSET));
   const s = cellSize - inset * 2;
   const pts = [];
   if (grid.rows !== grid.cols) return;
@@ -534,16 +529,16 @@ function drawHawkBand() {
   ctx.save();
   ctx.lineCap = "butt";
   ctx.lineJoin = "miter";
-  ctx.globalAlpha = .8;
-  ctx.strokeStyle = spec.edge;
-  ctx.lineWidth = Math.floor(cellSize * .5);    
+  ctx.globalAlpha = HAWK_BAND_ALPHA;
+  ctx.strokeStyle = CELL_TYPES.hawk.edge;
+  ctx.lineWidth = Math.floor(cellSize * HAWK_BAND_EDGE_W);
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = spec.fill;
-  ctx.lineWidth = Math.floor(cellSize * .40);  
+  ctx.strokeStyle = CELL_TYPES.hawk.fill;
+  ctx.lineWidth = Math.floor(cellSize * HAWK_BAND_FILL_W);
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
@@ -554,11 +549,11 @@ function drawHawkBand() {
 
 function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = "#111111";
+  ctx.fillStyle = BOARD_BG;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!grid) return;
   drawHawkBand();
-  const inset = Math.max(2, Math.floor(cellSize * 0.06));
+  const inset = Math.max(2, Math.floor(cellSize * CELL_INSET));
   const s = cellSize - inset * 2;
   grid.each(function (cell, r, c) {
     const x = originX + c * cellSize + inset;
@@ -778,7 +773,7 @@ ui.bind({
 });
 
 ui.elFind.addEventListener("pointerdown", function (e) {
-  if (!ui.findOpen() || building) return;
+  if (!ui.findOpen()) return;
   e.preventDefault();
   showTitle();
 });

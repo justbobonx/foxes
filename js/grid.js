@@ -7,12 +7,10 @@ function Grid(n, cols) {
   this.rows = n;
   this.cols = cols == null ? n : cols;
   this.plan = { size: n, features: [] };
-  this.unique = false;
   this.wolfShown = false;
   this.wolfRow = -1;
   this.wolfCol = -1;
   this.hawk = null;
-  this.hintPrints = {};
   this.cells = [];
   for (let r = 0; r < this.rows; r++) {
     const row = [];
@@ -22,44 +20,6 @@ function Grid(n, cols) {
 }
 
 Grid.HOLE_DELL = HOLE_DELL;
-
-Grid.normalizePlan = function (plan, n) {
-  const size = (plan && (plan.size || plan.n)) || n || 0;
-  if (plan && Array.isArray(plan.features)) {
-    const features = [];
-    const list = plan.features;
-    for (let i = 0; i < list.length; i++) {
-      const f = list[i];
-      if (!f || !f.type || f.type === "water") continue;
-      const item = { type: f.type };
-      for (const k in f) {
-        if (k === "type") continue;
-        item[k] = f[k];
-      }
-      if (item.amount && !item.size) item.size = item.amount;
-      features.push(item);
-    }
-    return { size: size | 0, features: features };
-  }
-  const features = [];
-  if (plan) {
-    if (Array.isArray(plan.ponds)) {
-      for (let i = 0; i < plan.ponds.length; i++) {
-        const sz = plan.ponds[i] | 0;
-        if (sz) features.push({ type: "pond", size: sz });
-      }
-    } else if (plan.ponds) {
-      features.push({ type: "pond", size: plan.ponds | 0 });
-    }
-    const river = plan.river | 0;
-    if (river) features.push({ type: "river", size: river });
-    if (plan.wolf) features.push({ type: "wolf" });
-    if (plan.bunny) features.push({ type: "bunny" });
-    if (plan.hawk) features.push({ type: "hawk" });
-    if (plan.trees) features.push({ type: "trees", size: plan.trees | 0 || 1 });
-  }
-  return { size: size | 0, features: features };
-};
 
 Grid.prototype.at = function (row, col) {
   return this.cells[row][col];
@@ -86,10 +46,6 @@ Grid.prototype.findType = function (name) {
     }
   });
   return found;
-};
-
-Grid.prototype.isHole = function (row, col) {
-  return this.cells[row][col].isHole();
 };
 
 Grid.prototype.markHole = function (cell) {
@@ -142,24 +98,38 @@ Grid.prototype.runKey = function (row, col) {
   return col + ":" + run;
 };
 
-Grid.prototype.findBunny = function () {
-  return this.findType("bunny");
+// Open (non-hole) cells of the 8-way ring around row, col.
+Grid.prototype.openRing = function (row, col) {
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      if (!this.inBoard(row + dr, col + dc)) continue;
+      const cell = this.cells[row + dr][col + dc];
+      if (!cell.isHole()) out.push(cell);
+    }
+  }
+  return out;
+};
+
+Grid.prototype.caveCells = function () {
+  const out = [];
+  this.each(function (cell) {
+    if (cell.is("cave")) out.push(cell);
+  });
+  return out;
 };
 
 Grid.prototype.foxSeatOk = function (row, col) {
   if (!this.inBoard(row, col)) return false;
-  if (this.isHole(row, col)) return false;
+  if (this.cells[row][col].isHole()) return false;
   if (this.nearWolf(row, col)) return false;
   return true;
 };
 
-Grid.prototype.setSprite = function (row, col, id) {
-  this.cells[row][col].setSprite(id);
-};
-
 Grid.prototype.clearSprites = function () {
   this.each(function (cell) {
-    cell.clearSprite();
+    cell.spriteId = null;
     cell.clearGuess();
   });
 };
@@ -173,8 +143,6 @@ Grid.prototype.clearGuesses = function () {
 
 Grid.prototype.resetMarks = function () {
   this.wolfShown = false;
-  this.hintPrints = {};
-  this.pendingClear = null;
   this.each(function (cell) {
     cell.resetMarks();
   });
@@ -216,7 +184,6 @@ Grid.prototype.clearLooseMarks = function () {
   this.each(function (cell) {
     if (!cell.is("grass") || cell.guessId !== "x") return;
     if (cell.locked) return;
-    if (g.hintPrints && g.hintPrints[cell.row + "," + cell.col]) return;
     let forced = false;
     for (let i = 0; i < foxes.length; i++) {
       const fox = foxes[i];
@@ -257,13 +224,11 @@ Grid.prototype.dump = function () {
   return {
     n: this.n,
     cols: this.cols,
-    unique: this.unique,
     wolfShown: !!this.wolfShown,
     wolfRow: this.wolfRow,
     wolfCol: this.wolfCol,
     hawk: this.hawk || null,
-    hintPrints: this.hintPrints || {},
-    plan: Grid.normalizePlan(this.plan, this.n),
+    plan: Plan.copy(this.plan, this.n),
     cells: cells,
   };
 };
@@ -274,13 +239,11 @@ Grid.load = function (data) {
   const cols = data.cols | 0 || rows;
   if (data.cells.length !== rows * cols) return null;
   const grid = new Grid(rows, cols);
-  grid.unique = !!data.unique;
   grid.wolfShown = !!data.wolfShown;
-  grid.plan = Grid.normalizePlan(data.fieldPlan || data.plan, data.n);
+  grid.plan = Plan.copy(data.fieldPlan || data.plan, data.n);
   grid.wolfRow = typeof data.wolfRow === "number" ? data.wolfRow : -1;
   grid.wolfCol = typeof data.wolfCol === "number" ? data.wolfCol : -1;
   grid.hawk = data.hawk === "L" || data.hawk === "R" ? data.hawk : null;
-  grid.hintPrints = data.hintPrints || {};
   let i = 0;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -292,12 +255,12 @@ Grid.load = function (data) {
       cell.wrong = !!src.wrong;
       cell.warn = !!src.warn;
       cell.locked = !!src.locked;
-      var kind =
+      let kind =
         src.type ||
         src.specialId ||
           (src.pond ? "water" : src.cave || src.wolf ? "cave" : src.bunny ? "bunny" : src.hawk ? "hawk" : "grass");
       if (kind === "pond") kind = "water";
-      cell.setType(kind);
+      cell.type = kind;
       if (src.wolf) {
         grid.wolfRow = r;
         grid.wolfCol = c;

@@ -1,5 +1,8 @@
 /** HUD, overlays, and DOM wiring. Game keeps board state. */
 
+const HUD_TOP_MIN = 52;
+const HUD_BOT_MIN = 56;
+
 function Ui() {
   this.canvas = document.getElementById("board");
   this.ctx = this.canvas.getContext("2d");
@@ -148,8 +151,8 @@ Ui.prototype.hudPad = function () {
     return h > 0 ? h : fallback;
   }
   return {
-    top: Math.max(52, barHeight(this.elHud, 52)),
-    bot: Math.max(56, barHeight(this.elHudBottom, 56)),
+    top: Math.max(HUD_TOP_MIN, barHeight(this.elHud, HUD_TOP_MIN)),
+    bot: Math.max(HUD_BOT_MIN, barHeight(this.elHudBottom, HUD_BOT_MIN)),
   };
 };
 
@@ -194,11 +197,6 @@ Ui.prototype.makeCard = function (card, forest, index) {
   btn.type = "button";
   btn.className = "plan-card" + (card.locked ? " locked" : "") + (card.plan.features.length ? "" : " no-extras");
   btn.setAttribute("data-index", String(index));
-
-  const title = document.createElement("div");
-  title.className = "plan-title";
-  //title.textContent = card.title || card.kind;
-  //btn.appendChild(title);
 
   const size = document.createElement("div");
   size.className = "plan-size";

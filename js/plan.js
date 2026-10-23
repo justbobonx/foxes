@@ -3,13 +3,13 @@
 function Plan() {}
 
 Plan.blank = function () {
-  return { size: Save.SIZE_MIN, features: [] };
+  return { size: SIZE_MIN, features: [] };
 };
 
-Plan.copy = function (plan) {
-  if (!plan) return Plan.blank();
-  const size = plan.size || plan.n || Save.SIZE_MIN;
-  const src = Array.isArray(plan.features) ? plan.features : [];
+// n: size to fall back on when the plan has none (a board's row count).
+Plan.copy = function (plan, n) {
+  const size = (plan && (plan.size || plan.n)) || n || SIZE_MIN;
+  const src = plan && Array.isArray(plan.features) ? plan.features : [];
   const features = [];
   for (let i = 0; i < src.length; i++) {
     const f = src[i];
@@ -22,7 +22,7 @@ Plan.copy = function (plan) {
     if (item.amount && !item.size) item.size = item.amount;
     features.push(item);
   }
-  return { size: size, features: features };
+  return { size: size | 0, features: features };
 };
 
 Plan.has = function (plan, type) {

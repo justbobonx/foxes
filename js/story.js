@@ -82,7 +82,7 @@ No two foxes can share the same row, run, territory or be next to each other` },
   "L2.1.3": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `No other foxes around the found fox` },
   "L2.1.4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`No other foxes can be in thatterritory with the found fox` },
+`No other foxes can be in that territory with the found fox` },
   "L2.2.5": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `No more foxes can fit around the rabbits den
 
@@ -122,11 +122,11 @@ So, spots from any other territory around the rabbits den must be empty.` },
   "L3.2.1.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There are only two territories open around the rabbits den, so those foxes must be hunting the rabbits.
 
-All other spots of those two territoires that are not around the rabbits den must be empty.` },
+All other spots of those two territories that are not around the rabbits den must be empty.` },
   "L3.2.2.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `All remaining open spots for this territory are in the hawks line, so it must have its fox there.
 
-So, all spots from other territoires must be empty.` },
+So, all spots from other territories must be empty.` },
   "L3.2.2.b": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `The hawks line contains only one territory so its fox must be there, so any other spots of that territory must be empty` },
   "L3.2.3": { image: "images/prints.png", sizex: 64, sizey: 64, text:
@@ -147,10 +147,6 @@ So spots from any other territory on this group of three lines must be empty.` }
 `This group of three lines only holds remaining open spots for these three territories.
 
 So the foxes of these three territories must be on these three lines and all the spots of these three territories on other lines must be empty.` },
-  "L3.1.5": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`These two territories have only a few spots left.
-
-No matter which spots their foxes take, these cells are always seen by one of them, so they must be empty.` },
   "L3.9.a": { image: "images/prints.png", sizex: 64, sizey: 64, text:
 `There is only one open spot left in this row.
 
@@ -160,7 +156,7 @@ A fox must be there!` },
 
 A fox must be there!` },
   "L3.9.c": { image: "images/prints.png", sizex: 64, sizey: 64, text:
-`There is only one open spot left in this territoy.
+`There is only one open spot left in this territory.
 
 A fox must be there!` },
   "L4": { image: "images/prints.png", sizex: 64, sizey: 64, text:
@@ -196,7 +192,6 @@ Story.normPage = function (p) {
 };
 
 Story.pages = function (id) {
-  //return [Story.normPage(StoryPages['first_bunny'])]; //for testing
   if (!id) return [];
   const entry = StoryPages[id];
   if (!entry) return [];

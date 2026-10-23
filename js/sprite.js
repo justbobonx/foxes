@@ -1,11 +1,15 @@
 /** Named drawable. Bitmaps are 32x32; glyphs fill in until an image loads. */
 
 const TILE = 32;
+const GLYPH_LIGHT = "#f4f1e6";
+const GLYPH_DARK = "#2a2118";
+const GLYPH_GREY = "#c8c8c8";
+const GLYPH_TREE = "#6b8f4e";
 
 function Sprite(id, glyph, color, scale) {
   this.id = id;
   this.glyph = glyph || "";
-  this.color = color || "#f4f1e6";
+  this.color = color || GLYPH_LIGHT;
   this.scale = scale || 1;
   this.image = null;
   this.tile = TILE;
@@ -16,6 +20,11 @@ Sprite.prototype.load = function (src, done) {
   const self = this;
   img.onload = function () {
     self.image = img;
+    if (done) done(self);
+  };
+  // A failed image draws a blank cell, not the stand-in letter.
+  img.onerror = function () {
+    self.glyph = "";
     if (done) done(self);
   };
   img.src = src;
@@ -50,16 +59,14 @@ SpriteBank.prototype.get = function (id) {
 
 SpriteBank.defaults = function (onReady) {
   const bank = new SpriteBank();
-  const fox = bank.add(new Sprite("o", "V", "#f4f1e6", 1));
-  const wolf = bank.add(new Sprite("w", "W", "#f4f1e6", 1));
-  const bunny = bank.add(new Sprite("b", "B", "#f4f1e6",1));
-  const hawk = bank.add(new Sprite("h", "H", "#f4f1e6", 1));
-  const tree = bank.add(new Sprite("t", "T", "#6b8f4e", 1));
-  const prints = bank.add(new Sprite("p", "x", "#2a2118", 1));
-  const gx = bank.add(new Sprite("x", "X", "#2a2118", 1));
-  const gxl = bank.add(new Sprite("xl", "X", "#c8c8c8", 1));  
-  //bank.add(new Sprite("x", "X", "#2a2118", 0.6));
-  //bank.add(new Sprite("xl", "X", "#c8c8c8", 0.6));
+  const fox = bank.add(new Sprite("o", "V", GLYPH_LIGHT, 1));
+  const wolf = bank.add(new Sprite("w", "W", GLYPH_LIGHT, 1));
+  const bunny = bank.add(new Sprite("b", "B", GLYPH_LIGHT, 1));
+  const hawk = bank.add(new Sprite("h", "H", GLYPH_LIGHT, 1));
+  const tree = bank.add(new Sprite("t", "T", GLYPH_TREE, 1));
+  const prints = bank.add(new Sprite("p", "x", GLYPH_DARK, 1));
+  const gx = bank.add(new Sprite("x", "X", GLYPH_DARK, 1));
+  const gxl = bank.add(new Sprite("xl", "X", GLYPH_GREY, 1));
   let left = 8;
   function tick() {
     left--;

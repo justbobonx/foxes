@@ -1,12 +1,5 @@
 /** One board square. type is the kind. spriteId is hidden fox. guessId is the mark. */
 
-// const CELL_DELL_COLORS = [
-  // "#6b8f4e",  //this one is the default grass
-  // "#7a4e4e",  "#5a6b7e",  "#8a6b3f",  "#5c6a5c",
-  // "#a08a4a",  "#3f6b6b",  "#545c64",  "#6b5a3f",
-  // "#8b6196",  "#946f7b",  "#4e7a6b",  "#917d75",
-  // "#6b6b5a",  "#5a7a5a" ]
-
 const CELL_DELL_COLORS = [
   "#6b8f4e", // grass
   "#8d4d4a", // brick
@@ -65,6 +58,19 @@ const CELL_TYPES = {
 };
 
 const CHECK_LINE_W = 0.05;
+const SHADOW_LINE_W = 0.05;
+const EDGE_LINE_SCALE = 0.8;
+const CELL_RADIUS = 0.19;
+const CELL_RADIUS_MIN = 5;
+const CELL_PAD = 0.06;
+
+const CELL_SHADOW = "#0000004d";
+const CELL_OFF_FILL = "#000000";
+const WARN_EDGE = "#f5c518";
+const WRONG_EDGE = "#e23b3b";
+const LOCKED_EDGE = "#7dffa3";
+const HINT_PRINT_EDGE = "#3e7cff";
+const HINT_REASON_EDGE = "#3ee0e0";
 
 function Cell(row, col) {
   this.row = row;
@@ -80,6 +86,7 @@ function Cell(row, col) {
   this.look = CELL_TYPES.grass;
   this.fill = null;
   this.round = [true, true, true, true];
+  this.hintEdge = "";
 }
 
 Cell.types = CELL_TYPES;
@@ -92,21 +99,9 @@ Cell.prototype.isHole = function () {
   return this.type !== "grass";
 };
 
-Cell.prototype.setType = function (name) {
-  this.type = name || "grass";
-};
-
 Cell.prototype.canTap = function () {
   if (this.locked) return false;
-  return this.look ? this.look.tap !== false : this.type === "grass" || this.type === "cave";
-};
-
-Cell.prototype.setSprite = function (id) {
-  this.spriteId = id || null;
-};
-
-Cell.prototype.clearSprite = function () {
-  this.spriteId = null;
+  return this.look.tap !== false;
 };
 
 Cell.prototype.setGuess = function (id) {
@@ -132,7 +127,7 @@ Cell.prototype.resetMarks = function () {
 
 Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
   const look = this.look || CELL_TYPES[this.type] || CELL_TYPES.grass;
-  const rad = Math.max(5, Math.floor(s * 0.19));
+  const rad = Math.max(CELL_RADIUS_MIN, Math.floor(s * CELL_RADIUS));
   const max = s / 2;
   const corners = [
     Math.min(this.round[0] ? rad : 0, max),
@@ -140,41 +135,39 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     Math.min(this.round[2] ? rad : 0, max),
     Math.min(this.round[3] ? rad : 0, max),
   ];
+  const checkW = Math.max(2, Math.floor(s * CHECK_LINE_W));
 
-  function paint(fill) {
+  // The cell square with its rounded corners, inset px in from each side.
+  function shape(inset, fill) {
+    const side = s - inset * 2;
     if (ctx.roundRect) {
       ctx.beginPath();
-      ctx.roundRect(x, y, s, s, corners);
+      ctx.roundRect(x + inset, y + inset, side, side, corners);
       if (fill) ctx.fill();
       else ctx.stroke();
       return;
     }
-    if (fill) ctx.fillRect(x, y, s, s);
-    else ctx.strokeRect(x, y, s, s);
+    if (fill) ctx.fillRect(x + inset, y + inset, side, side);
+    else ctx.strokeRect(x + inset, y + inset, side, side);
+  }
+
+  function ring(color, width) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    shape(1, false);
   }
 
   ctx.save();
-  ctx.strokeStyle = "rgba(0,0,0,0.3)";
-  ctx.lineWidth = Math.max(1, Math.floor(s * 0.05));
-  paint(false);
-  
-  ctx.fillStyle = this.fill || look.fill || "#6b8f4e";
-  paint(true);
-  
-  if (look.edge) {
-    ctx.strokeStyle = look.edge;
-    const checkW = Math.max(2, Math.floor(s * CHECK_LINE_W));    
-    ctx.lineWidth = Math.max(1, Math.floor(checkW * 0.80));
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    }
-  }
+  ctx.strokeStyle = CELL_SHADOW;
+  ctx.lineWidth = Math.max(1, Math.floor(s * SHADOW_LINE_W));
+  shape(0, false);
 
-  const pad = Math.max(0, Math.floor(s * 0.06));
+  ctx.fillStyle = this.fill || look.fill || CELL_DELL_COLORS[0];
+  shape(0, true);
+
+  if (look.edge) ring(look.edge, Math.max(1, Math.floor(checkW * EDGE_LINE_SCALE)));
+
+  const pad = Math.max(0, Math.floor(s * CELL_PAD));
   const box = Math.max(1, s - pad * 2);
   const px = x + pad;
   const py = y + pad;
@@ -208,49 +201,12 @@ Cell.prototype.draw = function (ctx, sprites, x, y, s, revealWolf) {
     }
   }
 
-  if (this.warn) {
-    ctx.strokeStyle = "#f5c518";
-    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    }
-  } else if (this.wrong) {
-    ctx.strokeStyle = "#e23b3b";
-    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    }
-  } else if (this.locked && this.guessId === "o") {
-    ctx.strokeStyle = "#7dffa3";
-    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    }
-  }
+  if (this.warn) ring(WARN_EDGE, checkW);
+  else if (this.wrong) ring(WRONG_EDGE, checkW);
+  else if (this.locked && this.guessId === "o") ring(LOCKED_EDGE, checkW);
 
-  if (this.hintEdge) {
-    ctx.strokeStyle = this.hintEdge === "print" ? "#3e7cff" : "#3ee0e0";
-    ctx.lineWidth = Math.max(2, Math.floor(s * CHECK_LINE_W));
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x + 1, y + 1, s - 2, s - 2, corners);
-      ctx.stroke();
-    } else {
-      ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
-    }
-  }
+  if (this.hintEdge) ring(this.hintEdge === "print" ? HINT_PRINT_EDGE : HINT_REASON_EDGE, checkW);
+  ctx.restore();
 };
 
 Cell.samePatch = function (grid, cell, row, col) {
@@ -268,8 +224,7 @@ Cell.dressGrid = function (grid) {
       const kind = cell.type || "grass";
       cell.look = CELL_TYPES[kind] || CELL_TYPES.grass;
       if (kind === "grass") {
-        const id = cell.dellId;
-        cell.fill = id < 0 || id > CELL_DELL_COLORS.length - 1 ? "#000000" : CELL_DELL_COLORS[id];
+        cell.fill = cell.dellId < 0 || cell.dellId > CELL_DELL_COLORS.length - 1 ? CELL_OFF_FILL : CELL_DELL_COLORS[cell.dellId];
       } else {
         cell.fill = cell.look.fill;
       }      

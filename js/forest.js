@@ -14,10 +14,9 @@ function Forest(data) {
   this.lastClaimStars = data.lastClaimStars | 0;
 
   const state = Forest.blankState();
-  const src = data.featureState;
-  if (src && typeof src === "object") {
+  if (data.featureState && typeof data.featureState === "object") {
     for (const type in state) {
-      const v = src[type];
+      const v = data.featureState[type];
       if (v === "unlocked" || v === "seen" || v === "locked") state[type] = v;
     }
   }
@@ -93,7 +92,7 @@ Forest.blank = function () {
   const loc = Plan.blank();
   return {
     stars: 0,
-    maxN: Save.SIZE_MIN || SIZE_MIN,
+    maxN: SIZE_MIN,
     curUnlockInd: 0,
     lastClaimStars: 0,
     featureState: Forest.blankState(),

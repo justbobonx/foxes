@@ -70,8 +70,6 @@ L3.1.4.n: three-line non-adjacent (rows or runs) (any order)
 L3.1.4.a.n: Three non-adjacent lines hold all the opens of exactly three ranges. Mark off other opens on those lines.
 L3.1.4.b.n: Three non-adjacent lines hold opens from exactly three ranges. Mark off those ranges off the triple.
 
-L3.1.5: Shared-halo. Two small ranges (2-4 seats) that share a line. A cell that conflicts with a seat in every legal seat-pair of the two ranges can be marked off.
-
 L3.9: Fox is found
 L3.9.a: Only one spot left on a row. The fox must be there.
 L3.9.b: Only one spot left on a run. The fox must be there.
@@ -84,16 +82,6 @@ L5: Nothing left but to give a fox away. Mark off the last unknown spots in a ra
 function Hint(grid) {
   this.grid = grid;
 }
-
-Hint.prototype.shuffle = function (arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
-  }
-  return arr;
-};
 
 Hint.prototype.isEmptyGrass = function (cell) {
   return !!(cell && cell.is("grass") && !cell.guessId && !cell.locked);
@@ -173,33 +161,10 @@ Hint.prototype.conflicts = function (a, b) {
   return false;
 };
 
+// Holes on the ring are left out; every caller only looks at grass and found foxes.
 Hint.prototype.bunnyRing = function () {
-  const g = this.grid;
-  const bunny = g.findBunny && g.findBunny();
-  if (!bunny) return [];
-  const out = [];
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (!dr && !dc) continue;
-      const r = bunny.row + dr;
-      const c = bunny.col + dc;
-      if (r < 0 || c < 0 || r >= g.rows || c >= g.cols) continue;
-      out.push(g.at(r, c));
-    }
-  }
-  return out;
-};
-
-Hint.prototype.caveCells = function () {
-  const g = this.grid;
-  const out = [];
-  for (let r = 0; r < g.rows; r++) {
-    for (let c = 0; c < g.cols; c++) {
-      const cell = g.at(r, c);
-      if (cell.is("cave")) out.push(cell);
-    }
-  }
-  return out;
+  const bunny = this.grid.findType("bunny");
+  return bunny ? this.grid.openRing(bunny.row, bunny.col) : [];
 };
 
 Hint.prototype.boardRuns = function () {
@@ -312,7 +277,7 @@ Hint.prototype.tryLevel2 = function () {
   function paintWolf() {
     if (!wolf) return [];
     const targets = [];
-    const caves = self.caveCells();
+    const caves = self.grid.caveCells();
     for (let i = 0; i < caves.length; i++) {
       const cell = caves[i];
       if (cell.row === wolf.row && cell.col === wolf.col) continue;
@@ -332,8 +297,8 @@ Hint.prototype.tryLevel2 = function () {
   }
 
   if (foxes.length) {
-    const rules = this.shuffle(["row", "col", "ring", "dell"]);
-    this.shuffle(foxes);
+    const rules = shuffleInPlace(["row", "col", "ring", "dell"]);
+    shuffleInPlace(foxes);
     for (let i = 0; i < rules.length; i++) {
       for (let f = 0; f < foxes.length; f++) {
         const fox = foxes[f];
@@ -350,7 +315,7 @@ Hint.prototype.tryLevel2 = function () {
     }
   }
 
-  const extras = this.shuffle(["bunny", "hawk", "wolf"]);
+  const extras = shuffleInPlace(["bunny", "hawk", "wolf"]);
   for (let i = 0; i < extras.length; i++) {
     let targets;
     let reason = [];
@@ -388,24 +353,11 @@ Hint.prototype.tryLevel3 = function () {
     seatsOf[id] = seats;
   }
 
-  function onRows(cell, rows) {
-    for (let i = 0; i < rows.length; i++) if (cell.row === rows[i]) return true;
-    return false;
-  }
-
-  function onRuns(cell, keys) {
-    const key = g.runKey(cell.row, cell.col);
-    if (!key) return false;
-    for (let i = 0; i < keys.length; i++) if (key === keys[i]) return true;
-    return false;
-  }
-
   const opensOf = {};
   for (const id in dells) {
-    const cells = dells[id];
     const opens = [];
-    for (let i = 0; i < cells.length; i++) {
-      if (this.isEmptyGrass(cells[i])) opens.push(cells[i]);
+    for (let i = 0; i < dells[id].length; i++) {
+      if (this.isEmptyGrass(dells[id][i])) opens.push(dells[id][i]);
     }
     if (opens.length) opensOf[id] = opens;
   }
@@ -416,25 +368,33 @@ Hint.prototype.tryLevel3 = function () {
   const threes = [];
   const self = this;
 
-  function lineHit(need, onLine, eachOnLine, lineOf, bucket, idA, idB) {
-    const closed = [];
-    const touching = [];
-    for (const id in opensOf) {
-      const opens = opensOf[id];
-      let any = false;
-      let all = true;
-      for (let k = 0; k < opens.length; k++) {
-        if (onLine(opens[k])) any = true;
-        else all = false;
-      }
-      if (any) touching.push(+id);
-      if (any && all) closed.push(+id);
+  // lines: row numbers, or run keys when byRun. Cells are visited in the order the old per-shape walkers used.
+  function lineHit(need, lines, byRun, bucket, idA, idB) {
+    function lineOf(cell) {
+      return byRun ? g.runKey(cell.row, cell.col) : cell.row;
     }
+    function onLine(cell) {
+      return lines.indexOf(lineOf(cell)) >= 0;
+    }
+    function eachOnLine(fn) {
+      if (!byRun) {
+        for (let i = 0; i < lines.length; i++) {
+          for (let c = 0; c < g.cols; c++) fn(g.at(lines[i], c));
+        }
+        return;
+      }
+      for (let r = 0; r < g.rows; r++) {
+        for (let c = 0; c < g.cols; c++) {
+          if (onLine(g.at(r, c))) fn(g.at(r, c));
+        }
+      }
+    }
+    const split = splitOpens(onLine);
     idA = idA || (need === 1 ? "L3.1.1.a" : need === 2 ? "L3.1.3.a" : "L3.1.4.a");
     idB = idB || (need === 1 ? "L3.1.1.b" : need === 2 ? "L3.1.3.b" : "L3.1.4.b");
-    if (closed.length === need) {
+    if (split.closed.length === need) {
       const keep = {};
-      for (let i = 0; i < closed.length; i++) keep[closed[i]] = true;
+      for (let i = 0; i < split.closed.length; i++) keep[split.closed[i]] = true;
       const prints = [];
       const reason = [];
       eachOnLine(function (cell) {
@@ -446,9 +406,9 @@ Hint.prototype.tryLevel3 = function () {
     }
     // b: the lines own exactly `need` ranges, and every line in the group still holds an open of those ranges.
     // A pair whose opens all sit on one row is a one-line claim, not L3.1.3.b.
-    if (touching.length === need) {
+    if (split.touching.length === need) {
       const keep = {};
-      for (let n = 0; n < touching.length; n++) keep[touching[n]] = true;
+      for (let n = 0; n < split.touching.length; n++) keep[split.touching[n]] = true;
       let foundOn = false;
       let foreign = false;
       const covered = {};
@@ -470,8 +430,8 @@ Hint.prototype.tryLevel3 = function () {
       });
       if (!foundOn && !foreign && coverCount === need) {
         const prints = [];
-        for (let n = 0; n < touching.length; n++) {
-          const opens = opensOf[touching[n]];
+        for (let n = 0; n < split.touching.length; n++) {
+          const opens = opensOf[split.touching[n]];
           for (let k = 0; k < opens.length; k++) {
             if (!onLine(opens[k])) prints.push(opens[k]);
           }
@@ -482,59 +442,16 @@ Hint.prototype.tryLevel3 = function () {
   }
 
   for (let r = 0; r < g.rows; r++) {
-    lineHit(
-      1,
-      function (cell) {
-        return cell.row === r;
-      },
-      function (fn) {
-        for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
-      },
-      function (cell) {
-        return cell.row;
-      },
-      ones
-    );
+    lineHit(1, [r], false, ones);
   }
 
   const runs = this.boardRuns();
   for (let i = 0; i < runs.length; i++) {
-    const key = runs[i].key;
-    lineHit(
-      1,
-      function (cell) {
-        return g.runKey(cell.row, cell.col) === key;
-      },
-      function (fn) {
-        const col = runs[i].col;
-        for (let r = 0; r < g.rows; r++) {
-          if (g.runKey(r, col) === key) fn(g.at(r, col));
-        }
-      },
-      function (cell) {
-        return g.runKey(cell.row, cell.col);
-      },
-      ones
-    );
+    lineHit(1, [runs[i].key], true, ones);
   }
 
   for (let a = 0; a < g.rows - 1; a++) {
-    const rows = [a, a + 1];
-    lineHit(
-      2,
-      function (cell) {
-        return onRows(cell, rows);
-      },
-      function (fn) {
-        for (let r = a; r <= a + 1; r++) {
-          for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
-        }
-      },
-      function (cell) {
-        return cell.row;
-      },
-      twos
-    );
+    lineHit(2, [a, a + 1], false, twos);
   }
 
   for (let i = 0; i < runs.length; i++) {
@@ -542,44 +459,12 @@ Hint.prototype.tryLevel3 = function () {
       if (runs[i].run !== runs[j].run) continue;
       if (Math.abs(runs[i].col - runs[j].col) !== 1) continue;
       const keys = [runs[i].key, runs[j].key];
-      lineHit(
-        2,
-        function (cell) {
-          return onRuns(cell, keys);
-        },
-        function (fn) {
-          for (let r = 0; r < g.rows; r++) {
-            for (let c = 0; c < g.cols; c++) {
-              const cell = g.at(r, c);
-              if (onRuns(cell, keys)) fn(cell);
-            }
-          }
-        },
-        function (cell) {
-          return g.runKey(cell.row, cell.col);
-        },
-        twos
-      );
+      lineHit(2, keys, true, twos);
     }
   }
 
   for (let a = 0; a < g.rows - 2; a++) {
-    const rows = [a, a + 1, a + 2];
-    lineHit(
-      3,
-      function (cell) {
-        return onRows(cell, rows);
-      },
-      function (fn) {
-        for (let r = a; r <= a + 2; r++) {
-          for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
-        }
-      },
-      function (cell) {
-        return cell.row;
-      },
-      threes
-    );
+    lineHit(3, [a, a + 1, a + 2], false, threes);
   }
 
   for (let i = 0; i < runs.length; i++) {
@@ -591,24 +476,7 @@ Hint.prototype.tryLevel3 = function () {
         });
         if (cols[1] !== cols[0] + 1 || cols[2] !== cols[1] + 1) continue;
         const keys = [runs[i].key, runs[j].key, runs[k].key];
-        lineHit(
-          3,
-          function (cell) {
-            return onRuns(cell, keys);
-          },
-          function (fn) {
-            for (let r = 0; r < g.rows; r++) {
-              for (let c = 0; c < g.cols; c++) {
-                const cell = g.at(r, c);
-                if (onRuns(cell, keys)) fn(cell);
-              }
-            }
-          },
-          function (cell) {
-            return g.runKey(cell.row, cell.col);
-          },
-          threes
-        );
+        lineHit(3, keys, true, threes);
       }
     }
   }
@@ -647,25 +515,7 @@ Hint.prototype.tryLevel3 = function () {
   // non-adjacent row pairs
   for (let a = 0; a < g.rows; a++) {
     for (let b = a + 2; b < g.rows; b++) {
-      const rows = [a, b];
-      lineHit(
-        2,
-        function (cell) {
-          return onRows(cell, rows);
-        },
-        function (fn) {
-          for (let ri = 0; ri < rows.length; ri++) {
-            const r = rows[ri];
-            for (let c = 0; c < g.cols; c++) fn(g.at(r, c));
-          }
-        },
-        function (cell) {
-          return cell.row;
-        },
-        twosN,
-        "L3.1.3.a.n",
-        "L3.1.3.b.n"
-      );
+      lineHit(2, [a, b], false, twosN, "L3.1.3.a.n", "L3.1.3.b.n");
     }
   }
 
@@ -674,26 +524,7 @@ Hint.prototype.tryLevel3 = function () {
     for (let j = i + 1; j < runs.length; j++) {
       if (runs[i].run === runs[j].run && Math.abs(runs[i].col - runs[j].col) === 1) continue;
       const keys = [runs[i].key, runs[j].key];
-      lineHit(
-        2,
-        function (cell) {
-          return onRuns(cell, keys);
-        },
-        function (fn) {
-          for (let r = 0; r < g.rows; r++) {
-            for (let c = 0; c < g.cols; c++) {
-              const cell = g.at(r, c);
-              if (onRuns(cell, keys)) fn(cell);
-            }
-          }
-        },
-        function (cell) {
-          return g.runKey(cell.row, cell.col);
-        },
-        twosN,
-        "L3.1.3.a.n",
-        "L3.1.3.b.n"
-      );
+      lineHit(2, keys, true, twosN, "L3.1.3.a.n", "L3.1.3.b.n");
     }
   }
 
@@ -705,25 +536,7 @@ Hint.prototype.tryLevel3 = function () {
           return x - y;
         });
         if (sorted[1] === sorted[0] + 1 && sorted[2] === sorted[1] + 1) continue;
-        const rows = [a, b, c];
-        lineHit(
-          3,
-          function (cell) {
-            return onRows(cell, rows);
-          },
-          function (fn) {
-            for (let ri = 0; ri < rows.length; ri++) {
-              const r = rows[ri];
-              for (let cc = 0; cc < g.cols; cc++) fn(g.at(r, cc));
-            }
-          },
-          function (cell) {
-            return cell.row;
-          },
-          threesN,
-          "L3.1.4.a.n",
-          "L3.1.4.b.n"
-        );
+        lineHit(3, [a, b, c], false, threesN, "L3.1.4.a.n", "L3.1.4.b.n");
       }
     }
   }
@@ -738,33 +551,14 @@ Hint.prototype.tryLevel3 = function () {
         const sameRun = runs[i].run === runs[j].run && runs[j].run === runs[k].run;
         if (sameRun && cols[1] === cols[0] + 1 && cols[2] === cols[1] + 1) continue;
         const keys = [runs[i].key, runs[j].key, runs[k].key];
-        lineHit(
-          3,
-          function (cell) {
-            return onRuns(cell, keys);
-          },
-          function (fn) {
-            for (let r = 0; r < g.rows; r++) {
-              for (let c = 0; c < g.cols; c++) {
-                const cell = g.at(r, c);
-                if (onRuns(cell, keys)) fn(cell);
-              }
-            }
-          },
-          function (cell) {
-            return g.runKey(cell.row, cell.col);
-          },
-          threesN,
-          "L3.1.4.a.n",
-          "L3.1.4.b.n"
-        );
+        lineHit(3, keys, true, threesN, "L3.1.4.a.n", "L3.1.4.b.n");
       }
     }
   }
 
   function take(bucket) {
     if (!bucket.length) return null;
-    self.shuffle(bucket);
+    shuffleInPlace(bucket);
     const hit = bucket[0];
     return self.pack(hit.id, hit.reason, hit.prints);
   }
@@ -801,7 +595,7 @@ Hint.prototype.tryLevel3 = function () {
     const hit = splitOpens(function (cell) {
       return !!onRing[cell.row + "," + cell.col];
     });
-    const kinds = self.shuffle(["a", "b"]);
+    const kinds = shuffleInPlace(["a", "b"]);
     for (let n = 0; n < kinds.length; n++) {
       const prints = [];
       const reason = [];
@@ -848,7 +642,7 @@ Hint.prototype.tryLevel3 = function () {
     const hit = splitOpens(function (cell) {
       return g.onHawkLine(cell.row, cell.col);
     });
-    const kinds = self.shuffle(["a", "b"]);
+    const kinds = shuffleInPlace(["a", "b"]);
     for (let n = 0; n < kinds.length; n++) {
       const prints = [];
       const reason = [];
@@ -881,7 +675,7 @@ Hint.prototype.tryLevel3 = function () {
   }
 
   function caveTargets() {
-    const cave = self.caveCells();
+    const cave = self.grid.caveCells();
     if (cave.length < 2) return null;
     const out = [];
     for (let r = 0; r < g.rows; r++) {
@@ -902,7 +696,7 @@ Hint.prototype.tryLevel3 = function () {
     return { id: "L3.2.3", reason: cave, prints: out };
   }
 
-  const extras = this.shuffle(["bunny", "hawk", "cave"]);
+  const extras = shuffleInPlace(["bunny", "hawk", "cave"]);
   for (let e = 0; e < extras.length; e++) {
     let hit = null;
     if (extras[e] === "bunny") hit = bunnyTargets();
@@ -913,65 +707,6 @@ Hint.prototype.tryLevel3 = function () {
 
   const nHit = take(twosN) || take(threesN);
   if (nHit) return nHit;
-
-  // L3.1.5 shared-halo fully disabled
-  if (false) {
-  const smallIds = [];
-  for (let i = 0; i < ids.length; i++) {
-    const seats = seatsOf[ids[i]];
-    if (seats && seats.length >= 2 && seats.length <= 4) smallIds.push(ids[i]);
-  }
-  const shared = [];
-  for (let i = 0; i < smallIds.length; i++) {
-    for (let j = i + 1; j < smallIds.length; j++) {
-      const idA = smallIds[i];
-      const idB = smallIds[j];
-      const seatsA = seatsOf[idA];
-      const seatsB = seatsOf[idB];
-      let share = false;
-      for (let ka = 0; ka < seatsA.length && !share; ka++) {
-        for (let kb = 0; kb < seatsB.length && !share; kb++) {
-          const a = seatsA[ka];
-          const b = seatsB[kb];
-          if (a.row === b.row) share = true;
-          else if (g.runKey(a.row, a.col) && g.runKey(a.row, a.col) === g.runKey(b.row, b.col)) share = true;
-        }
-      }
-      if (!share) continue;
-      const legal = [];
-      for (let ka = 0; ka < seatsA.length; ka++) {
-        for (let kb = 0; kb < seatsB.length; kb++) {
-          const a = seatsA[ka];
-          const b = seatsB[kb];
-          if (!self.conflicts(a, b)) legal.push([a, b]);
-        }
-      }
-      if (!legal.length) continue;
-      const prints = [];
-      const reason = [];
-      for (let k = 0; k < seatsA.length; k++) if (self.isEmptyGrass(seatsA[k])) reason.push(seatsA[k]);
-      for (let k = 0; k < seatsB.length; k++) if (self.isEmptyGrass(seatsB[k])) reason.push(seatsB[k]);
-      for (let r = 0; r < g.rows; r++) {
-        for (let c = 0; c < g.cols; c++) {
-          const cell = g.at(r, c);
-          if (!self.isEmptyGrass(cell)) continue;
-          let allHit = true;
-          for (let p = 0; p < legal.length; p++) {
-            const pair = legal[p];
-            if (!self.conflicts(cell, pair[0]) && !self.conflicts(cell, pair[1])) {
-              allHit = false;
-              break;
-            }
-          }
-          if (allHit) prints.push(cell);
-        }
-      }
-      if (prints.length) shared.push({ id: "L3.1.5", reason: reason, prints: prints });
-    }
-  }
-  const sharedHit = take(shared);
-  if (sharedHit) return sharedHit;
-  }
 
   // L3.9: only one open spot left on a row, run, or territory
   for (let r = 0; r < g.rows; r++) {
@@ -984,10 +719,9 @@ Hint.prototype.tryLevel3 = function () {
   }
 
   for (let i = 0; i < runs.length; i++) {
-    const key = runs[i].key;
     const opens = [];
     for (let r = 0; r < g.rows; r++) {
-      if (g.runKey(r, runs[i].col) !== key) continue;
+      if (g.runKey(r, runs[i].col) !== runs[i].key) continue;
       const cell = g.at(r, runs[i].col);
       if (self.isEmptyGrass(cell)) opens.push(cell);
     }
@@ -1008,12 +742,11 @@ Hint.prototype.tryLevel4 = function () {
   let best = null;
 
   for (const id in dells) {
-    const cells = dells[id];
     const empty = [];
     let fox = null;
     let guessed = false;
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
+    for (let i = 0; i < dells[id].length; i++) {
+      const cell = dells[id][i];
       if (cell.guessId === "o") guessed = true;
       if (cell.spriteId === "o") fox = cell;
       if (this.isEmptyGrass(cell)) empty.push(cell);
@@ -1069,18 +802,17 @@ Hint.prototype.tryLevel5 = function () {
   const dells = this.dellMap();
   const batches = [];
   for (const id in dells) {
-    const cells = dells[id];
     const xs = [];
     let fox = null;
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i];
+    for (let i = 0; i < dells[id].length; i++) {
+      const cell = dells[id][i];
       if (cell.spriteId === "o" && !this.isFoundFox(cell)) fox = cell;
       if (this.isEmptyGrass(cell) && cell.spriteId !== "o") xs.push(cell);
     }
     if (fox && xs.length) batches.push(xs);
   }
   if (!batches.length) return null;
-  this.shuffle(batches);
+  shuffleInPlace(batches);
   return this.pack("L5", [], batches[0]);
 };
 

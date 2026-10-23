@@ -4,9 +4,6 @@ const SAVE_FOREST = "foxes_forest";
 
 function Save() {}
 
-Save.SIZE_MIN = 6;
-Save.SIZE_MAX = 12;
-
 // test = the URL plan board, kept apart so it never clobbers the field in progress.
 Save.readBoard = function (test) {
   try {

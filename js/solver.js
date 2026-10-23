@@ -14,7 +14,7 @@ function Solver(grid) {
 
   const n = this.n;
   const cols = this.cols;
-  const bunny = grid.findBunny && grid.findBunny();
+  const bunny = grid.findType("bunny");
   if (bunny) this.needBunny = 2;
   if (grid.hawk) this.needHawk = 1;
 
