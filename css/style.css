@@ -486,6 +486,27 @@ button.plan-card.locked,
   cursor: pointer;
 }
 
+.start-url-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 18px auto;
+}
+
+.start-url-row[hidden] {
+  display: none;
+}
+
+.start-url-row .btn-title {
+  margin: 0;
+}
+
+.btn-title.btn-x {
+  min-width: 0;
+  padding: 10px 14px;
+}
+
 .btn-title:hover {
   background: #34744a;
 }

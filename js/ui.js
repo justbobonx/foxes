@@ -18,6 +18,9 @@ function Ui() {
   this.btnCheck = document.getElementById("btn-check");
   this.btnWhy = document.getElementById("btn-why");
   this.btnStart = document.getElementById("btn-start");
+  this.elStartUrlRow = document.getElementById("start-url-row");
+  this.btnStartUrl = document.getElementById("btn-start-url");
+  this.btnStartUrlClear = document.getElementById("btn-start-url-clear");
   this.btnHelp = document.getElementById("btn-help");
   this.elStart = document.getElementById("start-screen");
   this.elMenu = document.getElementById("menu-screen");
@@ -309,6 +312,8 @@ Ui.prototype.bind = function (handlers) {
   this.onPlanPick = handlers.planPick || null;
   this.onStoryContinue = handlers.storyContinue || null;
   on(this.btnStart, "click", handlers.start);
+  on(this.btnStartUrl, "click", handlers.startUrl);
+  on(this.btnStartUrlClear, "click", handlers.clearUrl);
   on(this.btnHelp, "click", handlers.help);
   on(this.btnPlanBack, "click", function (e) {
     e.stopPropagation();

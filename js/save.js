@@ -1,4 +1,5 @@
 const SAVE_BOARD = "foxes_field";
+const SAVE_TEST_BOARD = "foxes_test";
 const SAVE_FOREST = "foxes_forest";
 
 function Save() {}
@@ -6,24 +7,25 @@ function Save() {}
 Save.SIZE_MIN = 6;
 Save.SIZE_MAX = 12;
 
-Save.readBoard = function () {
+// test = the URL plan board, kept apart so it never clobbers the field in progress.
+Save.readBoard = function (test) {
   try {
-    const data = JSON.parse(localStorage.getItem(SAVE_BOARD) || "null");
+    const data = JSON.parse(localStorage.getItem(test ? SAVE_TEST_BOARD : SAVE_BOARD) || "null");
     return data && data.n && data.cells ? data : null;
   } catch (err) {
     return null;
   }
 };
 
-Save.writeBoard = function (data) {
+Save.writeBoard = function (data, test) {
   try {
-    localStorage.setItem(SAVE_BOARD, JSON.stringify(data));
+    localStorage.setItem(test ? SAVE_TEST_BOARD : SAVE_BOARD, JSON.stringify(data));
   } catch (err) {}
 };
 
-Save.clearBoard = function () {
+Save.clearBoard = function (test) {
   try {
-    localStorage.removeItem(SAVE_BOARD);
+    localStorage.removeItem(test ? SAVE_TEST_BOARD : SAVE_BOARD);
   } catch (err) {}
 };
 

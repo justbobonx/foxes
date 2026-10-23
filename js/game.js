@@ -36,7 +36,7 @@ let dragType = null;
 let hintCount = 0;
 let hintCut = 1;
 let loadedPlan = Plan.fromQuery(window.location.search);
-if (loadedPlan && ui.btnStart) ui.btnStart.textContent = "Play URL Plan";
+if (loadedPlan && ui.elStartUrlRow) ui.elStartUrlRow.hidden = false;
 let playingTest = false;
 let buildGen = 0;
 let building = false;
@@ -44,10 +44,16 @@ let hintId = "";
 let keepBoard = false;
 let wonPending = false;
 
+// The title X: drops the URL plan for good, its board, its button row, and ?plan= so a reload stays in the fields.
 function clearTestPlan() {
   loadedPlan = null;
   playingTest = false;
-  if (ui.btnStart) ui.btnStart.textContent = "Into the Fields";
+  Save.clearBoard(true);
+  if (ui.elStartUrlRow) ui.elStartUrlRow.hidden = true;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("plan")) return;
+  url.searchParams.delete("plan");
+  history.replaceState(null, "", url);
 }
 
 function persistForest() {
@@ -122,8 +128,8 @@ function persistBoard(force) {
   data.won = wonPending || ui.winOpen() || grid.isCleared();
   data.hintCount = hintCount;
   data.hintCut = hintCut;
-  data.testPlan = !!playingTest;
-  Save.writeBoard(data);
+  if (playingTest) data.urlPlan = JSON.stringify(loadedPlan);
+  Save.writeBoard(data, playingTest);
 }
 
 function paintScore() {
@@ -200,8 +206,10 @@ function startField(plan, isTest) {
     clockStarted = Date.now();
     wonPending = false;
     keepBoard = true;
-    forest.offers = null;
-    persistForest();
+    if (!isTest) {
+      forest.offers = null;
+      persistForest();
+    }
     persistBoard(true);
     showBoard();
   });
@@ -359,28 +367,34 @@ function onCheckHint() {
   maybeHintStory(result.id);
 }
 
-function restoreBoard() {
-  const data = Save.readBoard();
-  if (!data || data.testPlan) return false;
-  const loaded = Grid.load(data);
-  if (!loaded) {
-    Save.clearBoard();
+// test: resume the URL plan board, only if it was built from the same URL plan.
+function restoreBoard(test) {
+  const data = Save.readBoard(test);
+  if (!data) return false;
+  if (test && data.urlPlan !== JSON.stringify(loadedPlan)) {
+    Save.clearBoard(true);
     return false;
   }
-  const rawPlan = data.fieldPlan || data.plan || loaded.plan;
-  const plan = Plan.copy(rawPlan);
+  const loaded = Grid.load(data);
+  if (!loaded) {
+    Save.clearBoard(test);
+    return false;
+  }
   Cell.dressGrid(loaded);
   grid = loaded;
-  forest.location = plan;
-  forest.lastPlan = Plan.copy(plan);
-  forest.offers = null;
-  persistForest();
+  if (!test) {
+    const plan = Plan.copy(data.fieldPlan || data.plan || loaded.plan);
+    forest.location = plan;
+    forest.lastPlan = Plan.copy(plan);
+    forest.offers = null;
+    persistForest();
+  }
   n = grid.n;
   clockElapsed = data.elapsedMs > 0 ? data.elapsedMs | 0 : 0;
   clockStarted = Date.now();
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;
-  playingTest = false;
+  playingTest = test;
   keepBoard = true;
   const won = !!(data.won || loaded.isCleared());
   wonPending = won;
@@ -400,20 +414,20 @@ function giveUpField() {
   if (!playing || !grid || ui.winOpen() || ui.planOpen() || ui.storyOpen() || ui.findOpen()) return;
   ui.hideMenu();
   clockOff();
-  const here = currentFieldPlan();
-  forest.location = Plan.copy(here);
-  forest.lastPlan = Plan.copy(here);
   keepBoard = false;
   wonPending = false;
-  Save.clearBoard();
-  forest.offers = null;
-  persistForest();
-  const wasTest = playingTest;
-  clearTestPlan();
-  if (wasTest) {
+  if (playingTest) {
+    Save.clearBoard(true);
+    playingTest = false;
     showTitle();
     return;
   }
+  const here = currentFieldPlan();
+  forest.location = Plan.copy(here);
+  forest.lastPlan = Plan.copy(here);
+  Save.clearBoard();
+  forest.offers = null;
+  persistForest();
   showOffers(planner.travel(forest, forest.lastPlan));
 }
 
@@ -421,16 +435,17 @@ function onWinOk() {
   ui.hideWin();
   keepBoard = false;
   wonPending = false;
+  if (playingTest) {
+    Save.clearBoard(true);
+    playingTest = false;
+    paintScore();
+    showTitle();
+    return;
+  }
   Save.clearBoard();
   forest.offers = null;
   persistForest();
   paintScore();
-  const wasTest = playingTest;
-  clearTestPlan();
-  if (wasTest) {
-    showTitle();
-    return;
-  }
   openTravel();
 }
 
@@ -456,15 +471,21 @@ function showTitle() {
   ui.hideFind();
 }
 
-function beginPlay() {
+// fromUrl: the Play URL Plan button. The URL plan stays until its X is hit.
+function beginPlay(fromUrl) {
   playing = true;
   playChrome.enter().then(function () {
     ui.hideStart();
-    if (loadedPlan) {
+    if (fromUrl) {
+      if (restoreBoard(true)) {
+        layout();
+        draw();
+        return;
+      }
       startField(loadedPlan, true);
       return;
     }
-    if (restoreBoard()) {
+    if (restoreBoard(false)) {
       layout();
       draw();
       return;
@@ -727,7 +748,13 @@ function onViewport() {
 }
 
 ui.bind({
-  start: beginPlay,
+  start: function () {
+    beginPlay(false);
+  },
+  startUrl: function () {
+    beginPlay(true);
+  },
+  clearUrl: clearTestPlan,
   help: showHelp,
   planPick: playCard,
   planBack: onPlanBack,
