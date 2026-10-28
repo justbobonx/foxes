@@ -644,3 +644,10 @@ button.story-card,
   letter-spacing: 0.08em;
   color: #5a3a22;
 }
+
+#btn-install {
+  margin-top: 48px;  
+  margin-bottom: 9px;
+  padding: 3px 12px;
+  display: none !important;
+}

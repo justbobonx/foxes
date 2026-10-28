@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#000000" />
     <title>foxes</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="images/icon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="images/icon.png" />
     <link rel="stylesheet" href="css/style.css?v=1.9.6" />
   </head>
   <body>
@@ -45,6 +49,7 @@
         <button id="btn-start-quick" class="btn-title" type="button">Quick Play</button>        
         <button id="btn-options" class="btn-title" type="button">Options</button>
         <button id="btn-help" class="btn-title" type="button">Help</button>
+        <button id="btn-install" class="btn-title" type="button" hidden>Install as App</button>
       </div>
       <a id="startEmail" href="https://x.com/just_bob" target="_blank" rel="noopener noreferrer">just_bob@X.com</a>
       <div id="startVer">v=1.9.6</div>
@@ -117,5 +122,26 @@
         src="https://gc.zgo.at/count.v5.js"
         crossorigin="anonymous"
         integrity="sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ"></script>
+
+    <script>
+      (function () {
+        var deferredPrompt = null;
+        var btn = document.getElementById("btn-install");
+        if (!btn) return;
+        window.addEventListener("beforeinstallprompt", function (e) {
+          e.preventDefault();
+          deferredPrompt = e;
+          btn.hidden = false;
+        });
+        btn.addEventListener("click", function () {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(function () {
+            deferredPrompt = null;
+            btn.hidden = true;
+          });
+        });
+      })();
+    </script>
   </body>
 </html>
