@@ -3,6 +3,20 @@
 const HUD_TOP_MIN = 52;
 const HUD_BOT_MIN = 56;
 
+function iconFor(feature) {
+  const sz = feature.size | 0 || 1;
+  if (feature.type === "pond") {
+    if (sz >= 3) return { src: "images/pond_lg.png", w: 48, h: 32 };
+    return { src: "images/pond.png", w: 32, h: 32 };
+  }
+  if (feature.type === "river") {
+    if (sz === 2) return { src: "images/stream-lg.png", w: 42, h: 32 };
+    return { src: "images/stream.png", w: 32, h: 32 };
+  }
+  const spec = FEATURE_CATALOG[feature.type];
+  return { src: (spec && spec.icon) || Ui.UNKNOWN_ICON, w: 32, h: 32 };
+}
+
 function Ui() {
   this.canvas = document.getElementById("board");
   this.ctx = this.canvas.getContext("2d");
@@ -179,13 +193,13 @@ Ui.prototype.paintScore = function (view) {
 Ui.prototype.paintExtraRow = function (el, features, forest) {
   el.innerHTML = "";
   for (let i = 0; i < features.length; i++) {
-    const type = features[i].type;
-    const state = forest.stateOf(type);
-    const spec = FEATURE_CATALOG[type];
+    const feature = features[i];
+    const state = forest.stateOf(feature.type);
+    const info = iconFor(feature);
     const img = document.createElement("img");
-    img.src = state === "seen" && spec && spec.icon ? spec.icon : Ui.UNKNOWN_ICON;
-    img.width = 32;
-    img.height = 32;
+    img.src = state === "seen" ? info.src : Ui.UNKNOWN_ICON;
+    img.width = info.w;
+    img.height = info.h;
     img.alt = "";
     el.appendChild(img);
   }

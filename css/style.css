@@ -330,8 +330,6 @@ button.plan-card.locked,
 }
 
 .plan-extra-row img {
-  width: 32px;
-  height: 32px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
