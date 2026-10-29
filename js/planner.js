@@ -95,7 +95,8 @@ Planner.waterParts = function (forest, n, trees, minAmount) {
     while (left > 0) {
       const take = 1 + Math.floor(Math.random() * Math.min(left, 4));
       parts.push(Planner.featureItem("pond", take));
-      left -= take;
+      //adjust take for smaller ponds on larger levels
+      left -= n > 9 ? take * 9 / n : take;
     }
   }
   const riverOk = Planner.canPut(forest, "river", n) && amount >= 2;
