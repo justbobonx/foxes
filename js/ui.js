@@ -13,6 +13,11 @@ function iconFor(feature) {
     if (sz === 2) return { src: "images/stream-lg.png", w: 42, h: 32 };
     return { src: "images/stream.png", w: 32, h: 32 };
   }
+  if (feature.type === "trees") {
+    if (sz >= 5) return { src: "images/trees_lg.png", w: 59, h: 32 };
+    if (sz >= 3) return { src: "images/trees_md.png", w: 45, h: 32 };
+    return { src: "images/trees.png", w: 32, h: 32 };
+  }
   const spec = FEATURE_CATALOG[feature.type];
   return { src: (spec && spec.icon) || Ui.UNKNOWN_ICON, w: 32, h: 32 };
 }
@@ -233,7 +238,32 @@ Ui.prototype.makeCard = function (card, forest, index) {
   rowA.className = "plan-extra-row";
   const rowB = document.createElement("div");
   rowB.className = "plan-extra-row";
-  const list = card.plan.features || [];
+  const raw = card.plan.features || [];
+  const ponds = [];
+  const list = [];
+  for (let i = 0; i < raw.length; i++) {
+    const f = raw[i];
+    if (f && f.type === "pond") {
+      ponds.push({ type: "pond", size: f.size | 0 || 1 });
+    } else {
+      list.push(f);
+    }
+  }
+  while (ponds.length > 2) {
+    ponds.sort(function (a, b) {
+      return (a.size | 0) - (b.size | 0);
+    });
+    const a = ponds.shift();
+    const b = ponds.shift();
+    ponds.push({ type: "pond", size: (a.size | 0) + (b.size | 0) });
+  }
+  for (let i = 0; i < ponds.length; i++) list.push(ponds[i]);
+  const rank = { trees: 0, pond: 1, river: 2 };
+  list.sort(function (a, b) {
+    const aa = rank[a && a.type] != null ? rank[a.type] : 3;
+    const bb = rank[b && b.type] != null ? rank[b.type] : 3;
+    return aa - bb;
+  });
   const count = list.length;
   let split;
   if (count <= 2) split = [count, 0];
