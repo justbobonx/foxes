@@ -4,7 +4,7 @@
     1 check: lock a correct fox or wolf, paint a miss red. Win is N locked foxes and no wolf miss.
     2 found leftovers: {row, run, ring, dell}, then {bunny, hawk, wolf}.
     3 basics in order: one-line, halo, two-line, three-line; then extras {bunny, hawk, cave}.
-    4 leak: cut one fox-free row/run off a live dell, leave at least 2 unknowns.
+    4 leak: in the smallest live dell with a cut, take its biggest fox-free row/run, leave at least 2 unknowns.
     5 giveaway: last truth Xs of a dell, leaving the O.
   Col-shaped lines are runs. Prints land on blank unlocked grass, and on blank caves when a rule names them.
   apply() returns { level, id, win, warns, wrongs, rights, reason, prints }.
@@ -739,7 +739,10 @@ Hint.prototype.tryLevel3 = function () {
 Hint.prototype.tryLevel4 = function () {
   const g = this.grid;
   const dells = this.dellMap();
+  // The leak comes from the smallest range that has a valid cut, then the biggest cut in it,
+  // so it lands where the range is closest to giving up its fox.
   let best = null;
+  let bestRangeN = 0;
 
   for (const id in dells) {
     const empty = [];
@@ -788,8 +791,10 @@ Hint.prototype.tryLevel4 = function () {
       }
       if (group.length < 1) continue;
       if (empty.length - group.length < 2) continue;
-      if (!best || group.length > best.length) {
+      const smaller = !best || empty.length < bestRangeN;
+      if (smaller || (empty.length === bestRangeN && group.length > best.length)) {
         best = group;
+        bestRangeN = empty.length;
       }
     }
   }
