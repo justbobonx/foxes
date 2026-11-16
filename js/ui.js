@@ -2,6 +2,9 @@
 
 const HUD_TOP_MIN = 52;
 const HUD_BOT_MIN = 56;
+const SHARE_TEXT = "SHARE";
+const COPIED_TEXT = "link copied";
+const COPIED_MS = 1500;
 
 function iconFor(feature) {
   const sz = feature.size | 0 || 1;
@@ -37,6 +40,7 @@ function Ui() {
   this.btnReset = document.getElementById("btn-reset");
   this.btnClear = document.getElementById("btn-clear");
   this.btnGiveUp = document.getElementById("btn-give-up");
+  this.btnShare = document.getElementById("btn-share");
   this.btnCheck = document.getElementById("btn-check");
   this.btnWhy = document.getElementById("btn-why");
   this.btnStart = document.getElementById("btn-start");
@@ -48,6 +52,7 @@ function Ui() {
   this.elMenu = document.getElementById("menu-screen");
   this.elWin = document.getElementById("win-screen");
   this.btnWinNew = document.getElementById("btn-win-new");
+  this.btnWinShare = document.getElementById("btn-win-share");
   this.elPlan = document.getElementById("plan-screen");
   this.elPlanRow = document.getElementById("plan-row");
   this.btnPlanBack = document.getElementById("btn-plan-back");
@@ -179,6 +184,16 @@ Ui.prototype.paintWin = function (scoreText, timeText, hintsText) {
   if (this.elWinScore) this.elWinScore.textContent = scoreText;
   if (this.elWinTime) this.elWinTime.textContent = timeText;
   if (this.elWinHints) this.elWinHints.textContent = hintsText;
+};
+
+// Tells the player the link is on the clipboard by swapping the share button's label for a moment.
+Ui.prototype.flashCopied = function (btn) {
+  if (!btn) return;
+  btn.textContent = COPIED_TEXT;
+  clearTimeout(btn.copiedTimer);
+  btn.copiedTimer = setTimeout(function () {
+    btn.textContent = SHARE_TEXT;
+  }, COPIED_MS);
 };
 
 Ui.prototype.paintScore = function (view) {
@@ -365,7 +380,9 @@ Ui.prototype.bind = function (handlers) {
   on(this.btnReset, "click", handlers.reset);
   on(this.btnClear, "click", handlers.clear);
   on(this.btnGiveUp, "click", handlers.giveUp);
+  on(this.btnShare, "click", handlers.share);
   on(this.btnWinNew, "click", handlers.winNew);
+  on(this.btnWinShare, "click", handlers.winShare);
   on(this.btnCheck, "click", handlers.check);
   on(this.btnWhy, "click", handlers.why);
   on(this.elMenu, "click", handlers.menuBackdrop);

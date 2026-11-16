@@ -572,6 +572,12 @@ button.plan-card.locked,
   cursor: pointer;
 }
 
+.win-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
 .menu-panel {
   display: flex;
   flex-direction: column;

@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="images/icon.png" type="image/png" />
     <link rel="apple-touch-icon" href="images/icon.png" />
-    <link rel="stylesheet" href="css/style.css?v=2.0.1" />
+    <link rel="stylesheet" href="css/style.css?v=2.0.2" />
   </head>
   <body>
     <canvas id="board"></canvas>
@@ -52,14 +52,15 @@
         <button id="btn-install" class="btn-title" type="button" hidden>Install as App</button>
       </div>
       <a id="startEmail" href="https://x.com/just_bob" target="_blank" rel="noopener noreferrer">just_bob@X.com</a>
-      <div id="startVer">v=2.0.1</div>
+      <div id="startVer">v=2.0.2</div>
     </div>
 
     <div id="menu-screen" class="overlay" hidden>
-      <div class="panel menu-panel">
+      <div class="panel menu-panel">        
         <button id="btn-clear" type="button">CLEAN UP</button>
-        <button id="btn-reset" type="button">RESET</button>
+        <button id="btn-reset" type="button">RESET</button>        
         <button id="btn-give-up" type="button">GIVE UP</button>
+        <button id="btn-share" type="button">SHARE</button>
       </div>
     </div>
 
@@ -98,24 +99,28 @@
             <strong id="win-hints" class="bad">0</strong>
           </div>
         </div>
-        <button id="btn-win-new" type="button">OK</button>
+        <div class="win-buttons">
+          <button id="btn-win-share" type="button">SHARE</button>
+          <button id="btn-win-new" type="button">NEXT</button>
+        </div>
       </div>
     </div>
 
-    <script src="js/sprite.js?v=2.0.1"></script>
-    <script src="js/cell.js?v=2.0.1"></script>
-    <script src="js/grid.js?v=2.0.1"></script>
-    <script src="js/solver.js?v=2.0.1"></script>
-    <script src="js/grid_builder.js?v=2.0.1"></script>
-    <script src="js/save.js?v=2.0.1"></script>
-    <script src="js/plan.js?v=2.0.1"></script>
-    <script src="js/forest.js?v=2.0.1"></script>
-    <script src="js/planner.js?v=2.0.1"></script>
-    <script src="js/story.js?v=2.0.1"></script>
-    <script src="js/hint.js?v=2.0.1"></script>
-    <script src="js/chrome.js?v=2.0.1"></script>
-    <script src="js/ui.js?v=2.0.1"></script>
-    <script src="js/game.js?v=2.0.1"></script>
+    <script src="js/sprite.js?v=2.0.2"></script>
+    <script src="js/cell.js?v=2.0.2"></script>
+    <script src="js/grid.js?v=2.0.2"></script>
+    <script src="js/solver.js?v=2.0.2"></script>
+    <script src="js/grid_builder.js?v=2.0.2"></script>
+    <script src="js/save.js?v=2.0.2"></script>
+    <script src="js/plan.js?v=2.0.2"></script>
+    <script src="js/share.js?v=2.0.2"></script>
+    <script src="js/forest.js?v=2.0.2"></script>
+    <script src="js/planner.js?v=2.0.2"></script>
+    <script src="js/story.js?v=2.0.2"></script>
+    <script src="js/hint.js?v=2.0.2"></script>
+    <script src="js/chrome.js?v=2.0.2"></script>
+    <script src="js/ui.js?v=2.0.2"></script>
+    <script src="js/game.js?v=2.0.2"></script>
     
     <script data-goatcounter="https://justbobonx.goatcounter.com/count"
         async

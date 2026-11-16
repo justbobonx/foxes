@@ -23,6 +23,8 @@ const HAWK_BAND_EDGE_W = 0.5;
 const HAWK_BAND_FILL_W = 0.4;
 const BOARD_BG = "#111111";
 const FIND_FAIL_TEXT = "plan could not be built, sorry, tap to go back";
+const URL_FIELD_TEXT = "Play URL Field";
+const SHARE_URL = "https://terminalcore.com/foxes/?field=";
 
 const forest = Forest.load();
 let n = forest.location.size;
@@ -43,8 +45,13 @@ let dragDirty = false;
 let dragType = null;
 let hintCount = 0;
 let hintCut = 1;
-let loadedPlan = Plan.fromQuery(window.location.search);
-if (loadedPlan && ui.elStartUrlRow) ui.elStartUrlRow.hidden = false;
+// A field link wins over a plan link. A field that does not decode is dropped from the address as if never sent.
+const fieldQuery = new URLSearchParams(window.location.search).get("field") || "";
+let loadedField = fieldQuery && Share.decode(fieldQuery) ? fieldQuery : "";
+if (fieldQuery && !loadedField) dropQuery("field");
+let loadedPlan = loadedField ? null : Plan.fromQuery(window.location.search);
+if ((loadedField || loadedPlan) && ui.elStartUrlRow) ui.elStartUrlRow.hidden = false;
+if (loadedField && ui.btnStartUrl) ui.btnStartUrl.textContent = URL_FIELD_TEXT;
 let playingTest = false;
 let buildGen = 0;
 let building = false;
@@ -52,16 +59,23 @@ let hintId = "";
 let keepBoard = false;
 let wonPending = false;
 
-// The title X: drops the URL plan for good, its board, its button row, and ?plan= so a reload stays in the fields.
+// Takes one parameter out of the address bar without a reload.
+function dropQuery(name) {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(name)) return;
+  url.searchParams.delete(name);
+  history.replaceState(null, "", url);
+}
+
+// The title X: drops the URL plan or field for good, its board, its button row, and the link so a reload stays in the fields.
 function clearTestPlan() {
   loadedPlan = null;
+  loadedField = "";
   playingTest = false;
   Save.clearBoard(true);
   if (ui.elStartUrlRow) ui.elStartUrlRow.hidden = true;
-  const url = new URL(window.location.href);
-  if (!url.searchParams.has("plan")) return;
-  url.searchParams.delete("plan");
-  history.replaceState(null, "", url);
+  dropQuery("field");
+  dropQuery("plan");
 }
 
 function persistForest() {
@@ -131,7 +145,10 @@ function persistBoard(force) {
   data.won = wonPending || ui.winOpen() || grid.isCleared();
   data.hintCount = hintCount;
   data.hintCut = hintCut;
-  if (playingTest) data.urlPlan = JSON.stringify(loadedPlan);
+  if (playingTest) {
+    data.urlPlan = JSON.stringify(loadedPlan);
+    data.urlField = loadedField;
+  }
   Save.writeBoard(data, playingTest);
 }
 
@@ -364,14 +381,19 @@ function onCheckHint() {
   maybeHintStory(result.id);
 }
 
-// test: resume the URL plan board, only if it was built from the same URL plan.
+// test: resume the URL plan or field board, only if it came from the same link.
 function restoreBoard(test) {
   const data = Save.readBoard(test);
   if (!data) return false;
-  if (test && data.urlPlan !== JSON.stringify(loadedPlan)) {
+  if (test && (data.urlPlan !== JSON.stringify(loadedPlan) || (data.urlField || "") !== loadedField)) {
     Save.clearBoard(true);
     return false;
   }
+  return resumeBoard(data, test);
+}
+
+// Puts a saved-board shaped data on screen: a resumed save, or a field fresh from a link.
+function resumeBoard(data, test) {
   const loaded = Grid.load(data);
   if (!loaded) {
     Save.clearBoard(test);
@@ -446,6 +468,31 @@ function onWinOk() {
   openTravel();
 }
 
+// Copies a link to this board. empty: every mark, clock and hint wiped, for the win screen.
+// A board with no marks or locks, which is what reset leaves, also goes out with a fresh clock and hints.
+function shareBoard(empty, button) {
+  if (!grid || !navigator.clipboard) return;
+  const data = grid.dump();
+  let blank = true;
+  for (let i = 0; i < data.cells.length; i++) {
+    const cell = data.cells[i];
+    if (cell.guessId || cell.locked) blank = false;
+    if (!empty) continue;
+    cell.guessId = null;
+    cell.locked = false;
+    cell.wrong = false;
+    cell.warn = false;
+  }
+  if (empty) data.wolfShown = false;
+  const fresh = empty || blank;
+  data.elapsedMs = fresh ? 0 : clockNow();
+  data.hintCount = fresh ? 0 : hintCount;
+  data.hintCut = fresh ? 1 : hintCut;
+  navigator.clipboard.writeText(SHARE_URL + Share.encode(data)).then(function () {
+    ui.flashCopied(button);
+  }, function () {});
+}
+
 function stashPlay() {
   if (keepBoard) persistBoard(true);
   persistForest();
@@ -467,7 +514,7 @@ function showTitle() {
   ui.showStart();
 }
 
-// fromUrl: the Play URL Plan button. The URL plan stays until its X is hit.
+// fromUrl: the Play URL Plan or Field button. The URL plan or field stays until its X is hit.
 function beginPlay(fromUrl) {
   playing = true;
   playChrome.enter().then(function () {
@@ -476,6 +523,16 @@ function beginPlay(fromUrl) {
       if (restoreBoard(true)) {
         layout();
         draw();
+        return;
+      }
+      if (loadedField) {
+        if (resumeBoard(Share.decode(loadedField), true)) {
+          persistBoard(true);
+          layout();
+          draw();
+        } else {
+          showTitle();
+        }
         return;
       }
       startField(loadedPlan, true);
@@ -761,7 +818,13 @@ ui.bind({
   reset: resetBoard,
   clear: clearMarks,
   giveUp: giveUpField,
+  share: function () {
+    shareBoard(false, ui.btnShare);
+  },
   winNew: onWinOk,
+  winShare: function () {
+    shareBoard(true, ui.btnWinShare);
+  },
   check: onCheckHint,
   why: function () {
     if (!hintId || ui.storyOpen()) return;
