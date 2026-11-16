@@ -652,6 +652,10 @@ GridBuilder.prototype.tryPlaceFoxes = function (masses, massId) {
       }
     }
     if (onRing.length !== 2) return false;
+    // The bunny takes exactly two, so later fills must not land a third fox on its ring.
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) dropSeat(bunny.row + dr, bunny.col + dc);
+    }
   }
 
   if (g.hawk) {
