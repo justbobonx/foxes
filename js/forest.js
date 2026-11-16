@@ -1,5 +1,8 @@
 /** Persistent run state. Game owns the instance. */
 
+// Share of the gap to each picked size that the size average moves.
+const SIZE_AVG_RATE = 0.2;
+
 function Forest(data) {
   const fresh = Forest.blank();
   if (!data || typeof data !== "object") {
@@ -144,12 +147,8 @@ Forest.prototype.addScore = function (type, delta) {
 Forest.prototype.noteSize = function (n) {
   n = Planner.clampSize(n);
   this.sizeCount = (this.sizeCount | 0) + 1;
-  if (this.sizeCount <= 1) {
-    this.sizeAvg = n;
-    this.sizeCount = 1;
-    return;
-  }
-  this.sizeAvg += (n - this.sizeAvg) / this.sizeCount;
+  // Exponential average: each pick pulls the average part way toward it, so old picks fade out.
+  this.sizeAvg += (n - this.sizeAvg) * SIZE_AVG_RATE;
 };
 
 Forest.prototype.notePick = function (chosen) {

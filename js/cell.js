@@ -26,7 +26,7 @@ const CELL_TYPES = {
   },
   water: {
     fill: "#001D66",
-    edge: "#1B3E98",
+    edge: "#224ebf",
     tap: false,
   },
   cave: {

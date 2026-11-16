@@ -3,7 +3,6 @@
 const SIZE_MIN = 6;
 const SIZE_MAX = 14;
 const SCORE_CAP = 20;
-const WIDTH_MAX = 11;
 const WATER_CAP = 6;
 
 const FEATURE_CATALOG = {
@@ -282,12 +281,6 @@ Planner.prototype.travel = function (forest, avoid) {
   sizes.sort(function (a, b) {
     return a - b;
   });
-  const open = [];
-  for (let i = 0; i < sizes.length; i++) {
-    if (sizes[i] > WIDTH_MAX && !Planner.canPut(forest, "trees", sizes[i])) continue;
-    open.push(sizes[i]);
-  }
-  const cardSizes = open.length ? open : sizes;
 
   const item = forest.nextItem();
   const parsed = item ? Planner.parseUnlock(item.unlock) : null;
@@ -359,9 +352,9 @@ Planner.prototype.travel = function (forest, avoid) {
   }
 
   const cards = [];
-  for (let i = 0; i < cardSizes.length; i++) {
-    const deeper = i === cardSizes.length - 1;
-    let built = rollPlan(cardSizes[i], deeper);
+  for (let i = 0; i < sizes.length; i++) {
+    const deeper = i === sizes.length - 1;
+    let built = rollPlan(sizes[i], deeper);
     for (let t = 0; t < 8; t++) {
       const key = Plan.key(built.plan);
       let clash = !!(avoidKey && key === avoidKey);
@@ -369,7 +362,7 @@ Planner.prototype.travel = function (forest, avoid) {
         if (Plan.key(cards[k].plan) === key) clash = true;
       }
       if (!clash) break;
-      built = rollPlan(cardSizes[i], deeper);
+      built = rollPlan(sizes[i], deeper);
     }
     cards.push(Planner.getCard(kinds[i] || "stay", built.plan, built.lock, built.cost));
   }
