@@ -4,7 +4,7 @@
     1 check: lock a correct fox or wolf, paint a miss red. Win is N locked foxes and no wolf miss.
     2 found leftovers: {row, run, ring, dell}, then {bunny, hawk, wolf}.
     3 basics in order: one-line, halo, two-line, three-line; then extras {bunny, hawk, cave}.
-    4 leak: in the smallest live dell with a cut, take its biggest fox-free row/run, leave at least 2 unknowns.
+    4 leak: a fox-free row/run cut that leaves a live dell on the fewest lines of that kind, random among ties, leave at least 2 unknowns.
     5 giveaway: last truth Xs of a dell, leaving the O.
   Col-shaped lines are runs. Prints land on blank unlocked grass, and on blank caves when a rule names them.
   apply() returns { level, id, win, warns, wrongs, rights, reason, prints }.
@@ -739,10 +739,10 @@ Hint.prototype.tryLevel3 = function () {
 Hint.prototype.tryLevel4 = function () {
   const g = this.grid;
   const dells = this.dellMap();
-  // The leak comes from the smallest range that has a valid cut, then the biggest cut in it,
-  // so it lands where the range is closest to giving up its fox.
-  let best = null;
-  let bestRangeN = 0;
+  // The leak picks the cut that squeezes its range onto the fewest lines of the cut's own kind, rows for
+  // a row cut and runs for a run cut, so a range pinned to one line is the best outcome. Ties are picked at random.
+  let bestScore = Infinity;
+  let bucket = [];
 
   for (const id in dells) {
     const empty = [];
@@ -781,26 +781,40 @@ Hint.prototype.tryLevel4 = function () {
       if (line.kind === "row" && line.id === fox.row) continue;
       if (line.kind === "run" && line.id === foxRun) continue;
       const group = [];
+      const leftRows = {};
+      const leftRuns = {};
+      let rowSpan = 0;
+      let runSpan = 0;
       for (let k = 0; k < empty.length; k++) {
         const cell = empty[k];
-        if (line.kind === "row") {
-          if (cell.row === line.id) group.push(cell);
-        } else if (g.runKey(cell.row, cell.col) === line.id) {
+        const run = g.runKey(cell.row, cell.col);
+        const inCut = line.kind === "row" ? cell.row === line.id : run === line.id;
+        if (inCut) {
           group.push(cell);
+          continue;
+        }
+        if (!leftRows[cell.row]) {
+          leftRows[cell.row] = true;
+          rowSpan++;
+        }
+        if (!leftRuns[run]) {
+          leftRuns[run] = true;
+          runSpan++;
         }
       }
       if (group.length < 1) continue;
       if (empty.length - group.length < 2) continue;
-      const smaller = !best || empty.length < bestRangeN;
-      if (smaller || (empty.length === bestRangeN && group.length > best.length)) {
-        best = group;
-        bestRangeN = empty.length;
+      const score = line.kind === "row" ? rowSpan : runSpan;
+      if (score < bestScore) {
+        bestScore = score;
+        bucket = [];
       }
+      if (score === bestScore) bucket.push(group);
     }
   }
 
-  if (!best) return null;
-  return this.pack("L4", [], best);
+  if (!bucket.length) return null;
+  return this.pack("L4", [], bucket[Math.floor(Math.random() * bucket.length)]);
 };
 
 Hint.prototype.tryLevel5 = function () {
