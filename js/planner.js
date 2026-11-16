@@ -4,6 +4,10 @@ const SIZE_MIN = 6;
 const SIZE_MAX = 14;
 const SCORE_CAP = 20;
 const WATER_CAP = 6;
+// Once a forest has this many stars, an offer may swap one card for a size far from the current one.
+const MIN_JUMP_STARS = 40;
+const JUMP_CHANCE = 0.3;
+const JUMP_MIN = 3; // a jump size is at least this far from the current location
 
 const FEATURE_CATALOG = {
   pond: { minN: 7, p: 0.7, icon: "images/pond.png", defaults: { size: 1 } },
@@ -278,6 +282,23 @@ Planner.prototype.travel = function (forest, avoid) {
   }
   shuffleInPlace(pool);
   const sizes = pool.length <= 3 ? pool : pool.slice(0, 3);
+  if (forest.stars >= MIN_JUMP_STARS && Math.random() < JUMP_CHANCE) {
+    // Uniform over every size that is far enough from the location; none left means no jump.
+    let room = 0;
+    for (let s = SIZE_MIN; s <= forest.maxN; s++) {
+      if (Math.abs(s - locN) >= JUMP_MIN) room++;
+    }
+    if (room) {
+      let k = Math.floor(Math.random() * room);
+      for (let s = SIZE_MIN; s <= forest.maxN; s++) {
+        if (Math.abs(s - locN) < JUMP_MIN) continue;
+        if (k-- === 0) {
+          sizes[Math.floor(Math.random() * sizes.length)] = s;
+          break;
+        }
+      }
+    }
+  }
   sizes.sort(function (a, b) {
     return a - b;
   });
