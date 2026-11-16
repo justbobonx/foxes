@@ -2,6 +2,8 @@
 
 // Share of the gap to each picked size that the size average moves.
 const SIZE_AVG_RATE = 0.2;
+// Preference score a creature extra starts with when it unlocks; terrain starts at zero.
+const UNLOCK_SCORE = 5;
 
 function Forest(data) {
   const fresh = Forest.blank();
@@ -258,6 +260,9 @@ Forest.prototype.win = function (plan) {
       if (parsed.n > this.maxN) this.maxN = Planner.clampSize(parsed.n);
     } else if (parsed && this.featureState[parsed.type] === "locked") {
       this.featureState[parsed.type] = "unlocked";
+      // Drop any score built up while locked, with a small head start for wolf, bunny and hawk.
+      const creature = parsed.type === "wolf" || parsed.type === "bunny" || parsed.type === "hawk";
+      this.featureScore[parsed.type] = creature ? UNLOCK_SCORE : 0;
     }
   }
   this.markSeen(plan);
