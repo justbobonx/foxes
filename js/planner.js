@@ -309,6 +309,8 @@ Planner.prototype.travel = function (forest, avoid) {
   const costTarget = item ? forest.needStars() : 0;
   const avoidKey = avoid ? Plan.key(avoid) : "";
   const kinds = ["chill", "stay", "deeper"];
+  // The pending unlock waits for a win since the last unlock, so a new extra gets a round of its own first.
+  const unlockOpen = forest.stars > forest.lastClaimStars;
 
   function forceFeature(features, type) {
     const out = features.slice();
@@ -347,7 +349,7 @@ Planner.prototype.travel = function (forest, avoid) {
     let features = Planner.rollFeatures(forest, n);
     let lock = false;
     let cost = 0;
-    if (deeper && parsed) {
+    if (deeper && parsed && unlockOpen) {
       if (parsed.kind === "feature") {
         const spec = FEATURE_CATALOG[parsed.type];
         const need = spec ? spec.minN : SIZE_MIN;
@@ -376,15 +378,19 @@ Planner.prototype.travel = function (forest, avoid) {
   for (let i = 0; i < sizes.length; i++) {
     const deeper = i === sizes.length - 1;
     let built = rollPlan(sizes[i], deeper);
-    for (let t = 0; t < 8; t++) {
+    let twin = false;
+    for (let t = 0; t <= 8; t++) {
       const key = Plan.key(built.plan);
-      let clash = !!(avoidKey && key === avoidKey);
-      for (let k = 0; k < cards.length && !clash; k++) {
-        if (Plan.key(cards[k].plan) === key) clash = true;
+      twin = false;
+      for (let k = 0; k < cards.length && !twin; k++) {
+        if (Plan.key(cards[k].plan) === key) twin = true;
       }
-      if (!clash) break;
-      built = rollPlan(sizes[i], deeper);
+      if (!twin && !(avoidKey && key === avoidKey)) break;
+      if (t < 8) built = rollPlan(sizes[i], deeper);
     }
+    // A card that still copies another after the rerolls is dropped. One that only matches the
+    // avoided plan is kept, so an offer is never left empty.
+    if (twin) continue;
     cards.push(Planner.getCard(kinds[i] || "stay", built.plan, built.lock, built.cost));
   }
 

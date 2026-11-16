@@ -6,11 +6,11 @@ const CELL_DELL_COLORS = [
   "#a67c56", // clay
   "#9a8444", // ochre
   "#5f6844", // khaki
-  "#3d6a50", // pine
+  "#7a5284", // plum  
   "#3e7874", // teal
   "#a15d3f", // rust
-  "#4e4a78", // indigo
-  "#7a5284", // plum  
+  "#3d6a50", // pine  
+  "#4e4a78", // indigo  
   "#a86a78", // rose
   "#6b5644", // umber
   "#75797d", // steel
