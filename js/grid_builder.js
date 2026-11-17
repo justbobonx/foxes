@@ -942,18 +942,20 @@ GridBuilder.prototype.tryPaintDells = function () {
   while (hasUnclaimed()) {
     const opts = nextOpts();
     if (!opts.length) return false;
-    shuffleInPlace(opts);
-    let placed = false;
+    // Pick the area first and then one of its free edge cells, so a big area's longer border
+    // does not win it most of the picks and swallow the board.
+    const areas = [];
     for (let i = 0; i < opts.length; i++) {
-      const e = opts[i];
-      if (g.cells[e.r][e.c].dellId !== -1) continue;
-      g.cells[e.r][e.c].dellId = e.id;
-      sizes[e.id]++;
-      frontier.push({ r: e.r, c: e.c, id: e.id });
-      placed = true;
-      break;
+      if (areas.indexOf(opts[i].id) < 0) areas.push(opts[i].id);
     }
-    if (!placed) return false;
+    const id = areas[Math.floor(Math.random() * areas.length)];
+    const mine = opts.filter(function (o) {
+      return o.id === id;
+    });
+    const e = mine[Math.floor(Math.random() * mine.length)];
+    g.cells[e.r][e.c].dellId = e.id;
+    sizes[e.id]++;
+    frontier.push({ r: e.r, c: e.c, id: e.id });
   }
 
   for (let i = 0; i < sizes.length; i++) {
