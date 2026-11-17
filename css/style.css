@@ -619,6 +619,15 @@ button.plan-card.locked,
   gap: 16px;
 }
 
+#btn-win-share {
+  padding: 2px 8px;
+  font-size: 14px;
+}
+
+#btn-win-new {
+  padding: 0px 30px 3px;
+}
+
 .menu-panel {
   display: flex;
   flex-direction: column;
