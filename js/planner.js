@@ -376,6 +376,9 @@ Planner.prototype.travel = function (forest, avoid) {
 
   const cards = [];
   for (let i = 0; i < sizes.length; i++) {
+    // If fewer than two cards are kept, 
+    //  repeat the last size to give unlock its own card.
+    if (i === sizes.length - 1 && cards.length < 2 && sizes.length <= 3) sizes.push(sizes[i]);
     const deeper = i === sizes.length - 1;
     let built = rollPlan(sizes[i], deeper);
     let twin = false;
@@ -388,10 +391,9 @@ Planner.prototype.travel = function (forest, avoid) {
       if (!twin && !(avoidKey && key === avoidKey)) break;
       if (t < 8) built = rollPlan(sizes[i], deeper);
     }
-    // A card that still copies another after the rerolls is dropped. One that only matches the
-    // avoided plan is kept, so an offer is never left empty.
+    // Drop duplicate cards, but keep copy of last plan so the offer is never empty.
     if (twin) continue;
-    cards.push(Planner.getCard(kinds[i] || "stay", built.plan, built.lock, built.cost));
+    cards.push(Planner.getCard(deeper ? "deeper" : kinds[i] || "stay", built.plan, built.lock, built.cost));
   }
 
   forest.offers = Planner.refreshLocked(cards, forest);
