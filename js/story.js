@@ -7,7 +7,7 @@ const StoryPages = {
 
 They love to hunt and play`
     },
-    { image: "images/fox.png", sizex: 64, sizey: 64, text:
+    { image: "images/story_foxes_full_complete_board.png", sizex: 192, sizey: 192, text:
 `But they each need their own space not in view of other foxes
 
 And not too close!`
