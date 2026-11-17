@@ -199,7 +199,8 @@ function openTravel() {
 function showQuick() {
   quickMode = true;
   const cards = [];
-  for (let size = QUICK_SIZE_MIN; size <= QUICK_SIZE_MAX; size++) {
+  // Only sizes the forest has already opened up.
+  for (let size = QUICK_SIZE_MIN; size <= Math.min(QUICK_SIZE_MAX, forest.maxN); size++) {
     cards.push({ plan: { size: size, features: [] }, stats: quickRecord(size) });
   }
   ui.hideMenu();
