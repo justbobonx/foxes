@@ -400,8 +400,9 @@ button.plan-card.locked,
 
 #btn-plan-back {
   position: absolute;
-  left: max(16px, env(safe-area-inset-left));
-  bottom: max(16px, env(safe-area-inset-bottom));
+  left: max(10px, env(safe-area-inset-left));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  min-width: 84px;
   background: #2a5a3a;
   color: #e8eef7;
   border: 1px solid #7dffb3;
