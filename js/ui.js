@@ -5,6 +5,7 @@ const HUD_BOT_MIN = 56;
 const SHARE_TEXT = "SHARE";
 const COPIED_TEXT = "link copied";
 const COPIED_MS = 1500;
+const QUICK_DASH = "--";
 
 function iconFor(feature) {
   const sz = feature.size | 0 || 1;
@@ -44,6 +45,7 @@ function Ui() {
   this.btnCheck = document.getElementById("btn-check");
   this.btnWhy = document.getElementById("btn-why");
   this.btnStart = document.getElementById("btn-start");
+  this.btnStartQuick = document.getElementById("btn-start-quick");
   this.elStartUrlRow = document.getElementById("start-url-row");
   this.btnStartUrl = document.getElementById("btn-start-url");
   this.btnStartUrlClear = document.getElementById("btn-start-url-clear");
@@ -66,6 +68,18 @@ function Ui() {
 }
 
 Ui.UNKNOWN_ICON = "images/unknown.png";
+
+// Clock text for a span of time: hours only once there are any, then minutes and seconds.
+Ui.clockText = function (ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const s = total % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const pad = function (n) {
+    return (n < 10 ? "0" : "") + n;
+  };
+  return h ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+};
 
 Ui.prototype.winOpen = function () {
   return !!(this.elWin && !this.elWin.hidden);
@@ -247,54 +261,95 @@ Ui.prototype.makeCard = function (card, forest, index) {
   size.appendChild(n);
   btn.appendChild(size);
 
-  const extras = document.createElement("div");
-  extras.className = "plan-extras";
-  const rowA = document.createElement("div");
-  rowA.className = "plan-extra-row";
-  const rowB = document.createElement("div");
-  rowB.className = "plan-extra-row";
-  const raw = card.plan.features || [];
-  const ponds = [];
-  const list = [];
-  for (let i = 0; i < raw.length; i++) {
-    const f = raw[i];
-    if (f && f.type === "pond") {
-      ponds.push({ type: "pond", size: f.size | 0 || 1 });
-    } else {
-      list.push(f);
+  // A quick card has its size's record where the extras would be.
+  if (card.stats) {
+    const lines = document.createElement("div");
+    lines.className = "plan-stats";
+    // Two lines: best and average time side by side, then the average hint score.
+    const rows = {
+      times: {
+        BEST: card.stats.bestMs ? Ui.clockText(card.stats.bestMs) : QUICK_DASH,
+        AVG: card.stats.wins ? Ui.clockText(card.stats.avgMs) : QUICK_DASH,
+      },
+      score: {
+        "AVG H": card.stats.wins ? Math.round(card.stats.avgScore * 100) + "%" : QUICK_DASH,
+      },
+    };
+    for (const key in rows) {
+      const line = document.createElement("div");
+      line.className = "plan-stat";
+      for (const label in rows[key]) {
+        const name = document.createElement("span");
+        name.className = "plan-stat-lbl";
+        name.textContent = label;
+        const value = document.createElement("span");
+        value.className = "plan-stat-val";
+        value.textContent = rows[key][label];
+        line.appendChild(name);
+        line.appendChild(value);
+      }
+      lines.appendChild(line);
     }
-  }
-  while (ponds.length > 2) {
-    ponds.sort(function (a, b) {
-      return (a.size | 0) - (b.size | 0);
+    btn.appendChild(lines);
+  } else {
+    const extras = document.createElement("div");
+    extras.className = "plan-extras";
+    const rowA = document.createElement("div");
+    rowA.className = "plan-extra-row";
+    const rowB = document.createElement("div");
+    rowB.className = "plan-extra-row";
+    const raw = card.plan.features || [];
+    const ponds = [];
+    const list = [];
+    for (let i = 0; i < raw.length; i++) {
+      const f = raw[i];
+      if (f && f.type === "pond") {
+        ponds.push({ type: "pond", size: f.size | 0 || 1 });
+      } else {
+        list.push(f);
+      }
+    }
+    while (ponds.length > 2) {
+      ponds.sort(function (a, b) {
+        return (a.size | 0) - (b.size | 0);
+      });
+      const a = ponds.shift();
+      const b = ponds.shift();
+      ponds.push({ type: "pond", size: (a.size | 0) + (b.size | 0) });
+    }
+    for (let i = 0; i < ponds.length; i++) list.push(ponds[i]);
+    const rank = { trees: 0, pond: 1, river: 2 };
+    list.sort(function (a, b) {
+      const aa = rank[a && a.type] != null ? rank[a.type] : 3;
+      const bb = rank[b && b.type] != null ? rank[b.type] : 3;
+      return aa - bb;
     });
-    const a = ponds.shift();
-    const b = ponds.shift();
-    ponds.push({ type: "pond", size: (a.size | 0) + (b.size | 0) });
+    const count = list.length;
+    let split;
+    if (count <= 2) split = [count, 0];
+    else if (count === 3) split = [2, 1];
+    else if (count === 4) split = [2, 2];
+    else if (count === 5) split = [3, 2];
+    else split = [Math.ceil(count / 2), Math.floor(count / 2)];
+    this.paintExtraRow(rowA, list.slice(0, split[0]), forest);
+    this.paintExtraRow(rowB, list.slice(split[0]), forest);
+    extras.appendChild(rowA);
+    extras.appendChild(rowB);
+    btn.appendChild(extras);
   }
-  for (let i = 0; i < ponds.length; i++) list.push(ponds[i]);
-  const rank = { trees: 0, pond: 1, river: 2 };
-  list.sort(function (a, b) {
-    const aa = rank[a && a.type] != null ? rank[a.type] : 3;
-    const bb = rank[b && b.type] != null ? rank[b.type] : 3;
-    return aa - bb;
-  });
-  const count = list.length;
-  let split;
-  if (count <= 2) split = [count, 0];
-  else if (count === 3) split = [2, 1];
-  else if (count === 4) split = [2, 2];
-  else if (count === 5) split = [3, 2];
-  else split = [Math.ceil(count / 2), Math.floor(count / 2)];
-  this.paintExtraRow(rowA, list.slice(0, split[0]), forest);
-  this.paintExtraRow(rowB, list.slice(split[0]), forest);
-  extras.appendChild(rowA);
-  extras.appendChild(rowB);
-  btn.appendChild(extras);
 
   const foot = document.createElement("span");
   foot.className = "plan-select";
-  if (card.locked) {
+  if (card.stats) {
+    const star = document.createElement("span");
+    star.className = "plan-cost-star";
+    star.textContent = "\u2605";
+    const wins = document.createElement("span");
+    wins.className = "plan-cost-n";
+    wins.textContent = String(card.stats.wins);
+    foot.appendChild(star);
+    foot.appendChild(wins);
+  } else if (card.locked) {
     const target = card.costTarget > 0 ? card.costTarget : forest.needStars();
     if (!target) {
       foot.textContent = "locked";
@@ -369,6 +424,7 @@ Ui.prototype.bind = function (handlers) {
   this.onPlanPick = handlers.planPick || null;
   this.onStoryContinue = handlers.storyContinue || null;
   on(this.btnStart, "click", handlers.start);
+  on(this.btnStartQuick, "click", handlers.quick);
   on(this.btnStartUrl, "click", handlers.startUrl);
   on(this.btnStartUrlClear, "click", handlers.clearUrl);
   on(this.btnHelp, "click", handlers.help);

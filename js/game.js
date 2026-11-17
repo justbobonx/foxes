@@ -25,6 +25,13 @@ const BOARD_BG = "#111111";
 const FIND_FAIL_TEXT = "plan could not be built, sorry, tap to go back";
 const URL_FIELD_TEXT = "Play URL Field";
 const SHARE_URL = "https://terminalcore.com/foxes/?field=";
+// Forest stars needed before Quick Play shows on the title.
+const QUICK_PLAY_STARS = 5;
+// Quick Play offers one plain field for each size in this range.
+const QUICK_SIZE_MIN = 6;
+const QUICK_SIZE_MAX = 8;
+// Share of the gap to each quick win that the average time and score move.
+const QUICK_AVG_RATE = 0.2;
 
 const forest = Forest.load();
 let n = forest.location.size;
@@ -53,6 +60,8 @@ let loadedPlan = loadedField ? null : Plan.fromQuery(window.location.search);
 if ((loadedField || loadedPlan) && ui.elStartUrlRow) ui.elStartUrlRow.hidden = false;
 if (loadedField && ui.btnStartUrl) ui.btnStartUrl.textContent = URL_FIELD_TEXT;
 let playingTest = false;
+let quickMode = false;
+const quickStats = Save.readQuick() || {};
 let buildGen = 0;
 let building = false;
 let hintId = "";
@@ -72,7 +81,7 @@ function clearTestPlan() {
   loadedPlan = null;
   loadedField = "";
   playingTest = false;
-  Save.clearBoard(true);
+  Save.clearBoard(SAVE_TEST_BOARD);
   if (ui.elStartUrlRow) ui.elStartUrlRow.hidden = true;
   dropQuery("field");
   dropQuery("plan");
@@ -101,16 +110,18 @@ function chargeHint(level) {
 }
 
 function paintWin() {
-  const ms = clockNow();
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const s = total % 60;
-  const m = Math.floor(total / 60) % 60;
-  const h = Math.floor(total / 3600);
-  const pad = function (n) {
-    return (n < 10 ? "0" : "") + n;
-  };
-  const clock = h ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
-  ui.paintWin(Math.round(hintCut * 100) + "%", clock, String(hintCount));
+  ui.paintWin(Math.round(hintCut * 100) + "%", Ui.clockText(clockNow()), String(hintCount));
+}
+
+// One size's quick record; a size never won gets a fresh empty one.
+function quickRecord(size) {
+  if (quickStats[size] && quickStats[size].wins > 0) return quickStats[size];
+  return { wins: 0, bestMs: 0, avgMs: 0, avgScore: 0 };
+}
+
+// Quick Play stays off the title until the forest has enough stars.
+function gateQuickPlay() {
+  if (ui.btnStartQuick) ui.btnStartQuick.hidden = forest.stars < QUICK_PLAY_STARS;
 }
 
 function layout() {
@@ -149,12 +160,12 @@ function persistBoard(force) {
     data.urlPlan = JSON.stringify(loadedPlan);
     data.urlField = loadedField;
   }
-  Save.writeBoard(data, playingTest);
+  Save.writeBoard(data, playingTest ? SAVE_TEST_BOARD : quickMode ? SAVE_QUICK_BOARD : SAVE_BOARD);
 }
 
 function paintScore() {
   ui.paintScore({
-    cleared: forest.stars,
+    cleared: quickMode ? quickRecord(grid ? grid.n : n).wins : forest.stars,
     hintCut: hintCut,
     hintCount: hintCount,
     marked: grid ? grid.guessOCount() : 0,
@@ -184,7 +195,20 @@ function openTravel() {
   showOffers(planner.travel(forest));
 }
 
-function startField(plan, isTest) {
+// The quick cards: one plain field for each size, each showing that size's record.
+function showQuick() {
+  quickMode = true;
+  const cards = [];
+  for (let size = QUICK_SIZE_MIN; size <= QUICK_SIZE_MAX; size++) {
+    cards.push({ plan: { size: size, features: [] }, stats: quickRecord(size) });
+  }
+  ui.hideMenu();
+  ui.paintPlans(cards, forest);
+  ui.showPlan();
+}
+
+// slot: the board save this field belongs to, which also says which mode it is played in.
+function startField(plan, slot) {
   keepBoard = false;
   ui.hideWin();
   ui.hideMenu();
@@ -192,7 +216,8 @@ function startField(plan, isTest) {
   ui.hideStart();
   ui.hideFind();
   ui.hidePlan();
-  playingTest = !!isTest;
+  playingTest = slot === SAVE_TEST_BOARD;
+  quickMode = slot === SAVE_QUICK_BOARD;
   n = plan.size;
   building = true;
   const gen = ++buildGen;
@@ -228,7 +253,7 @@ function startField(plan, isTest) {
     clockStarted = Date.now();
     wonPending = false;
     keepBoard = true;
-    if (!isTest) {
+    if (slot === SAVE_BOARD) {
       forest.offers = null;
       persistForest();
     }
@@ -255,6 +280,11 @@ function presentStory(pages, done) {
 
 function playCard(card) {
   if (!card || card.locked || building) return;
+  // Quick cards go straight to the field: no stories, and the forest never hears about it.
+  if (quickMode) {
+    startField(card.plan, SAVE_QUICK_BOARD);
+    return;
+  }
   forest.notePick(card);
   persistForest();
   const id = forest.planStory(card.plan);
@@ -262,7 +292,7 @@ function playCard(card) {
   function go() {
     forest.enter(card.plan);
     persistForest();
-    startField(card.plan, false);
+    startField(card.plan, SAVE_BOARD);
   }
   if (!pages.length) {
     go();
@@ -322,8 +352,9 @@ function holdHint(result) {
   ui.showWhy();
 }
 
+// Quick play keeps the screen clear, so no hint stories there.
 function maybeHintStory(id) {
-  if (!id || forest.sawStory(id)) return;
+  if (quickMode || !id || forest.sawStory(id)) return;
   const pages = Story.pages(id);
   if (!pages.length) return;
   forest.markStory(id);
@@ -347,11 +378,21 @@ function onCheckHint() {
   const result = new Hint(grid).apply();
   if (result.win) {
     clearHintLight();
-    if (!playingTest) {
+    clockOff();
+    if (quickMode) {
+      // Each win pulls the averages part way toward it, the first win sets them outright.
+      // Best time only counts a win with no hints at all.
+      const rec = quickRecord(grid.n);
+      rec.avgMs = rec.wins ? rec.avgMs + (clockElapsed - rec.avgMs) * QUICK_AVG_RATE : clockElapsed;
+      rec.avgScore = rec.wins ? rec.avgScore + (hintCut - rec.avgScore) * QUICK_AVG_RATE : hintCut;
+      if (!hintCount && (!rec.bestMs || clockElapsed < rec.bestMs)) rec.bestMs = clockElapsed;
+      rec.wins += 1;
+      quickStats[grid.n] = rec;
+      Save.writeQuick(quickStats);
+    } else if (!playingTest) {
       forest.win(currentFieldPlan());
       persistForest();
     }
-    clockOff();
     wonPending = true;
     paintWin();
     ui.showWin();
@@ -381,27 +422,27 @@ function onCheckHint() {
   maybeHintStory(result.id);
 }
 
-// test: resume the URL plan or field board, only if it came from the same link.
-function restoreBoard(test) {
-  const data = Save.readBoard(test);
+// slot: which board save to resume. The URL plan or field board only resumes if it came from the same link.
+function restoreBoard(slot) {
+  const data = Save.readBoard(slot);
   if (!data) return false;
-  if (test && (data.urlPlan !== JSON.stringify(loadedPlan) || (data.urlField || "") !== loadedField)) {
-    Save.clearBoard(true);
+  if (slot === SAVE_TEST_BOARD && (data.urlPlan !== JSON.stringify(loadedPlan) || (data.urlField || "") !== loadedField)) {
+    Save.clearBoard(SAVE_TEST_BOARD);
     return false;
   }
-  return resumeBoard(data, test);
+  return resumeBoard(data, slot);
 }
 
 // Puts a saved-board shaped data on screen: a resumed save, or a field fresh from a link.
-function resumeBoard(data, test) {
+function resumeBoard(data, slot) {
   const loaded = Grid.load(data);
   if (!loaded) {
-    Save.clearBoard(test);
+    Save.clearBoard(slot);
     return false;
   }
   Cell.dressGrid(loaded);
   grid = loaded;
-  if (!test) {
+  if (slot === SAVE_BOARD) {
     const plan = Plan.copy(data.fieldPlan || data.plan || loaded.plan);
     forest.location = plan;
     forest.lastPlan = Plan.copy(plan);
@@ -413,7 +454,8 @@ function resumeBoard(data, test) {
   clockStarted = Date.now();
   hintCount = data.hintCount | 0;
   hintCut = data.hintCut > 0 ? data.hintCut : 1;
-  playingTest = test;
+  playingTest = slot === SAVE_TEST_BOARD;
+  quickMode = slot === SAVE_QUICK_BOARD;
   keepBoard = true;
   const won = !!(data.won || loaded.isCleared());
   wonPending = won;
@@ -436,15 +478,20 @@ function giveUpField() {
   keepBoard = false;
   wonPending = false;
   if (playingTest) {
-    Save.clearBoard(true);
+    Save.clearBoard(SAVE_TEST_BOARD);
     playingTest = false;
     showTitle();
+    return;
+  }
+  if (quickMode) {
+    Save.clearBoard(SAVE_QUICK_BOARD);
+    showQuick();
     return;
   }
   const here = currentFieldPlan();
   forest.location = Plan.copy(here);
   forest.lastPlan = Plan.copy(here);
-  Save.clearBoard();
+  Save.clearBoard(SAVE_BOARD);
   forest.offers = null;
   persistForest();
   showOffers(planner.travel(forest, forest.lastPlan));
@@ -455,13 +502,19 @@ function onWinOk() {
   keepBoard = false;
   wonPending = false;
   if (playingTest) {
-    Save.clearBoard(true);
+    Save.clearBoard(SAVE_TEST_BOARD);
     playingTest = false;
     paintScore();
     showTitle();
     return;
   }
-  Save.clearBoard();
+  if (quickMode) {
+    Save.clearBoard(SAVE_QUICK_BOARD);
+    paintScore();
+    showQuick();
+    return;
+  }
+  Save.clearBoard(SAVE_BOARD);
   forest.offers = null;
   persistForest();
   paintScore();
@@ -511,22 +564,27 @@ function showTitle() {
   ui.hideStory();
   ui.hideFind();
   playChrome.leave();
+  gateQuickPlay();
   ui.showStart();
 }
 
 // fromUrl: the Play URL Plan or Field button. The URL plan or field stays until its X is hit.
 function beginPlay(fromUrl) {
   playing = true;
+  // A board left over from another mode is already in its own save, so it must not be saved again under this one.
+  quickMode = false;
+  keepBoard = false;
+  paintScore();
   playChrome.enter().then(function () {
     ui.hideStart();
     if (fromUrl) {
-      if (restoreBoard(true)) {
+      if (restoreBoard(SAVE_TEST_BOARD)) {
         layout();
         draw();
         return;
       }
       if (loadedField) {
-        if (resumeBoard(Share.decode(loadedField), true)) {
+        if (resumeBoard(Share.decode(loadedField), SAVE_TEST_BOARD)) {
           persistBoard(true);
           layout();
           draw();
@@ -535,10 +593,10 @@ function beginPlay(fromUrl) {
         }
         return;
       }
-      startField(loadedPlan, true);
+      startField(loadedPlan, SAVE_TEST_BOARD);
       return;
     }
-    if (restoreBoard(false)) {
+    if (restoreBoard(SAVE_BOARD)) {
       layout();
       draw();
       return;
@@ -557,14 +615,30 @@ function beginPlay(fromUrl) {
   });
 }
 
+// Quick Play: resumes the quick board in progress, a won one included, or else shows the quick cards.
+function beginQuick() {
+  playing = true;
+  keepBoard = false;
+  playChrome.enter().then(function () {
+    ui.hideStart();
+    if (restoreBoard(SAVE_QUICK_BOARD)) {
+      layout();
+      draw();
+      return;
+    }
+    showQuick();
+  });
+}
+
 function showHelp() {
   presentStory(Story.pages("start"));
 }
 
+// The quick cards only show with no quick board saved, so backing out of them leaves every save alone.
 function onPlanBack() {
   keepBoard = false;
   wonPending = false;
-  Save.clearBoard();
+  if (!quickMode) Save.clearBoard(SAVE_BOARD);
   persistForest();
   ui.hidePlan();
   showTitle();
@@ -806,6 +880,7 @@ ui.bind({
   startUrl: function () {
     beginPlay(true);
   },
+  quick: beginQuick,
   clearUrl: clearTestPlan,
   help: showHelp,
   planPick: playCard,
@@ -863,6 +938,7 @@ window.addEventListener("pagehide", function () {
 });
 
 persistForest();
+gateQuickPlay();
 paintScore();
 layout();
 draw();

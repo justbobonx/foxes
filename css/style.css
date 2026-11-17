@@ -334,6 +334,42 @@ button.plan-card.locked,
   image-rendering: crisp-edges;
 }
 
+.plan-stats {
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.plan-stat {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.plan-stat-val + .plan-stat-lbl {
+  margin-left: 10px;
+}
+
+.plan-stat-lbl {
+  font-family: pixel_font_sm, sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #5a3a22;
+}
+
+.plan-stat-val {
+  font-family: pixel_font, sans-serif;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 0;
+  color: #222233;
+}
+
 .plan-select {
   display: flex;
   align-items: center;
@@ -512,6 +548,10 @@ button.plan-card.locked,
 .btn-title.btn-x {
   min-width: 0;
   padding: 10px 14px;
+}
+
+.btn-title[hidden] {
+  display: none;
 }
 
 .btn-title:hover {
