@@ -263,12 +263,17 @@ function startField(plan, slot) {
   });
 }
 
-function presentStory(pages, done) {
+// A story only counts as read once Continue is pressed on its last page, so leaving partway replays it.
+function presentStory(pages, done, id) {
   const list = pages || [];
   let i = 0;
   function step() {
     if (i >= list.length) {
       ui.hideStory();
+      if (id) {
+        forest.markStory(id);
+        persistForest();
+      }
       if (done) done();
       return;
     }
@@ -299,10 +304,8 @@ function playCard(card) {
     go();
     return;
   }
-  forest.markStory(id);
-  persistForest();
   ui.hidePlan();
-  presentStory(pages, go);
+  presentStory(pages, go, id);
 }
 
 function resetBoard() {
@@ -358,9 +361,7 @@ function maybeHintStory(id) {
   if (quickMode || !id || forest.sawStory(id)) return;
   const pages = Story.pages(id);
   if (!pages.length) return;
-  forest.markStory(id);
-  persistForest();
-  presentStory(pages);
+  presentStory(pages, null, id);
 }
 
 function finishBoardAction(persist) {
@@ -607,9 +608,7 @@ function beginPlay(fromUrl) {
       return;
     }
     if (!forest.sawStory("start")) {
-      forest.markStory("start");
-      persistForest();
-      presentStory(Story.pages("start"), openTravel);
+      presentStory(Story.pages("start"), openTravel, "start");
     } else {
       openTravel();
     }
